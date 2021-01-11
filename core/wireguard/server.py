@@ -1,8 +1,8 @@
 from asyncio import sleep
-from ctypes import Union
 from datetime import datetime
 from logging import fatal, info, debug, error
 from random import randint
+from typing import Union
 from urllib import request
 
 from core.utils import run_os_command
@@ -56,7 +56,7 @@ class Server:
         self.ports_in_use.append(port)
         self.__set_iface_rules__(iface)
 
-    def remove_interface(self, iface: Union(Interface, str)):
+    def remove_interface(self, iface: Union[Interface, str]):
         if iface in self.interfaces:
             port = self.interfaces[iface].port
             self.ports_in_use.remove(port)
@@ -77,14 +77,14 @@ class Server:
         iface.on_down.append(f"{self.iptables_bin} -D FORWARD -o {iface.name} -j ACCEPT")
         iface.on_down.append(f"{self.iptables_bin} -D nat -I POSTROUTING -o {iface.gw_iface} -j MASQUERADE")
 
-    def iface_up(self, iface: Union(Interface, str)) -> bool:
+    def iface_up(self, iface: Union[Interface, str]) -> bool:
         if iface in self.interfaces:
             return self.interfaces[iface].up().successful
         if iface in self.interfaces.values():
             return iface.up().successful
         return False
 
-    def iface_down(self, iface: Union(Interface, str)) -> bool:
+    def iface_down(self, iface: Union[Interface, str]) -> bool:
         if iface in self.interfaces:
             return self.interfaces[iface].down().successful
         if iface in self.interfaces.values():
@@ -103,7 +103,7 @@ class Server:
         client = Client(name, description, ipv4_address, privkey, pubkey, nat, _endpoint, interface, dns1, dns2)
         self.clients[name] = client
 
-    def remove_client(self, client: Union(Client, str)):
+    def remove_client(self, client: Union[Client, str]):
         if client in self.clients:
             del self.clients[client]
             return True
