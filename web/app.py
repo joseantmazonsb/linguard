@@ -1,6 +1,6 @@
 from flask import Flask
 
-from core.wireguard import Server
+from core.wireguard.server import Server
 from web.router import router
 import logging
 

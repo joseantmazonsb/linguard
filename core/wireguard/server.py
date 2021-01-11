@@ -5,79 +5,11 @@ from logging import fatal, info, debug, error
 from random import randint
 from urllib import request
 
-from core.utils import run_os_command, CommandResult
+from core.utils import run_os_command
+from core.wireguard.interface import Interface
+from core.wireguard.client import Client
+
 from web.static.assets.resources import app_name
-
-
-class Interface:
-
-    def __init__(self, name: str, description: str, gw_iface: str, ipv4_address,
-                 listen_port: int, private_key: str, public_key: str, wg_quick_bin: str):
-        self.name = name
-        self.gw_iface = gw_iface
-        self.description = description
-        self.ipv4_address = ipv4_address
-        self.listen_port = listen_port
-        self.wg_quick_bin = wg_quick_bin
-        self.private_key = private_key
-        self.public_key = public_key
-        self.on_up = []
-        self.on_down = []
-
-    def up(self) -> bool:
-        info(f"Starting interface {self.name}...")
-        result = run_os_command(f"{self.wg_quick_bin} up {self.name}")
-        if result.successful:
-            info(f"Interface {self.name} started.")
-        else:
-            error(f"Failed to start interface {self.name}: code={result.code} | err={result.err} | out={result.output}")
-        return result.successful
-
-    def down(self) -> bool:
-        info(f"Stopping interface {self.name}...")
-        result = run_os_command(f"{self.wg_quick_bin} down {self.name}")
-        if result.successful:
-            info(f"Interface {self.name} stopped.")
-        else:
-            error(f"Failed to stop interface {self.name}: code={result.code} | err={result.err} | out={result.output}")
-        return result.successful
-
-
-class Client:
-
-    def __init__(self, name: str, description: str, ipv4_address: str, private_key: str,
-                 public_key: str, nat: bool, endpoint: str, interface: str, dns1: str,
-                 dns2: str = None):
-        self.name = name
-        self.description = description
-        self.ipv4_address = ipv4_address
-        self.private_key = private_key
-        self.public_key = public_key
-        self.nat = nat
-        self.endpoint = endpoint
-        self.interface = interface
-        self.dns1 = dns1
-        self.dns2 = dns2
-
-    def generate_conf(self) -> str:
-        """Generate a wireguard configuration file suitable for this client."""
-
-        iface = f"[Interface]\n" \
-                f"PrivateKey = {self.private_key}\n" \
-                f"DNS = {self.dns1}"
-        if self.dns2:
-            iface += f", {self.dns2}"
-        iface += "\n"
-        iface += f"Address = {self.ipv4_address}\n\n"
-
-        peer = f"[Peer]\n" \
-               f"PublicKey = {self.public_key}\n" \
-               f"AllowedIPs = {self.ipv4_address}\n" \
-               f"Endpoint = {self.endpoint}\n"
-        if self.nat:
-            peer += "PersistentKeepalive = 25\n"
-
-        return iface + peer
 
 
 MIN_PORT_NUMBER = 50000
