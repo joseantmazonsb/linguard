@@ -1,9 +1,11 @@
 from asyncio import sleep
 from datetime import datetime
-from logging import fatal, info, debug, error
+from logging import fatal, info, debug, error, warning
 from random import randint
 from typing import Union
 from urllib import request
+
+from yaml import load, dump
 
 from core.utils import run_os_command
 from core.wireguard.interface import Interface
@@ -35,6 +37,7 @@ class Server:
         self.conf_file = f"{conf_dir_stripped}/{CONFIG_FILE_NAME}"
         self.backup_folder = f"{conf_dir_stripped}/{BACKUPS_FOLDER_NAME}"
         self.dirty = False
+        self.started = False
         try:
             debug("Retrieving public IP address...")
             self.ipv4_address = request.urlopen("https://api.ipify.org").read().decode("utf-8")
@@ -58,12 +61,12 @@ class Server:
 
     def remove_interface(self, iface: Union[Interface, str]):
         if iface in self.interfaces:
-            port = self.interfaces[iface].port
+            port = self.interfaces[iface].listen_port
             self.ports_in_use.remove(port)
             del self.interfaces[iface]
             return True
         if iface in self.interfaces.values():
-            self.ports_in_use.remove(iface.port)
+            self.ports_in_use.remove(iface.listen_port)
             del self.interfaces[iface.name]
             return True
         return False
@@ -118,6 +121,7 @@ class Server:
         """Write configuration to yaml file."""
         info("Saving current configuration...")
         self.backup()
+        dump(self.__to_dict__(), self.conf_file)
         self.dirty = True
         info("Current configuration saved successfully.")
 
@@ -130,6 +134,17 @@ class Server:
             error(f"Failed to create backup: code={result.code} | err={result.err} | out={result.output}")
             return
         info("Backup completed.")
+
+    def __to_dict__(self) -> dict:
+        yaml = {
+            "gw_iface": self.gw_iface,
+            "wg_bin": self.wg_bin,
+            "wg_quick_bin": self.wg_quick_bin,
+            "iptables_bin": self.iptables_bin,
+            "interfaces": self.interfaces,
+            "clients": self.clients,
+        }
+        return yaml
 
     def restore_backup(self, path: str = None):
         """Restore configuration from a previously backed up yaml file."""
@@ -158,14 +173,22 @@ class Server:
 
     def start(self):
         info("Starting VPN server...")
+        if self.started:
+            warning("Unable to start VPN server: already started.")
+            return
         for iface in self.interfaces:
             self.interfaces[iface].up()
+        self.started = True
         info("VPN server started.")
 
     def stop(self):
         info("Stopping VPN server...")
+        if not self.started:
+            warning("Unable to stop VPN server: already stopped.")
+            return
         for iface in self.interfaces:
             self.interfaces[iface].down()
+        self.started = False
         info("VPN server stopped.")
 
     def restart(self):
