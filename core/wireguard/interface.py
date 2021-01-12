@@ -1,10 +1,13 @@
 from audioop import error
 from logging import info
 
+from yamlable import YamlAble, yaml_info
+
 from core.utils import run_os_command
 
 
-class Interface:
+@yaml_info(yaml_tag_ns='')
+class Interface(YamlAble):
 
     def __init__(self, name: str, description: str, gw_iface: str, ipv4_address,
                  listen_port: int, private_key: str, public_key: str, wg_quick_bin: str):
@@ -18,6 +21,28 @@ class Interface:
         self.public_key = public_key
         self.on_up = []
         self.on_down = []
+
+    def __to_yaml_dict__(self):
+        """ Called when you call yaml.dump()"""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "ipv4_address": self.ipv4_address,
+            "listen_port": self.listen_port,
+            "private_key": self.private_key,
+            "public_key": self.public_key,
+            "on_up": self.on_up,
+            "on_down": self.on_down
+        }
+
+    @staticmethod
+    def from_dict(dct):
+        """ This optional method is called when you call yaml.load()"""
+        iface = Interface(dct["name"], dct["description"], "", dct["ipv4_address"], dct["listen_port"],
+                          dct["private_key"], dct["public_key"], "")
+        iface.on_up = dct["on_up"]
+        iface.on_down = dct["on_down"]
+        return iface
 
     def up(self) -> bool:
         info(f"Starting interface {self.name}...")
