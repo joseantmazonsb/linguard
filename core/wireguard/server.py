@@ -107,13 +107,17 @@ class Server(YamlAble):
         self.__set_iface_rules__(iface)
 
     def remove_interface(self, iface: Union[Interface, str]):
-        if iface in self.interfaces:
-            del self.interfaces[iface]
-            return True
-        if iface in self.interfaces.values():
-            del self.interfaces[iface.name]
-            return True
-        return False
+        iface_to_remove = iface
+        remove = True
+        if iface_to_remove in self.interfaces:
+            iface_to_remove = self.interfaces[iface]
+        elif iface not in self.interfaces.values():
+            remove = False
+        if not remove:
+            return False
+        for peer in iface_to_remove.peers:
+            self.remove_client(peer)
+        del self.interfaces[iface_to_remove.name]
 
     def __set_iface_rules__(self, iface: Interface):
         iface.on_up.append(f"{self.iptables_bin} -I FORWARD -i {iface.name} -j ACCEPT")
@@ -160,11 +164,15 @@ class Server(YamlAble):
     def remove_client(self, client: Union[Client, str]):
         if client in self.clients:
             c = self.clients[client]
-            self.interfaces[c.interface].peers.remove()
+            iface = self.interfaces[c.interface]
+            if c in iface.peers:
+                iface.peers.remove(c)
             del self.clients[client]
             return True
         if client in self.clients.values():
-            self.interfaces[client.interface].peers.remove()
+            iface = self.interfaces[client.interface]
+            if client in iface.peers:
+                iface.peers.remove(client)
             del self.clients[client.name]
             return True
         return False
@@ -256,4 +264,5 @@ if __name__ == '__main__':
     wg.add_interface("ny-vpn", "10.0.101.1/24", "VPN for NY branch")
     wg.add_client("jim", "scranton-vpn", "8.8.8.8")
     wg.add_client("karen", "scranton-vpn", "8.8.8.8")
+    wg.remove_client("jim")
     wg.save_changes()
