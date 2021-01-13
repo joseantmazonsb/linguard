@@ -41,16 +41,16 @@ class Client(YamlAble):
         """Generate a wireguard configuration file suitable for this client."""
 
         iface = f"[Interface]\n" \
-                f"PrivateKey = {self.private_key}\n" \
-                f"DNS = {self.dns1}"
+                f"PrivateKey = {self.private_key}\n"
+        iface += f"Address = {self.ipv4_address}\n" \
+                 f"DNS = {self.dns1}"
         if self.dns2:
-            iface += f", {self.dns2}"
-        iface += "\n"
-        iface += f"Address = {self.ipv4_address}\n\n"
-
-        peer = f"[Peer]\n" \
+            iface += f", {self.dns2}\n"
+        else:
+            iface += "\n"
+        peer = f"\n[Peer]\n" \
                f"PublicKey = {self.public_key}\n" \
-               f"AllowedIPs = {self.ipv4_address}\n" \
+               f"AllowedIPs = 0.0.0.0/0\n" \
                f"Endpoint = {self.endpoint}\n"
         if self.nat:
             peer += "PersistentKeepalive = 25\n"

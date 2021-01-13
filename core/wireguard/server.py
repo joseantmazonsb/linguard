@@ -142,6 +142,9 @@ class Server(YamlAble):
 
     def add_client(self, name: str, interface: str, dns1: str, dns2: str = None, description: str = "",
                    nat: bool = False, ipv4_address: str = None, endpoint: str = None):
+        if interface not in self.interfaces:
+            warning(f"Interface '{interface}' not registered.")
+            return
         privkey = generate_privkey(self.wg_bin)
         pubkey = generate_pubkey(self.wg_bin, privkey)
         _endpoint = endpoint
@@ -152,12 +155,16 @@ class Server(YamlAble):
             ip = "10.0.100.2/24"
         client = Client(name, description, ip, privkey, pubkey, nat, _endpoint, interface, dns1, dns2)
         self.clients[name] = client
+        self.interfaces[interface].peers.append(client)
 
     def remove_client(self, client: Union[Client, str]):
         if client in self.clients:
+            c = self.clients[client]
+            self.interfaces[c.interface].peers.remove()
             del self.clients[client]
             return True
         if client in self.clients.values():
+            self.interfaces[client.interface].peers.remove()
             del self.clients[client.name]
             return True
         return False
@@ -245,8 +252,8 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     server_folder = app_name.lower()
     wg = Server(server_folder, "wg", "wg-quick", "iptables")
-    wg.add_interface("scranton_vpn", "10.0.100.1/24", "VPN for Scranton branch")
-    wg.add_interface("ny_vpn", "10.0.101.1/24", "VPN for NY branch")
+    wg.add_interface("scranton-vpn", "10.0.100.1/24", "VPN for Scranton branch")
+    wg.add_interface("ny-vpn", "10.0.101.1/24", "VPN for NY branch")
     wg.add_client("jim", "scranton-vpn", "8.8.8.8")
-    wg.add_client("karen", "ny-vpn", "8.8.8.8")
+    wg.add_client("karen", "scranton-vpn", "8.8.8.8")
     wg.save_changes()

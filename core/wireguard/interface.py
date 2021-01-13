@@ -21,6 +21,7 @@ class Interface(YamlAble):
         self.public_key = public_key
         self.on_up = []
         self.on_down = []
+        self.peers = []
 
     def __to_yaml_dict__(self):
         """ Called when you call yaml.dump()"""
@@ -43,6 +44,25 @@ class Interface(YamlAble):
         iface.on_up = dct["on_up"]
         iface.on_down = dct["on_down"]
         return iface
+
+    def generate_conf(self) -> str:
+        """Generate a wireguard configuration file suitable for this client."""
+
+        iface = f"[Interface]\n" \
+                f"PrivateKey = {self.private_key}\n" \
+                f"Address = {self.ipv4_address}\n" \
+                f"ListenPort = {self.listen_port}\n"
+        for cmd in self.on_up:
+            iface += f"PostUp = {cmd}\n"
+        for cmd in self.on_down:
+            iface += f"PostDown = {cmd}\n"
+
+        peers = ""
+        for peer in self.peers:
+            peers += f"\n[Peer]\n" \
+                     f"PublicKey = {peer.public_key}\n" \
+                     f"AllowedIPs = {peer.ipv4_address}\n"
+        return iface + peers
 
     def up(self) -> bool:
         info(f"Starting interface {self.name}...")
