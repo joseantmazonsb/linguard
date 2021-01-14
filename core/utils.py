@@ -1,19 +1,14 @@
-import yaml
 import os
 from subprocess import run, PIPE
-from typing import Any, IO
 
-#################
-# Serialization #
-#################
-
-
-def yaml_dump(obj: Any, file: IO[str]):
-    yaml.dump(obj, fp=file, default=lambda o: o.__dict__)
+###########
+# Storage #
+###########
 
 
-def yaml_dumps(obj: Any) -> str:
-    return yaml.dumps(obj, default=lambda o: o.__dict__)
+def write_lines(content: str, path: str):
+    with open(path, "w") as file:
+        file.writelines(content)
 
 #############
 # Wireguard #
@@ -48,7 +43,8 @@ def run_os_command(command: str) -> CommandResult:
     Returns an object containing the output
     [Data Types] object
     Args:
-        command (object): Command to be executed.
+        :param command:
+        :param as_root:
     """
     proc = run(command, shell=True, check=False, stdout=PIPE, stderr=PIPE)
     result = CommandResult(proc.returncode, proc.stdout.decode('utf-8').strip(), proc.stderr.decode('utf-8').strip())

@@ -1,17 +1,17 @@
-from audioop import error
-from logging import info
+from logging import info, warning, debug, error
 
 from yamlable import YamlAble, yaml_info
 
-from core.utils import run_os_command
+from core.utils import run_os_command, write_lines
 
 
 @yaml_info(yaml_tag_ns='')
 class Interface(YamlAble):
 
-    def __init__(self, name: str, description: str, gw_iface: str, ipv4_address,
+    def __init__(self, name: str, conf_file: str, description: str, gw_iface: str, ipv4_address,
                  listen_port: int, private_key: str, public_key: str, wg_quick_bin: str):
         self.name = name
+        self.conf_file = conf_file
         self.gw_iface = gw_iface
         self.description = description
         self.ipv4_address = ipv4_address
@@ -45,8 +45,8 @@ class Interface(YamlAble):
         iface.on_down = dct["on_down"]
         return iface
 
-    def generate_conf(self) -> str:
-        """Generate a wireguard configuration file suitable for this client."""
+    def save_configuration(self) -> str:
+        """Generate a wireguard configuration file suitable for this interface and store it."""
 
         iface = f"[Interface]\n" \
                 f"PrivateKey = {self.private_key}\n" \
@@ -62,11 +62,20 @@ class Interface(YamlAble):
             peers += f"\n[Peer]\n" \
                      f"PublicKey = {peer.public_key}\n" \
                      f"AllowedIPs = {peer.ipv4_address}\n"
-        return iface + peers
+        conf = iface + peers
+        debug(f"Saving configuration of interface {self.name} to {self.conf_file}...")
+        write_lines(conf, self.conf_file)
+        debug(f"Configuration saved!")
+        return conf
 
     def up(self) -> bool:
         info(f"Starting interface {self.name}...")
-        result = run_os_command(f"{self.wg_quick_bin} up {self.name}")
+        is_up = run_os_command(f"ip a | grep -w {self.name}").successful
+        if is_up:
+            warning(f"Unable to bring {self.name} up: already up.")
+            return True
+        self.save_configuration()
+        result = run_os_command(f"{self.wg_quick_bin} up {self.conf_file}")
         if result.successful:
             info(f"Interface {self.name} started.")
         else:
@@ -75,7 +84,11 @@ class Interface(YamlAble):
 
     def down(self) -> bool:
         info(f"Stopping interface {self.name}...")
-        result = run_os_command(f"{self.wg_quick_bin} down {self.name}")
+        is_down = not run_os_command(f"ip a | grep -w {self.name}").successful
+        if is_down:
+            warning(f"Unable to bring {self.name} down: already down.")
+            return True
+        result = run_os_command(f"{self.wg_quick_bin} down {self.conf_file}")
         if result.successful:
             info(f"Interface {self.name} stopped.")
         else:
