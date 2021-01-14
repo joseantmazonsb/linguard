@@ -254,7 +254,7 @@ class Server(YamlAble):
             warning("Unable to start VPN server: already started.")
             return
         for iface in self.interfaces.values():
-            iface.is_up()
+            iface.up()
         self.started = True
         info("VPN server started.")
 
@@ -281,9 +281,8 @@ if __name__ == '__main__':
     wg = Server(server_folder)
     wg.add_interface("scranton-vpn", "10.0.100.1/24", "VPN for Scranton branch")
     wg.add_interface("ny-vpn", "10.0.101.1/24", "VPN for NY branch")
-    wg.add_client("jim", "scranton-vpn", "8.8.8.8")
-    wg.add_client("karen", "scranton-vpn", "8.8.8.8")
-    wg.remove_client("jim")
-    wg.iface_up("ny-vpn")
+    wg.add_client(name="jim", interface="scranton-vpn", dns1="8.8.8.8", ipv4_address="10.0.100.2/24")
+    wg.add_client(name="karen", interface="ny-vpn", dns1="8.8.8.8", ipv4_address="10.0.101.2/24")
+    wg.start()
     time.sleep(10)
-    wg.iface_down("ny-vpn")
+    wg.stop()
