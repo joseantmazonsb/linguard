@@ -275,8 +275,6 @@ class Server(YamlAble):
 
 
 if __name__ == '__main__':
-    import logging
-    logging.basicConfig(level=logging.DEBUG)
     server_folder = app_name.lower()
     wg = Server(server_folder)
     wg.add_interface("scranton-vpn", "10.0.100.1/24", "VPN for Scranton branch")

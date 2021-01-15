@@ -15,6 +15,6 @@ FILES_PATH = f"/srv/{app_name.lower()}"
 
 if __name__ == '__main__':
     wg = Server("wlan0", FILES_PATH, "wg", "wg-quick", "iptables")
-    wg.start()
+    #wg.start()
     server_port = 5000
     app.run(debug=True, port=server_port)
