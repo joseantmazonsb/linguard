@@ -1,20 +1,14 @@
-from typing import Dict, Any
+from typing import Any
 
 from web.utils import render_template
 
 
 class Controller:
-    template: str
-    context: Dict[str, Any]
+
+    def __init__(self, template: str, **context: Any):
+        self.template = template
+        self.context = context
 
     def load(self):
-        self.before_render()
-        self.view = render_template(self.template, self.context)
-        self.after_render()
+        self.view = render_template(self.template, **self.context)
         return self.view
-
-    def before_render(self):
-        pass
-
-    def after_render(self):
-        pass

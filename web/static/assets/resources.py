@@ -1,1 +1,1 @@
-app_name = "LinGuard"
+app_name = "Linguard"
