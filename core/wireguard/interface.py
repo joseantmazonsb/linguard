@@ -40,7 +40,7 @@ class Interface(YamlAble):
     def from_dict(dct):
         """ This optional method is called when you call yaml.load()"""
         iface = Interface(dct["name"], dct["description"], "", dct["ipv4_address"], dct["listen_port"],
-                          dct["private_key"], dct["public_key"], "")
+                          dct["private_key"], dct["public_key"], "", "")
         iface.on_up = dct["on_up"]
         iface.on_down = dct["on_down"]
         return iface
@@ -75,7 +75,7 @@ class Interface(YamlAble):
             warning(f"Unable to bring {self.name} up: already up.")
             return True
         self.save_configuration()
-        result = run_os_command(f"{self.wg_quick_bin} up {self.conf_file}")
+        result = run_os_command(f"{self.wg_quick_bin} up {self.conf_file}", as_root=True)
         if result.successful:
             info(f"Interface {self.name} started.")
         else:
@@ -88,7 +88,7 @@ class Interface(YamlAble):
         if is_down:
             warning(f"Unable to bring {self.name} down: already down.")
             return True
-        result = run_os_command(f"{self.wg_quick_bin} down {self.conf_file}")
+        result = run_os_command(f"{self.wg_quick_bin} down {self.conf_file}", as_root=True)
         if result.successful:
             info(f"Interface {self.name} stopped.")
         else:
