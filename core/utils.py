@@ -1,5 +1,40 @@
+import json
 import os
 from subprocess import run, PIPE
+from typing import Dict, List
+
+###########
+# Network #
+###########
+
+
+def get_interfaces() -> List[Dict[str, str]]:
+    empty = "<i>Not configured.<i>"
+    interfaces = []
+    out = json.loads(run_os_command("ip -j a").output)
+    for item in out:
+        iface = {
+            "name": item["ifname"],
+            "status": item["operstate"].lower(),
+        }
+        if "address" in item:
+            iface["mac"] = item["address"]
+        else:
+            iface["mac"] = empty
+        addr_info = item["addr_info"]
+        if addr_info:
+            ipv4_info = addr_info[0]
+            iface["ipv4"] = f"{ipv4_info['local']}/{ipv4_info['prefixlen']}"
+            if len(addr_info) > 1:
+                ipv6_info = addr_info[1]
+                iface["ipv6"] = f"{ipv6_info['local']}/{ipv6_info['prefixlen']}"
+            else:
+                iface["ipv6"] = empty
+        else:
+            iface["ipv4"] = empty
+            iface["ipv6"] = empty
+        interfaces.append(iface)
+    return interfaces
 
 ###########
 # Storage #

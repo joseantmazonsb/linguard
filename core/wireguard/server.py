@@ -29,7 +29,8 @@ yaml.emitter.Emitter.process_tag = lambda self, *args, **kw: None
 @yaml_info(yaml_tag_ns='')
 class Server(YamlAble):
 
-    def __init__(self, config_dir: str, wg_bin: str = None, wg_quick_bin: str = None, iptables_bin: str = None, gw_iface: str = None, endpoint: str = None):
+    def __init__(self, config_dir: str, wg_bin: str = None, wg_quick_bin: str = None, iptables_bin: str = None,
+                 gw_iface: str = None, endpoint: str = None):
         super().__init__()
         try:
             abs_conf_dir = os.path.abspath(config_dir)
@@ -121,7 +122,8 @@ class Server(YamlAble):
         privkey = generate_privkey(self.wg_bin)
         pubkey = generate_pubkey(self.wg_bin, privkey)
         conf_file = os.path.join(self.interfaces_folder, name) + ".conf"
-        iface = Interface(name, conf_file, description, self.gw_iface, ipv4_address, port, privkey, pubkey, self.wg_quick_bin)
+        iface = Interface(name, conf_file, description, self.gw_iface, ipv4_address,
+                          port, privkey, pubkey, self.wg_quick_bin)
         self.interfaces[name] = iface
         self.__set_iface_rules__(iface)
 
