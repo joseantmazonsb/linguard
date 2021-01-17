@@ -10,8 +10,8 @@
                     Interfaces
                 </div>
                 <div class="card-body">
-                    <div class="row row-cols-1 row-cols-md-2">
-                        {% for iface in interfaces %}
+                    <div class="row row-cols-2 row-cols-md-3">
+                        {% for iface in interfaces.values() %}
                             <div class="col mb-4">
                                 <div class="card">
                                     <div class="card-body">
@@ -42,17 +42,26 @@
                                                         <th>MAC</th>
                                                         <td>{{ iface.mac | safe}}</td>
                                                     </tr>
+                                                    <tr>
+                                                        <th>Flags</th>
+                                                        <td>{{ iface.flags | safe }}</td>
+                                                    </tr>
                                                 </tbody>
                                             </table>
                                         </div>
                                     </div>
+                                    {% if iface.editable == True %}
+                                        <div class="card-footer">
+                                          <small><a href="#">Edit</a></small>
+                                        </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         {% endfor %}
                     </div>
                 </div>
                 <div class="card-footer">
-                  <small class="text-muted">Information provided by <code>ip</code> at {{ last_update }}.</small>
+                  <small class="text-muted">Information provided by <code>ip</code> and <code>wg</code> at {{ last_update }}.</small>
                 </div>
             </div>
 

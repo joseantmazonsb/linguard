@@ -2,10 +2,19 @@ from datetime import datetime
 
 from flask import Blueprint, abort
 
-from core.utils import get_interfaces
+from core.utils import get_all_interfaces
+from core.wireguard.server import Server
 from web.controller import Controller
 
-router = Blueprint("router", __name__)
+
+class Router(Blueprint):
+    server: Server
+
+    def __init__(self, name, import_name):
+        super().__init__(name, import_name)
+
+
+router = Router("router", __name__)
 
 
 @router.route("/")
@@ -35,7 +44,7 @@ def signup():
 
 @router.route("/network")
 def network():
-    interfaces = get_interfaces()
+    interfaces = get_all_interfaces(wg_bin=router.server.wg_bin, wg_interfaces = router.server.interfaces.values())
     context = {
         "title": "Network",
         "interfaces": interfaces,
