@@ -14,7 +14,8 @@ logging.basicConfig(level=logging.DEBUG)
 FILES_PATH = f"/srv/{app_name.lower()}"
 
 if __name__ == '__main__':
-    wg = Server("wlan0", FILES_PATH, "wg", "wg-quick", "iptables")
-    #wg.start()
+    server_folder = app_name.lower()
+    wg = Server(server_folder)
+    wg.start()
     server_port = 5000
     app.run(debug=True, port=server_port)

@@ -1,4 +1,8 @@
-from flask import Blueprint
+from datetime import datetime
+
+from flask import Blueprint, abort
+
+from core.utils import get_interfaces
 from web.controller import Controller
 
 router = Blueprint("router", __name__)
@@ -29,13 +33,56 @@ def signup():
     return Controller("web/signup.html", **context).load()
 
 
+@router.route("/network")
+def network():
+    interfaces = get_interfaces()
+    context = {
+        "title": "Network",
+        "interfaces": interfaces,
+        "last_update": datetime.now().strftime("%H:%M")
+    }
+    return Controller("web/network.html", **context).load()
+
+
+@router.route("/wireguard")
+def wireguard():
+    context = {
+        "title": "Wireguard"
+    }
+    return Controller("web/wireguard.html", **context).load()
+
+
+@router.route("/themes")
+def themes():
+    context = {
+        "title": "Themes"
+    }
+    return Controller("web/themes.html", **context).load()
+
+
+@router.route("/error")
+def error_test():
+    abort(400)
+
+
+@router.app_errorhandler(400)
+def bad_request(err):
+    error_code = 400
+    context = {
+        "title": error_code,
+        "error_code": error_code,
+        "error_msg": str(err).split(":", 1)[1]
+    }
+    return Controller("error/error-main.html", **context).load(), error_code
+
+
 @router.app_errorhandler(401)
 def not_found(err):
     error_code = 401
     context = {
         "title": error_code,
         "error_code": error_code,
-        "error_msg": "Unauthorized"
+        "error_msg": str(err).split(":", 1)[1]
     }
     return Controller("error/error-main.html", **context).load(), error_code
 
@@ -46,7 +93,7 @@ def not_found(err):
     context = {
         "title": error_code,
         "error_code": error_code,
-        "error_msg": "Resource not found :(",
+        "error_msg": str(err).split(":", 1)[1],
         "image": "/static/assets/img/error-404-monochrome.svg"
     }
     return Controller("error/error-img.html", **context).load(), error_code
@@ -58,6 +105,6 @@ def not_found(err):
     context = {
         "title": error_code,
         "error_code": error_code,
-        "error_msg": "Internal server error"
+        "error_msg": str(err).split(":", 1)[1]
     }
     return Controller("error/error-main.html", **context).load(), error_code

@@ -1,0 +1,103 @@
+{% extends "web/web-main.html" %}
+
+{% block content %}
+    <main>
+        <div class="container-fluid">
+            <h1 class="mt-4">Network</h1>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-ethernet mr-1"></i>
+                    Interfaces
+                </div>
+                <div class="card-body">
+                    <div class="row row-cols-1 row-cols-md-2">
+                        {% for iface in interfaces %}
+                            <div class="col mb-4">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h5 class="card-title mb-3">{{ iface.name }}</h5>
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered" width="100%" cellspacing="0">
+                                                <tbody>
+                                                    <tr>
+                                                        <th>Status</th>
+                                                        {% if iface.status == "up" %}
+                                                            {% set status_color = "bg-success" %}
+                                                        {% elif iface.status == "down" %}
+                                                            {% set status_color = "bg-danger" %}
+                                                        {% else %}
+                                                            {% set status_color = "bg-warning" %}
+                                                        {% endif %}
+                                                        <td class="{{ status_color }}"> {{ iface.status }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>IPv4</th>
+                                                        <td>{{ iface.ipv4 | safe }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>IPv6</th>
+                                                        <td>{{ iface.ipv6 | safe }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>MAC</th>
+                                                        <td>{{ iface.mac | safe}}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="card-footer">
+                  <small class="text-muted">Information provided by <code>ip</code> at {{ last_update }}.</small>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-table mr-1"></i>
+                    Routing table
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Position</th>
+                                    <th>Office</th>
+                                    <th>Age</th>
+                                    <th>Start date</th>
+                                    <th>Salary</th>
+                                </tr>
+                            </thead>
+                            <tfoot>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Position</th>
+                                    <th>Office</th>
+                                    <th>Age</th>
+                                    <th>Start date</th>
+                                    <th>Salary</th>
+                                </tr>
+                            </tfoot>
+                            <tbody>
+                                <tr>
+                                    <td>Tiger Nixon</td>
+                                    <td>System Architect</td>
+                                    <td>Edinburgh</td>
+                                    <td>61</td>
+                                    <td>2011/04/25</td>
+                                    <td>$320,800</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+{% endblock %}
