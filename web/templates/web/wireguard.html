@@ -1,5 +1,75 @@
 {% extends "web/web-main.html" %}
 
 {% block content %}
-
+    <main>
+        <div class="container-fluid">
+            <h1 class="mt-4">{{ title }}</h1>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-ethernet mr-1"></i>
+                    Interfaces
+                </div>
+                <div class="card-body">
+                    <div class="row row-cols-2 row-cols-md-3">
+                        {% for iface in interfaces.values() %}
+                            <div class="col mb-4">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h5 class="card-title mb-3">{{ iface.name }}</h5>
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered">
+                                                <tbody>
+                                                    <tr>
+                                                        <th>Status</th>
+                                                        {% if iface.status == "up" %}
+                                                            {% set status_color = "bg-success" %}
+                                                        {% elif iface.status == "down" %}
+                                                            {% set status_color = "bg-danger" %}
+                                                        {% else %}
+                                                            {% set status_color = "bg-warning" %}
+                                                        {% endif %}
+                                                        <td class="{{ status_color }}"> {{ iface.status }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Description</th>
+                                                        {% if iface.description %}
+                                                            <td>{{ iface.description }}</td>
+                                                        {% else %}
+                                                            <td>{{ EMPTY_FIELD | safe }}</td>
+                                                        {% endif %}
+                                                    </tr>
+                                                    <tr>
+                                                        <th>IPv4</th>
+                                                        {% if iface.ipv4 %}
+                                                            <td>{{ iface.ipv4 }}</td>
+                                                        {% else %}
+                                                            <td>{{ EMPTY_FIELD | safe }}</td>
+                                                        {% endif %}
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Listen port</th>
+                                                        {% if iface.port %}
+                                                            <td>{{ iface.port }}</td>
+                                                        {% else %}
+                                                            <td>{{ EMPTY_FIELD | safe }}</td>
+                                                        {% endif %}
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div class="card-footer">
+                                      <small><a href="wireguard/interfaces/{{ iface.name }}">Edit</a></small>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="card-footer">
+                  <small class="text-muted">Information provided by <code>wg</code> at {{ last_update }}.</small>
+                </div>
+            </div>
+        </div>
+    </main>
 {% endblock %}

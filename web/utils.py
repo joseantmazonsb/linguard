@@ -5,6 +5,7 @@ import json
 from flask import templating
 
 from core.utils import run_os_command
+from core.wireguard.interface import Interface
 from web.static.assets.resources import APP_NAME, EMPTY_FIELD
 
 
@@ -41,7 +42,7 @@ def list_to_str(_list: list) -> str:
 ###########
 
 
-def get_all_interfaces(wg_bin: str, wg_interfaces: list) -> Dict[str, Dict[str, Any]]:
+def get_all_interfaces(wg_bin: str, wg_interfaces: List[Interface]) -> Dict[str, Dict[str, Any]]:
     interfaces = get_system_interfaces()
     for iface in wg_interfaces:
         if iface.name not in interfaces:
@@ -108,3 +109,24 @@ def get_routing_table() -> List[Dict[str, Any]]:
             elif value is list:
                 entry[key] = list_to_str(value)
     return table
+
+
+#############
+# Wireguard #
+#############
+
+def get_wg_interfaces_summary(wg_bin: str, interfaces: List[Interface]) -> Dict[str, Dict[str, Any]]:
+    dct = {}
+    for iface in interfaces:
+        if run_os_command(f"{wg_bin} show {iface.name}").successful:
+            status = "up"
+        else:
+            status = "down"
+        dct[iface.name] = {
+            "name": iface.name,
+            "description": iface.description,
+            "ipv4": iface.ipv4_address,
+            "port": iface.listen_port,
+            "status": status
+        }
+    return dct

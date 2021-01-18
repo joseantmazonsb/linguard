@@ -2,7 +2,7 @@ from datetime import datetime
 
 from flask import Blueprint, abort
 
-from web.utils import get_all_interfaces, get_routing_table
+from web.utils import get_all_interfaces, get_routing_table, get_wg_interfaces_summary
 from core.wireguard.server import Server
 from web.controller import Controller
 from web.static.assets.resources import EMPTY_FIELD
@@ -59,8 +59,12 @@ def network():
 
 @router.route("/wireguard")
 def wireguard():
+    interfaces = get_wg_interfaces_summary(wg_bin=router.server.wg_bin, interfaces=router.server.interfaces.values())
     context = {
-        "title": "Wireguard"
+        "title": "Wireguard",
+        "interfaces": interfaces,
+        "last_update": datetime.now().strftime("%H:%M"),
+        "EMPTY_FIELD": EMPTY_FIELD
     }
     return Controller("web/wireguard.html", **context).load()
 
