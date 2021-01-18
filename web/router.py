@@ -2,7 +2,7 @@ from datetime import datetime
 
 from flask import Blueprint, abort
 
-from core.utils import get_all_interfaces, get_routing_table
+from web.utils import get_all_interfaces, get_routing_table
 from core.wireguard.server import Server
 from web.controller import Controller
 from web.static.assets.resources import EMPTY_FIELD
