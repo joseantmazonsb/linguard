@@ -17,7 +17,7 @@
                                     <div class="card-body">
                                         <h5 class="card-title mb-3">{{ iface.name }}</h5>
                                         <div class="table-responsive">
-                                            <table class="table table-bordered" width="100%" cellspacing="0">
+                                            <table class="table table-bordered">
                                                 <tbody>
                                                     <tr>
                                                         <th>Status</th>
@@ -104,7 +104,11 @@
                                         {% else %}
                                             <td>{{ EMPTY_FIELD | safe }}</td>
                                         {% endif %}
+                                        {% if route.metric %}
                                         <td>{{ route.metric }}</td>
+                                        {% else %}
+                                            <td>{{ EMPTY_FIELD | safe }}</td>
+                                        {% endif %}
                                         <td>{{ route.flags | safe }}</td>
                                     </tr>
                                 {% endfor %}

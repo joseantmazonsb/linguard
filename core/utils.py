@@ -2,12 +2,29 @@ import json
 import os
 from subprocess import run, PIPE
 from typing import Dict, Any, List
+from web.static.assets.resources import EMPTY_FIELD
+
+########
+# Misc #
+########
+
+
+def list_to_str(_list: list) -> str:
+    length = len(_list)
+    text = ""
+    count = 0
+    for item in _list:
+        if count < length - 1:
+            text += item + ", "
+        else:
+            text += item
+        count += 1
+    return text
 
 
 ###########
 # Network #
 ###########
-from web.static.assets.resources import EMPTY_FIELD
 
 
 def get_all_interfaces(wg_bin: str, wg_interfaces: list) -> Dict[str, Dict[str, Any]]:
@@ -39,16 +56,7 @@ def get_system_interfaces() -> Dict[str, Dict[str, Any]]:
     out = json.loads(run_os_command("ip -json address").output)
     for item in out:
         flag_list = list(filter(lambda flag: "UP" not in flag, item["flags"]))
-        flag_list_length = len(flag_list)
-        flags = ""
-        count = 0
-        for flag in flag_list:
-            if "UP" not in flag:
-                if count < flag_list_length - 1:
-                    flags += flag + ", "
-                else:
-                    flags += flag
-            count += 1
+        flags = list_to_str(flag_list)
         iface = {
             "name": item["ifname"],
             "flags": flags,
@@ -80,8 +88,11 @@ def get_routing_table() -> List[Dict[str, Any]]:
     table = json.loads(run_os_command("ip -json route").output)
     for entry in table:
         for key in entry:
-            if not entry[key]:
+            value = entry[key]
+            if not value:
                 entry[key] = EMPTY_FIELD
+            elif value is list:
+                entry[key] = list_to_str(value)
     return table
 
 ###########
