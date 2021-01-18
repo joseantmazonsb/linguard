@@ -2,9 +2,10 @@ from datetime import datetime
 
 from flask import Blueprint, abort
 
-from core.utils import get_all_interfaces
+from core.utils import get_all_interfaces, get_routing_table
 from core.wireguard.server import Server
 from web.controller import Controller
+from web.static.assets.resources import EMPTY_FIELD
 
 
 class Router(Blueprint):
@@ -44,11 +45,14 @@ def signup():
 
 @router.route("/network")
 def network():
-    interfaces = get_all_interfaces(wg_bin=router.server.wg_bin, wg_interfaces = router.server.interfaces.values())
+    interfaces = get_all_interfaces(wg_bin=router.server.wg_bin, wg_interfaces=router.server.interfaces.values())
+    routes = get_routing_table()
     context = {
         "title": "Network",
         "interfaces": interfaces,
-        "last_update": datetime.now().strftime("%H:%M")
+        "routes": routes,
+        "last_update": datetime.now().strftime("%H:%M"),
+        "EMPTY_FIELD": EMPTY_FIELD
     }
     return Controller("web/network.html", **context).load()
 

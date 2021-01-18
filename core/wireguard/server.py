@@ -14,7 +14,7 @@ from core.utils import run_os_command, generate_privkey, generate_pubkey
 from core.wireguard.interface import Interface
 from core.wireguard.client import Client
 
-from web.static.assets.resources import app_name
+from web.static.assets.resources import APP_NAME
 
 MIN_PORT_NUMBER = 50000
 MAX_PORT_NUMBER = 65535
@@ -277,7 +277,7 @@ class Server(YamlAble):
 
 
 if __name__ == '__main__':
-    server_folder = app_name.lower()
+    server_folder = APP_NAME.lower()
     wg = Server(server_folder)
     wg.add_interface("scranton-vpn", "10.0.100.1/24", "VPN for Scranton branch")
     wg.add_interface("ny-vpn", "10.0.101.1/24", "VPN for NY branch")

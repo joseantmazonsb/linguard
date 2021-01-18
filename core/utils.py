@@ -1,26 +1,26 @@
 import json
 import os
 from subprocess import run, PIPE
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 
 ###########
 # Network #
 ###########
+from web.static.assets.resources import EMPTY_FIELD
 
 
 def get_all_interfaces(wg_bin: str, wg_interfaces: list) -> Dict[str, Dict[str, Any]]:
-    empty = "<i>Not configured.<i>"
-    interfaces = get_system_interfaces(empty)
+    interfaces = get_system_interfaces()
     for iface in wg_interfaces:
         if iface.name not in interfaces:
             interfaces[iface.name] = {
                 "name": iface.name,
                 "status": "down",
                 "ipv4": iface.ipv4_address,
-                "ipv6": empty,
-                "mac": empty,
-                "flags": empty
+                "ipv6": EMPTY_FIELD,
+                "mac": EMPTY_FIELD,
+                "flags": EMPTY_FIELD
             }
         else:
             if interfaces[iface.name]["status"] == "unknown":
@@ -34,7 +34,7 @@ def get_all_interfaces(wg_bin: str, wg_interfaces: list) -> Dict[str, Dict[str, 
     return interfaces
 
 
-def get_system_interfaces(empty: str) -> Dict[str, Dict[str, Any]]:
+def get_system_interfaces() -> Dict[str, Dict[str, Any]]:
     interfaces = {}
     out = json.loads(run_os_command("ip -json address").output)
     for item in out:
@@ -59,7 +59,7 @@ def get_system_interfaces(empty: str) -> Dict[str, Dict[str, Any]]:
         if "address" in item:
             iface["mac"] = item["address"]
         else:
-            iface["mac"] = empty
+            iface["mac"] = EMPTY_FIELD
         addr_info = item["addr_info"]
         if addr_info:
             ipv4_info = addr_info[0]
@@ -68,12 +68,21 @@ def get_system_interfaces(empty: str) -> Dict[str, Dict[str, Any]]:
                 ipv6_info = addr_info[1]
                 iface["ipv6"] = f"{ipv6_info['local']}/{ipv6_info['prefixlen']}"
             else:
-                iface["ipv6"] = empty
+                iface["ipv6"] = EMPTY_FIELD
         else:
-            iface["ipv4"] = empty
-            iface["ipv6"] = empty
+            iface["ipv4"] = EMPTY_FIELD
+            iface["ipv6"] = EMPTY_FIELD
         interfaces[iface["name"]] = iface
     return interfaces
+
+
+def get_routing_table() -> List[Dict[str, Any]]:
+    table = json.loads(run_os_command("ip -json route").output)
+    for entry in table:
+        for key in entry:
+            if not entry[key]:
+                entry[key] = EMPTY_FIELD
+    return table
 
 ###########
 # Storage #

@@ -75,36 +75,45 @@
                         <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
                             <thead>
                                 <tr>
-                                    <th>Name</th>
-                                    <th>Position</th>
-                                    <th>Office</th>
-                                    <th>Age</th>
-                                    <th>Start date</th>
-                                    <th>Salary</th>
+                                    <th>Destination</th>
+                                    <th>Gateway</th>
+                                    <th>Device</th>
+                                    <th>Protocol</th>
+                                    <th>Scope</th>
+                                    <th>Metric</th>
+                                    <th>Flags</th>
                                 </tr>
                             </thead>
-                            <tfoot>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Position</th>
-                                    <th>Office</th>
-                                    <th>Age</th>
-                                    <th>Start date</th>
-                                    <th>Salary</th>
-                                </tr>
-                            </tfoot>
                             <tbody>
-                                <tr>
-                                    <td>Tiger Nixon</td>
-                                    <td>System Architect</td>
-                                    <td>Edinburgh</td>
-                                    <td>61</td>
-                                    <td>2011/04/25</td>
-                                    <td>$320,800</td>
-                                </tr>
+                                {% for route in routes %}
+                                    <tr>
+                                        <td>{{ route.dst }}</td>
+                                        {% if route.gateway %}
+                                            <td>{{ route.gateway }}</td>
+                                        {% else %}
+                                            <td>default</td>
+                                        {% endif %}
+                                        <td>{{ route.dev }}</td>
+                                        {% if route.protocol %}
+                                            <td>{{ route.protocol }}</td>
+                                        {% else %}
+                                            <td>{{ EMPTY_FIELD | safe }}</td>
+                                        {% endif %}
+                                        {% if route.scope %}
+                                        <td>{{ route.scope }}</td>
+                                        {% else %}
+                                            <td>{{ EMPTY_FIELD | safe }}</td>
+                                        {% endif %}
+                                        <td>{{ route.metric }}</td>
+                                        <td>{{ route.flags | safe }}</td>
+                                    </tr>
+                                {% endfor %}
                             </tbody>
                         </table>
                     </div>
+                </div>
+                <div class="card-footer">
+                  <small class="text-muted">Information provided by <code>ip</code> at {{ last_update }}.</small>
                 </div>
             </div>
         </div>
