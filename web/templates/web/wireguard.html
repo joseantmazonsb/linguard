@@ -28,7 +28,7 @@
                                                         {% else %}
                                                             {% set status_color = "bg-warning" %}
                                                         {% endif %}
-                                                        <td class="{{ status_color }}"> {{ iface.status }}</td>
+                                                        <td id="statusIface-{{ iface.name }}" class="{{ status_color }}"> {{ iface.status }}</td>
                                                     </tr>
                                                     <tr>
                                                         <th>Description</th>
@@ -57,9 +57,17 @@
                                                 </tbody>
                                             </table>
                                         </div>
+                                        {% if iface.status == "up" %}
+                                            {% set button_action = "Stop" %}
+                                        {% elif iface.status == "down" %}
+                                            {% set button_action = "Start" %}
+                                        {% endif %}
+                                        <button id="startOrStopIface-{{ iface.name }}-Btn" value="{{ iface.name }}" class="btn btn-warning startOrStopIfaceBtn">{{ button_action }}</button>
+                                        <button id="restartIface-{{ iface.name }}-Btn" value="{{ iface.name }}" class="btn btn-warning restartIfaceBtn">Restart</button>
+                                        <i id="wgIface-{{ iface.name }}-loading" class="float-right mt-2 fas fa-circle-notch fa-spin" style="display: none"></i>
                                     </div>
                                     <div class="card-footer">
-                                      <small><a href="wireguard/interfaces/{{ iface.name }}">Edit</a></small>
+                                        <small><a href="wireguard/interfaces/{{ iface.name }}">Edit</a></small>
                                     </div>
                                 </div>
                             </div>

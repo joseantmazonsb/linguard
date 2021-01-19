@@ -1,6 +1,7 @@
 from datetime import datetime
+from logging import debug
 
-from flask import Blueprint, abort
+from flask import Blueprint, abort, request
 
 from web.utils import get_all_interfaces, get_routing_table, get_wg_interfaces_summary
 from core.wireguard.server import Server
@@ -67,6 +68,23 @@ def wireguard():
         "EMPTY_FIELD": EMPTY_FIELD
     }
     return Controller("web/wireguard.html", **context).load()
+
+
+@router.route("/wireguard/interfaces/<name>",  methods=['POST'])
+def wireguard_iface(name: str):
+    action = request.json["action"].lower()
+    debug(f"User requested to {action} {name}.")
+    if action == "start":
+        router.server.iface_up(name)
+        return "200"
+    elif action == "restart":
+        router.server.restart_iface(name)
+        return "200"
+    elif action == "stop":
+        router.server.iface_down(name)
+        return "200"
+    else:
+        abort(500)
 
 
 @router.route("/themes")

@@ -20,4 +20,4 @@ if __name__ == '__main__':
     router.server = wg
     wg.start()
     server_port = 5000
-    app.run(debug=True, port=server_port)
+    app.run(debug=False, port=server_port)

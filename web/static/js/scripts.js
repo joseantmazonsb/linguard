@@ -19,4 +19,41 @@
         e.preventDefault();
         $("body").toggleClass("sb-sidenav-toggled");
     });
+
+    const startOrStopIfaceBtn = $(".startOrStopIfaceBtn");
+    startOrStopIfaceBtn.click(function(e) {
+        const button = e.target;
+        const iface = button.value;
+        const action = button.innerText;
+        triggerInterfaceAction(action, iface);
+    });
+
+    function triggerInterfaceAction(action, iface) {
+        const url = "/wireguard/interfaces/" + iface;
+        const loadIcon = $("#wgIface-"+iface+"-loading");
+        $.ajax({
+            type: "post",
+            url: url,
+            data: JSON.stringify({"action": action}),
+            dataType: 'json',
+            contentType: 'application/json',
+            beforeSend : function () {
+                loadIcon.show();
+            },
+            complete: function () {
+                loadIcon.hide();
+            },
+            success: function () {
+                location.reload();
+            }
+        });
+    }
+
+    const restartIfaceBtn = $(".restartIfaceBtn");
+    restartIfaceBtn.click(function(e) {
+        const iface = e.target.value;
+        const action = "restart"
+        triggerInterfaceAction(action, iface);
+    });
+
 })(jQuery);
