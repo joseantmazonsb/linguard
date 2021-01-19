@@ -1,9 +1,7 @@
-import time
-
+from time import sleep
 import yaml
 from yamlable import yaml_info, YamlAble
 import os
-from asyncio import sleep
 from datetime import datetime
 from logging import fatal, info, debug, error, warning
 from random import randint
@@ -163,6 +161,11 @@ class Server(YamlAble):
             return iface.down()
         return False
 
+    def restart_iface(self, iface: Union[Interface, str]):
+        self.iface_down(iface)
+        sleep(1)
+        self.iface_up(iface)
+
     # Clients
 
     def add_client(self, name: str, interface: str, dns1: str, dns2: str = None, description: str = "",
@@ -272,7 +275,7 @@ class Server(YamlAble):
 
     def restart(self):
         self.stop()
-        sleep(3)
+        sleep(1)
         self.start()
 
 
@@ -284,5 +287,5 @@ if __name__ == '__main__':
     wg.add_client(name="jim", interface="scranton-vpn", dns1="8.8.8.8", ipv4_address="10.0.100.2/24")
     wg.add_client(name="karen", interface="ny-vpn", dns1="8.8.8.8", ipv4_address="10.0.101.2/24")
     wg.start()
-    time.sleep(10)
+    sleep(10)
     wg.stop()
