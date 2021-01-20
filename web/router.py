@@ -1,8 +1,9 @@
 from datetime import datetime
 from logging import debug
 
-from flask import Blueprint, abort, request
+from flask import Blueprint, abort, request, Response
 
+from core.wireguard.exceptions import WireguardError
 from web.utils import get_all_interfaces, get_routing_table, get_wg_interfaces_summary
 from core.wireguard.server import Server
 from web.controller import Controller
@@ -75,16 +76,25 @@ def wireguard_iface(name: str):
     action = request.json["action"].lower()
     debug(f"User requested to {action} {name}.")
     if action == "start":
-        result = router.server.iface_up(name)
+        try:
+            router.server.iface_up(name)
+            return Response(status=204)
+        except WireguardError as e:
+            return Response(str(e), status=500)
     elif action == "restart":
-        result = router.server.restart_iface(name)
+        try:
+            router.server.restart_iface(name)
+            return Response(status=204)
+        except WireguardError as e:
+            return Response(str(e), status=500)
     elif action == "stop":
-        result = router.server.iface_down(name)
+        try:
+            router.server.iface_down(name)
+            return Response(status=204)
+        except WireguardError as e:
+            return Response(str(e), status=500)
     else:
-        result = False
-    if result:
-        return "200"
-    abort(500)
+        return Response(f"Invalid action request: '{action}'", status=400)
 
 
 @router.route("/themes")

@@ -20,26 +20,60 @@
         $("body").toggleClass("sb-sidenav-toggled");
     });
 
-    function getRndInteger(min=0, max=9999999) {
-      return Math.floor(Math.random() * (max - min + 1) ) + min;
-    }
-
     function prependWireguardAlert(text) {
         prependAlert("wgIfacesHeader", text, "danger");
     }
 
+    /**
+     * Prepend a bootstrap alert to a given HTML object.
+     * @param prependTo Id of the HTML object to prepend the alert.
+     * @param text Text of the alert.
+     * @param alertType Type of the alert: danger, warning, info...
+     * @param delay Amount of time (millis) before automatically closing the alert. Use 0 to avoid auto close.
+     */
     function prependAlert(prependTo, text, alertType = "warning", delay=7000) {
-        const id = "alert-"+getRndInteger();
-        const alert = "<div id=\""+id+"\" class=\"alert alert-"+alertType + " alert-dismissible fade show\" role=\"alert\">\n" +
-            text +
-            "     <button type=\"button\" class=\"close\" data-dismiss=\"alert\" aria-label=\"Close\">\n" +
+        const salt = getRndInteger();
+        const alertId = "alert-"+salt;
+        const closeId = "close-"+salt;
+        const alert = "<div id=\""+alertId+"\" class=\"alert alert-"+alertType + " alert-dismissible fade show\" " +
+            "role=\"alert\">" + text +"\n" +
+            "     <button type=\"button\" class=\"close\" id='"+closeId+"' aria-label=\"Close\">\n" +
             "         <span aria-hidden=\"true\">&times;</span>\n" +
             "    </button>\n" +
             "</div>"
-        $("#"+prependTo).prepend(alert);
-        $("#"+id).delay(delay).fadeTo(500, 0).slideUp(500, function(){
-            $(this).remove();
+        const container = $("#"+prependTo);
+        $(alert).prependTo(container).hide().slideDown();
+        $("#"+closeId).click(function (e) {
+            fadeHTMLElement(alertId, 0, 200);
         });
+        if (delay > 0) {
+            fadeHTMLElement(alertId, delay);
+        }
+    }
+
+    /**
+     * Generate a random integer between min and max (both included).
+     * @param min
+     * @param max
+     * @returns {number}
+     */
+    function getRndInteger(min=0, max=9999999) {
+        return Math.floor(Math.random() * (max - min + 1) ) + min;
+    }
+
+    /**
+     * Fade out an html element and remove it.
+     * @param id Id of the element.
+     * @param delay Time (millis) before fade out.
+     * @param fadeDuration Duration (millis) of the fade effect.
+     * @param slideDuration Duration (millis) of the slide effect.
+     */
+    function fadeHTMLElement(id, delay, fadeDuration = 500, slideDuration = 500) {
+        setTimeout(function() {
+            $("#"+id).fadeTo(fadeDuration, 0).slideUp(slideDuration, function(){
+                $(this).remove();
+            });
+        }, delay);
     }
 
     const startOrStopIfaceBtn = $(".startOrStopIfaceBtn");
@@ -62,15 +96,15 @@
             beforeSend : function () {
                 loadIcon.show();
             },
-            complete: function () {
-                loadIcon.hide();
-            },
             success: function () {
                 location.reload();
             },
-            error: function() {
-                prependWireguardAlert("Unable to perform operation. Try again later.");
-            }
+            error: function(resp) {
+                prependWireguardAlert("<strong>Oops, something went wrong</strong>: " + resp["responseText"]);
+            },
+            complete: function () {
+                loadIcon.hide();
+            },
         });
     }
 
