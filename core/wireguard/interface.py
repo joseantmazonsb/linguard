@@ -3,6 +3,7 @@ from logging import info, warning, debug, error
 from yamlable import YamlAble, yaml_info
 
 from core.utils import run_os_command, write_lines
+from core.wireguard.exceptions import WireguardError
 
 
 @yaml_info(yaml_tag_ns='')
@@ -68,29 +69,29 @@ class Interface(YamlAble):
         debug(f"Configuration saved!")
         return conf
 
-    def up(self) -> bool:
+    def up(self):
         info(f"Starting interface {self.name}...")
         is_up = run_os_command(f"ip a | grep -w {self.name}").successful
         if is_up:
             warning(f"Unable to bring {self.name} up: already up.")
-            return True
+            return
         self.save_configuration()
         result = run_os_command(f"{self.wg_quick_bin} up {self.conf_file}", as_root=True)
         if result.successful:
             info(f"Interface {self.name} started.")
         else:
             error(f"Failed to start interface {self.name}: code={result.code} | err={result.err} | out={result.output}")
-        return result.successful
+            raise WireguardError(result.err)
 
-    def down(self) -> bool:
+    def down(self):
         info(f"Stopping interface {self.name}...")
         is_down = not run_os_command(f"ip a | grep -w {self.name}").successful
         if is_down:
             warning(f"Unable to bring {self.name} down: already down.")
-            return True
+            return
         result = run_os_command(f"{self.wg_quick_bin} down {self.conf_file}", as_root=True)
         if result.successful:
             info(f"Interface {self.name} stopped.")
         else:
             error(f"Failed to stop interface {self.name}: code={result.code} | err={result.err} | out={result.output}")
-        return result.successful
+            raise WireguardError(result.err)

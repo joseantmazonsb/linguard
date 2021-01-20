@@ -9,6 +9,7 @@ from typing import Union
 from urllib import request
 
 from core.utils import run_os_command, generate_privkey, generate_pubkey
+from core.wireguard.exceptions import WireguardError
 from core.wireguard.interface import Interface
 from core.wireguard.client import Client
 
@@ -147,19 +148,17 @@ class Server(YamlAble):
         iface.on_down.append(f"{self.iptables_bin} -D FORWARD -o {iface.name} -j ACCEPT")
         iface.on_down.append(f"{self.iptables_bin} -t nat -D POSTROUTING -o {iface.gw_iface} -j MASQUERADE")
 
-    def iface_up(self, iface: Union[Interface, str]) -> bool:
+    def iface_up(self, iface: Union[Interface, str]):
         if iface in self.interfaces:
-            return self.interfaces[iface].up()
+            self.interfaces[iface].up()
         if iface in self.interfaces.values():
-            return iface.up()
-        return False
+            iface.up()
 
-    def iface_down(self, iface: Union[Interface, str]) -> bool:
+    def iface_down(self, iface: Union[Interface, str]):
         if iface in self.interfaces:
-            return self.interfaces[iface].down()
+            self.interfaces[iface].down()
         if iface in self.interfaces.values():
-            return iface.down()
-        return False
+            iface.down()
 
     def restart_iface(self, iface: Union[Interface, str]):
         self.iface_down(iface)
@@ -259,7 +258,10 @@ class Server(YamlAble):
             warning("Unable to start VPN server: already started.")
             return
         for iface in self.interfaces.values():
-            iface.up()
+            try:
+                iface.up()
+            except WireguardError as e:
+                pass
         self.started = True
         info("VPN server started.")
 
@@ -269,7 +271,10 @@ class Server(YamlAble):
             warning("Unable to stop VPN server: already stopped.")
             return
         for iface in self.interfaces.values():
-            iface.down()
+            try:
+                iface.down()
+            except WireguardError as e:
+                pass
         self.started = False
         info("VPN server stopped.")
 
