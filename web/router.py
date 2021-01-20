@@ -75,16 +75,16 @@ def wireguard_iface(name: str):
     action = request.json["action"].lower()
     debug(f"User requested to {action} {name}.")
     if action == "start":
-        router.server.iface_up(name)
-        return "200"
+        result = router.server.iface_up(name)
     elif action == "restart":
-        router.server.restart_iface(name)
-        return "200"
+        result = router.server.restart_iface(name)
     elif action == "stop":
-        router.server.iface_down(name)
-        return "200"
+        result = router.server.iface_down(name)
     else:
-        abort(500)
+        result = False
+    if result:
+        return "200"
+    abort(500)
 
 
 @router.route("/themes")

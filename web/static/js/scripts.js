@@ -20,6 +20,28 @@
         $("body").toggleClass("sb-sidenav-toggled");
     });
 
+    function getRndInteger(min=0, max=9999999) {
+      return Math.floor(Math.random() * (max - min + 1) ) + min;
+    }
+
+    function prependWireguardAlert(text) {
+        prependAlert("wgIfacesHeader", text, "danger");
+    }
+
+    function prependAlert(prependTo, text, alertType = "warning", delay=7000) {
+        const id = "alert-"+getRndInteger();
+        const alert = "<div id=\""+id+"\" class=\"alert alert-"+alertType + " alert-dismissible fade show\" role=\"alert\">\n" +
+            text +
+            "     <button type=\"button\" class=\"close\" data-dismiss=\"alert\" aria-label=\"Close\">\n" +
+            "         <span aria-hidden=\"true\">&times;</span>\n" +
+            "    </button>\n" +
+            "</div>"
+        $("#"+prependTo).prepend(alert);
+        $("#"+id).delay(delay).fadeTo(500, 0).slideUp(500, function(){
+            $(this).remove();
+        });
+    }
+
     const startOrStopIfaceBtn = $(".startOrStopIfaceBtn");
     startOrStopIfaceBtn.click(function(e) {
         const button = e.target;
@@ -45,6 +67,9 @@
             },
             success: function () {
                 location.reload();
+            },
+            error: function() {
+                prependWireguardAlert("Unable to perform operation. Try again later.");
             }
         });
     }
