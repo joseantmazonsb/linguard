@@ -128,6 +128,6 @@ def get_wg_interfaces_summary(wg_bin: str, interfaces: List[Interface]) -> Dict[
             "ipv4": iface.ipv4_address,
             "port": iface.listen_port,
             "status": status,
-            "clients": len(iface.peers)
+            "peers": iface.peers,
         }
     return dct

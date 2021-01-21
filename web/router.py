@@ -47,7 +47,8 @@ def signup():
 
 @router.route("/network")
 def network():
-    interfaces = get_all_interfaces(wg_bin=router.server.wg_bin, wg_interfaces=router.server.interfaces.values())
+    wg_ifaces = list(router.server.interfaces.values())
+    interfaces = get_all_interfaces(wg_bin=router.server.wg_bin, wg_interfaces=wg_ifaces)
     routes = get_routing_table()
     context = {
         "title": "Network",
@@ -61,7 +62,8 @@ def network():
 
 @router.route("/wireguard")
 def wireguard():
-    interfaces = get_wg_interfaces_summary(wg_bin=router.server.wg_bin, interfaces=router.server.interfaces.values())
+    wg_ifaces = list(router.server.interfaces.values())
+    interfaces = get_wg_interfaces_summary(wg_bin=router.server.wg_bin, interfaces=wg_ifaces)
     context = {
         "title": "Wireguard",
         "interfaces": interfaces,
@@ -71,8 +73,21 @@ def wireguard():
     return Controller("web/wireguard.html", **context).load()
 
 
+@router.route("/wireguard/interfaces/<name>",  methods=['GET'])
+def get_wireguard_iface(name: str):
+    iface = router.server.interfaces[name]
+    context = {
+        "title": "Edit interface",
+        "iface": iface,
+        "len": len,
+        "last_update": datetime.now().strftime("%H:%M"),
+        "EMPTY_FIELD": EMPTY_FIELD
+    }
+    return Controller("web/wireguard-iface.html", **context).load()
+
+
 @router.route("/wireguard/interfaces/<name>",  methods=['POST'])
-def wireguard_iface(name: str):
+def operate_wireguard_iface(name: str):
     action = request.json["action"].lower()
     debug(f"User requested to {action} {name}.")
     if action == "start":

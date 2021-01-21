@@ -1,0 +1,137 @@
+{% extends "web/web-main.html" %}
+
+{% block content %}
+    <main>
+        <div class="container-fluid">
+            <div class="my-4">
+                <input readonly style="display: inline; width: {{ len(iface.name) }}ch;"
+                       class="h1 border-0" id="ifaceName" value="{{ iface.name }}">
+                <i class="fas fa-pen mb-1"></i>
+                <a href="/wireguard" style="display: inline" class="float-right mt-3">
+                    <i class="fas fa-arrow-left mr-2"></i>Back
+                </a>
+            </div>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-cog"></i>
+                    Configuration
+                </div>
+                <div class="card-body">
+                    <div id="wgIfaceConfig">
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                              <label for="ipv4-{{ iface.name }}">Description</label>
+                              <textarea type="text" class="form-control"
+                                        id="description-{{ iface.name }}"
+                                        placeholder="Some details..."></textarea>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                              <label for="gw-{{ iface.name }}">Gateway interface</label>
+                              <input type="text" class="form-control" id="gw-{{ iface.name }}" value="{{ iface.gw_iface }}">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                              <label for="ipv4-{{ iface.name }}">IPv4</label>
+                              <input type="text" class="form-control" id="description-{{ iface.name }}" value="{{ iface.ipv4_address }}">
+                            </div>
+                            <div class="form-group col-md-4">
+                              <label for="port-{{ iface.name }}">Listen port</label>
+                              <input type="text" class="form-control" id="port-{{ iface.name }}" value="{{ iface.listen_port }}">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                              <label for="onup-{{ iface.name }}">On up</label>
+                              <textarea type="text"
+                                        class="form-control"
+                                        id="onup-{{ iface.name }}"
+                              >{% for cmd in iface.on_up %}{{ cmd }}&#13;&#10;{% endfor %}
+                              </textarea>
+                            </div>
+                            <div class="form-group col-md-4">
+                              <label for="ondown-{{ iface.name }}">On down</label>
+                              <textarea type="text"
+                                        class="form-control"
+                                        id="ondown-{{ iface.name }}"
+                              >{% for cmd in iface.on_down %}{{ cmd }}&#13;&#10;{% endfor %}
+                              </textarea>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-warning">Save</button>
+                            <button class="btn btn-warning">Apply</button>
+                            <button class="btn btn-outline-dark float-right">Reset</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                  <small class="text-muted">Information provided at {{ last_update }}.</small>
+                </div>
+            </div>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-user-friends"></i>
+                    Peers
+                </div>
+                <div class="card-body">
+                    <div id="wgIfacePeers">
+                        <div class="row row-cols-2 row-cols-md-3">
+                            {% for peer in iface.peers %}
+                                <div class="col mb-4">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h5 class="card-title mb-3">{{ peer.name }}</h5>
+                                            <div class="table-responsive">
+                                                <table class="table table-bordered">
+                                                    <tbody>
+                                                        <tr>
+                                                            <th>Description</th>
+                                                            {% if peer.description %}
+                                                                <td>{{ peer.description }}</td>
+                                                            {% else %}
+                                                                <td>{{ EMPTY_FIELD | safe }}</td>
+                                                            {% endif %}
+                                                        </tr>
+                                                        <tr>
+                                                            <th>IPv4</th>
+                                                            {% if peer.ipv4_address %}
+                                                                <td>{{ peer.ipv4_address }}</td>
+                                                            {% else %}
+                                                                <td>{{ EMPTY_FIELD | safe }}</td>
+                                                            {% endif %}
+                                                        </tr>
+                                                        <tr>
+                                                            <th>Primary DNS</th>
+                                                            <td>{{ peer.dns1 }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <th>Secondary DNS</th>
+                                                            {% if peer.dns2 %}
+                                                                <td>{{ peer.dns2 }}</td>
+                                                            {% else %}
+                                                                <td>{{ EMPTY_FIELD | safe }}</td>
+                                                            {% endif %}
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                        <div class="card-footer">
+                                            <small><a href="wireguard/peers/{{ peer.name }}">Edit</a></small>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                  <small class="text-muted">Information provided at {{ last_update }}.</small>
+                </div>
+            </div>
+        </div>
+    </main>
+{% endblock %}

@@ -3,7 +3,7 @@
 {% block content %}
     <main>
         <div class="container-fluid">
-            <h1 class="mt-4">{{ title }}</h1>
+            <h1 class="my-4">{{ title }}</h1>
             <div class="card mb-4">
                 <div class="card-header">
                     <i class="fas fa-ethernet mr-1"></i>
@@ -28,7 +28,7 @@
                                                         {% else %}
                                                             {% set status_color = "bg-warning" %}
                                                         {% endif %}
-                                                        <td class="{{ status_color }}"> {{ iface.status }}</td>
+                                                        <td class="{{ status_color }} text-white"> {{ iface.status }}</td>
                                                     </tr>
                                                     <tr>
                                                         <th>IPv4</th>

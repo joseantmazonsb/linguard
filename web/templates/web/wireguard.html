@@ -28,7 +28,7 @@
                                                         {% else %}
                                                             {% set status_color = "bg-warning" %}
                                                         {% endif %}
-                                                        <td id="statusIface-{{ iface.name }}" class="{{ status_color }}"> {{ iface.status }}</td>
+                                                        <td id="statusIface-{{ iface.name }}" class="{{ status_color }} text-white"> {{ iface.status }}</td>
                                                     </tr>
                                                     <tr>
                                                         <th>Description</th>
@@ -55,8 +55,8 @@
                                                         {% endif %}
                                                     </tr>
                                                     <tr>
-                                                        <th>Clients</th>
-                                                        <td>{{ iface.clients }}</td>
+                                                        <th>Peers</th>
+                                                        <td>{{ iface.peers | length }}</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -80,6 +80,59 @@
                 </div>
                 <div class="card-footer">
                   <small class="text-muted">Information provided by <code>wg</code> at {{ last_update }}.</small>
+                </div>
+            </div>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-user-friends"></i>
+                    Peers
+                </div>
+                <div class="card-body">
+                    <div id="wgIfacePeers">
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="dataTable">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Interface</th>
+                                        <th>Description</th>
+                                        <th>IPv4</th>
+                                        <th>Primary DNS</th>
+                                        <th>Secondary DNS</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for iface in interfaces.values() %}
+                                    {% for peer in iface.peers %}
+                                        <tr>
+                                            <td><a href="/wireguard/peers/{{ peer.name }}">{{ peer.name }}</a></td>
+                                            <td>{{ iface.name }}</td>
+                                            {% if peer.description %}
+                                                <td>{{ peer.description }}</td>
+                                            {% else %}
+                                                <td>{{ EMPTY_FIELD | safe }}</td>
+                                            {% endif %}
+                                            {% if peer.ipv4_address %}
+                                                <td>{{ peer.ipv4_address }}</td>
+                                            {% else %}
+                                                <td>{{ EMPTY_FIELD | safe }}</td>
+                                            {% endif %}
+                                            <td>{{ peer.dns1}}</td>
+                                            {% if peer.dns2 %}
+                                            <td>{{ peer.dns2 }}</td>
+                                            {% else %}
+                                                <td>{{ EMPTY_FIELD | safe }}</td>
+                                            {% endif %}
+                                        </tr>
+                                    {% endfor %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                  <small class="text-muted">Information provided at {{ last_update }}.</small>
                 </div>
             </div>
         </div>
