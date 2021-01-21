@@ -1,6 +1,12 @@
 export {
-    postJSON
+    postJSON, AlertType, prependAlert
 }
+
+const AlertType = Object.freeze({
+    "DANGER": "danger",
+    "WARN": "warning",
+    "INFO": "info"}
+);
 
 /**
  * Perform a POST request to a given url and display an alert if the server returns a non-successful HTTP code.
@@ -11,7 +17,7 @@ export {
  * @param loadFeedback Id of the HTML element to be used as visual feedback (a loading circle or bar, for example).
  * @param jsonData [Optional] JSON data to post.
  */
-function postJSON(url, alertContainer, alertType = "warning", loadFeedback, jsonData = null) {
+function postJSON(url, alertContainer, alertType = AlertType.DANGER, loadFeedback, jsonData = null) {
     const loadItem = $("#"+loadFeedback);
     $.ajax({
         type: "post",
@@ -35,14 +41,17 @@ function postJSON(url, alertContainer, alertType = "warning", loadFeedback, json
     });
 }
 
+let previousAlert;
+
 /**
  * Prepend a bootstrap alert to a given HTML object.
  * @param prependTo Id of the HTML object to prepend the alert.
  * @param text Text of the alert.
  * @param alertType Type of the alert: danger, warning, info...
  * @param delay Amount of time (millis) before automatically closing the alert. Use 0 to avoid auto close.
+ * @param unique
  */
-function prependAlert(prependTo, text, alertType = "warning", delay=7000) {
+function prependAlert(prependTo, text, alertType = AlertType.DANGER, delay=7000, unique = false) {
     const salt = getRndInteger();
     const alertId = "alert-"+salt;
     const closeId = "close-"+salt;
@@ -53,6 +62,10 @@ function prependAlert(prependTo, text, alertType = "warning", delay=7000) {
         "    </button>\n" +
         "</div>"
     const container = $("#"+prependTo);
+    if (unique && previousAlert !== undefined) {
+        fadeHTMLElement(previousAlert, 0, 200);
+    }
+    previousAlert = alertId;
     $(alert).prependTo(container).hide().slideDown();
     $("#"+closeId).click(function (e) {
         fadeHTMLElement(alertId, 0, 200);

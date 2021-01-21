@@ -86,6 +86,22 @@ def get_wireguard_iface(name: str):
     return Controller("web/wireguard-iface.html", **context).load()
 
 
+@router.route("/wireguard/interfaces/<name>/save",  methods=['POST'])
+def save_wireguard_iface(name: str):
+    data = request.json["data"]
+    iface = router.server.interfaces[name]
+    iface.name = data["name"]
+    iface.description = data["description"]
+    iface.ipv4_address = data["ipv4"]
+    iface.listen_port = data["port"]
+    iface.gw_iface = data["gw"]
+    iface.on_up = data["on_up"]
+    iface.on_down = data["on_down"]
+    del router.server.interfaces[name]
+    router.server.interfaces[iface.name] = iface
+    return "200"
+
+
 @router.route("/wireguard/interfaces/<name>",  methods=['POST'])
 def operate_wireguard_iface(name: str):
     action = request.json["action"].lower()
