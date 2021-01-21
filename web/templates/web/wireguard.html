@@ -3,14 +3,14 @@
 {% block content %}
     <main>
         <div class="container-fluid">
-            <h1 class="mt-4">{{ title }}</h1>
+            <h1 class="my-4">{{ title }}</h1>
             <div class="card mb-4">
                 <div class="card-header">
                     <i class="fas fa-ethernet mr-1"></i>
                     Interfaces
                 </div>
                 <div id="wgIfacesHeader" class="card-body">
-                    <div class="row row-cols-2 row-cols-md-3">
+                    <div class="row row-cols-1 row-cols-lg-2 row-cols-xl-3">
                         {% for iface in interfaces.values() %}
                             <div class="col mb-4">
                                 <div class="card">
@@ -106,7 +106,7 @@
                                     {% for peer in iface.peers %}
                                         <tr>
                                             <td><a href="/wireguard/peers/{{ peer.name }}">{{ peer.name }}</a></td>
-                                            <td>{{ iface.name }}</td>
+                                            <td><a href="/wireguard/interfaces/{{ iface.name }}">{{ iface.name }}</a></td>
                                             {% if peer.description %}
                                                 <td>{{ peer.description }}</td>
                                             {% else %}

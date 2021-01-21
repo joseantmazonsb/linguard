@@ -4,9 +4,9 @@
     <main>
         <div class="container-fluid">
             <div class="my-4">
-                <input readonly style="display: inline; width: {{ len(iface.name) }}ch;"
-                       class="h1 border-0" id="ifaceName" value="{{ iface.name }}">
-                <i class="fas fa-pen mb-1"></i>
+                <i class="fas fa-pen mb-1 mr-2"></i>
+                <input readonly style="display: inline;"
+                       class="h1 border-0 col-8 col-lg-5 col-xl-3" id="ifaceName" value="{{ iface.name }}">
                 <a href="/wireguard" style="display: inline" class="float-right mt-3">
                     <i class="fas fa-arrow-left mr-2"></i>Back
                 </a>
@@ -78,7 +78,7 @@
                 </div>
                 <div class="card-body">
                     <div id="wgIfacePeers">
-                        <div class="row row-cols-2 row-cols-md-3">
+                        <div class="row row-cols-1 row-cols-lg-2 row-cols-xl-3">
                             {% for peer in iface.peers %}
                                 <div class="col mb-4">
                                     <div class="card">

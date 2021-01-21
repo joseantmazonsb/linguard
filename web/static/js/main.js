@@ -54,8 +54,9 @@ import {postJSON} from "./modules/utils.mjs";
 
     const ifaceNameInput = $("#ifaceName");
     ifaceNameInput.click(function (e) {
-        console.log(ifaceNameInput.css("border"));
-        const noBorder = "border-0"
+        if (ifaceNameInput.attr("clicked") === "yes") return;
+        ifaceNameInput.attr("clicked", "yes");
+        const noBorder = "border-0";
         if (ifaceNameInput.hasClass(noBorder)) {
             ifaceNameInput.attr("readonly", false);
             ifaceNameInput.removeClass(noBorder);
@@ -66,7 +67,7 @@ import {postJSON} from "./modules/utils.mjs";
         }
     });
     ifaceNameInput.focusout(function (e) {
-        ifaceNameInput.css("width", ifaceNameInput.val().length+"ch");
+        ifaceNameInput.attr("clicked", "no");
         const noBorder = "border-0"
         ifaceNameInput.addClass(noBorder);
         ifaceNameInput.attr("readonly", true);
