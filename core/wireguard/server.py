@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from logging import fatal, info, debug, error, warning
 from random import randint
-from typing import Union
+from typing import Union, Dict
 from urllib import request
 
 from core.utils import run_os_command, generate_privkey, generate_pubkey
@@ -27,6 +27,8 @@ yaml.emitter.Emitter.process_tag = lambda self, *args, **kw: None
 
 @yaml_info(yaml_tag_ns='')
 class Server(YamlAble):
+    interfaces: Dict[str, Interface]
+    clients: Dict[str, Client]
 
     def __init__(self, config_dir: str, wg_bin: str = None, wg_quick_bin: str = None, iptables_bin: str = None,
                  gw_iface: str = None, endpoint: str = None):
