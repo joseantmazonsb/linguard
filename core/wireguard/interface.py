@@ -9,6 +9,8 @@ from core.wireguard.exceptions import WireguardError
 @yaml_info(yaml_tag_ns='')
 class Interface(YamlAble):
 
+    REGEX_NAME = "^[a-zA-Z0-9_\-]+$"
+
     def __init__(self, name: str, conf_file: str, description: str, gw_iface: str, ipv4_address,
                  listen_port: int, private_key: str, public_key: str, wg_quick_bin: str):
         self.name = name
@@ -76,7 +78,7 @@ class Interface(YamlAble):
             warning(f"Unable to bring {self.name} up: already up.")
             return
         self.save_configuration()
-        result = run_os_command(f"{self.wg_quick_bin} up {self.conf_file}", as_root=True)
+        result = run_os_command(f"sudo {self.wg_quick_bin} up {self.conf_file}")
         if result.successful:
             info(f"Interface {self.name} started.")
         else:
@@ -89,7 +91,7 @@ class Interface(YamlAble):
         if is_down:
             warning(f"Unable to bring {self.name} down: already down.")
             return
-        result = run_os_command(f"{self.wg_quick_bin} down {self.conf_file}", as_root=True)
+        result = run_os_command(f"sudo {self.wg_quick_bin} down {self.conf_file}")
         if result.successful:
             info(f"Interface {self.name} stopped.")
         else:

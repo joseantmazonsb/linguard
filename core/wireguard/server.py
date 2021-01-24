@@ -1,3 +1,5 @@
+import re
+from collections import OrderedDict
 from time import sleep
 import yaml
 from yamlable import yaml_info, YamlAble
@@ -5,7 +7,7 @@ import os
 from datetime import datetime
 from logging import fatal, info, debug, error, warning
 from random import randint
-from typing import Union, Dict
+from typing import Union, Dict, List
 from urllib import request
 
 from core.utils import run_os_command, generate_privkey, generate_pubkey
@@ -20,6 +22,7 @@ MAX_PORT_NUMBER = 65535
 CONFIG_FILE_NAME = "config.yaml"
 BACKUPS_FOLDER_NAME = "backups"
 INTERFACES_FOLDER_NAME = "interfaces"
+IP_RETRIEVER_URL = "https://api.ipify.org"
 
 # Show no tags when serializing
 yaml.emitter.Emitter.process_tag = lambda self, *args, **kw: None
@@ -36,8 +39,8 @@ class Server(YamlAble):
         try:
             abs_conf_dir = os.path.abspath(config_dir)
             self.conf_file = os.path.join(abs_conf_dir, CONFIG_FILE_NAME)
-            self.interfaces = {}
-            self.clients = {}
+            self.interfaces = OrderedDict()
+            self.clients = OrderedDict()
             self.dirty = False
             self.started = False
             self.gw_iface = gw_iface
@@ -62,12 +65,12 @@ class Server(YamlAble):
             if self.endpoint is None:
                 try:
                     warning("No endpoint specified. Retrieving public IP address...")
-                    self.endpoint = request.urlopen("https://api.ipify.org").read().decode("utf-8")
+                    self.endpoint = request.urlopen(IP_RETRIEVER_URL).read().decode("utf-8")
                     debug(f"Public IP is {self.endpoint}. This will be used as default endpoint.")
                 except Exception as e:
                     warning("Unable to obtain server's public IP address. Using private IP instead...")
                     debug(f"Public IP could not be obtained because of: {e}")
-                    ip = run_os_command(f"ip a show {self.gw_iface} | grep inet | head -n1 | xargs | cut -d ' ' -f2")\
+                    ip = run_os_command(f"ip a show {self.gw_iface} | grep inet | head -n1 | xargs | cut -d ' ' -f2") \
                         .output
                     self.endpoint = ip.split("/")[0]
             info(f"Server endpoint set to {self.endpoint}.")
@@ -127,6 +130,7 @@ class Server(YamlAble):
                           port, privkey, pubkey, self.wg_quick_bin)
         self.interfaces[name] = iface
         self.__set_iface_rules__(iface)
+        self.interfaces = OrderedDict(sorted(self.interfaces.items()))
 
     def remove_interface(self, iface: Union[Interface, str]):
         iface_to_remove = iface
@@ -140,6 +144,24 @@ class Server(YamlAble):
         for peer in iface_to_remove.peers:
             self.remove_client(peer)
         del self.interfaces[iface_to_remove.name]
+        self.interfaces = OrderedDict(sorted(self.interfaces.items()))
+
+    def edit_interface(self, old_name: str, name: str, description: str, ipv4_address: str,
+                       port: int, on_up: List[str], on_down: List[str]):
+        iface = self.interfaces[old_name]
+        if re.match(Interface.REGEX_NAME, name):
+            iface.name = name
+        else:
+            raise WireguardError("Interfaces' names can only contain alphanumeric characters, "
+                                 "underscores (_) and hyphens (-).")
+        iface.description = description
+        iface.ipv4_address = ipv4_address
+        iface.listen_port = port
+        iface.on_up = on_up
+        iface.on_down = on_down
+        del self.interfaces[old_name]
+        self.interfaces[name] = iface
+        self.interfaces = OrderedDict(sorted(self.interfaces.items()))
 
     def __set_iface_rules__(self, iface: Interface):
         iface.on_up.append(f"{self.iptables_bin} -I FORWARD -i {iface.name} -j ACCEPT")

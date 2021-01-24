@@ -16,11 +16,11 @@ def write_lines(content: str, path: str):
 
 
 def generate_privkey(wg_bin: str):
-    return run_os_command(f"{wg_bin} genkey", as_root=True).output
+    return run_os_command(f"sudo {wg_bin} genkey").output
 
 
 def generate_pubkey(wg_bin: str, privkey: str):
-    return run_os_command(f"echo {privkey} | {wg_bin} pubkey", as_root=True).output
+    return run_os_command(f"echo {privkey} | sudo {wg_bin} pubkey").output
 
 
 #####################
@@ -37,20 +37,15 @@ class CommandResult:
         self.successful = (code < 1)
 
 
-def run_os_command(command: str, as_root: bool = False) -> CommandResult:
+def run_os_command(command: str) -> CommandResult:
     """
     Execute a command on the operating system.
     Returns an object containing the output
     [Data Types] object
     Args:
         :param command:
-        :param as_root:
     """
-    if as_root:
-        cmd = f"sudo {command}"
-    else:
-        cmd = command
-    proc = run(cmd, shell=True, check=False, stdout=PIPE, stderr=PIPE)
+    proc = run(command, shell=True, check=False, stdout=PIPE, stderr=PIPE)
     result = CommandResult(proc.returncode, proc.stdout.decode('utf-8').strip(), proc.stderr.decode('utf-8').strip())
     return result
 
