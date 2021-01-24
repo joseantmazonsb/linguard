@@ -56,7 +56,7 @@ def get_all_interfaces(wg_bin: str, wg_interfaces: List[Interface]) -> Dict[str,
             }
         else:
             if interfaces[iface.name]["status"] == "unknown":
-                wg_iface_up = run_os_command(f"{wg_bin} show {iface.name}", as_root=True).successful
+                wg_iface_up = run_os_command(f"sudo {wg_bin} show {iface.name}").successful
                 if wg_iface_up:
                     interfaces[iface.name]["status"] = "up"
                 else:
@@ -118,7 +118,7 @@ def get_routing_table() -> List[Dict[str, Any]]:
 def get_wg_interfaces_summary(wg_bin: str, interfaces: List[Interface]) -> Dict[str, Dict[str, Any]]:
     dct = {}
     for iface in interfaces:
-        if run_os_command(f"{wg_bin} show {iface.name}", as_root=True).successful:
+        if run_os_command(f"sudo {wg_bin} show {iface.name}").successful:
             status = "up"
         else:
             status = "down"

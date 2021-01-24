@@ -89,17 +89,20 @@ def get_wireguard_iface(name: str):
 @router.route("/wireguard/interfaces/<name>/save",  methods=['POST'])
 def save_wireguard_iface(name: str):
     data = request.json["data"]
-    iface = router.server.interfaces[name]
-    iface.name = data["name"]
-    iface.description = data["description"]
-    iface.ipv4_address = data["ipv4"]
-    iface.listen_port = data["port"]
-    iface.gw_iface = data["gw"]
-    iface.on_up = data["on_up"]
-    iface.on_down = data["on_down"]
-    del router.server.interfaces[name]
-    router.server.interfaces[iface.name] = iface
-    return "200"
+    on_up_chunks = data["on_up"].strip().split("\n")
+    on_up = []
+    for cmd in on_up_chunks:
+        on_up.append(cmd)
+    on_down_chunks = data["on_down"].strip().split("\n")
+    on_down = []
+    for cmd in on_down_chunks:
+        on_down.append(cmd)
+    try:
+        router.server.edit_interface(name, data["name"], data["description"], data["ipv4"],
+                                     data["port"], on_up, on_down)
+        return "200"
+    except WireguardError as e:
+        return Response(str(e), status=400)
 
 
 @router.route("/wireguard/interfaces/<name>",  methods=['POST'])
