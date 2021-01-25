@@ -17,8 +17,6 @@ from core.wireguard.client import Client
 
 from web.static.assets.resources import APP_NAME
 
-MIN_PORT_NUMBER = 50000
-MAX_PORT_NUMBER = 65535
 CONFIG_FILE_NAME = "config.yaml"
 BACKUPS_FOLDER_NAME = "backups"
 INTERFACES_FOLDER_NAME = "interfaces"
@@ -120,9 +118,9 @@ class Server(YamlAble):
         return False
 
     def add_interface(self, name: str, ipv4_address: str, description: str = ""):
-        port = randint(MIN_PORT_NUMBER, MAX_PORT_NUMBER)
+        port = randint(Interface.MIN_PORT_NUMBER, Interface.MAX_PORT_NUMBER)
         while self.is_port_in_use(port):
-            port = randint(MIN_PORT_NUMBER, MAX_PORT_NUMBER)
+            port = randint(Interface.MIN_PORT_NUMBER, Interface.MAX_PORT_NUMBER)
         privkey = generate_privkey(self.wg_bin)
         pubkey = generate_pubkey(self.wg_bin, privkey)
         conf_file = os.path.join(self.interfaces_folder, name) + ".conf"
@@ -147,13 +145,9 @@ class Server(YamlAble):
         self.interfaces = OrderedDict(sorted(self.interfaces.items()))
 
     def edit_interface(self, old_name: str, name: str, description: str, ipv4_address: str,
-                       port: int, on_up: List[str], on_down: List[str]):
+                       port: int, gw_iface: str, on_up: List[str], on_down: List[str]):
         iface = self.interfaces[old_name]
-        if re.match(Interface.REGEX_NAME, name):
-            iface.name = name
-        else:
-            raise WireguardError("Interfaces' names can only contain alphanumeric characters, "
-                                 "underscores (_) and hyphens (-).")
+        iface.gw_iface = gw_iface
         iface.description = description
         iface.ipv4_address = ipv4_address
         iface.listen_port = port

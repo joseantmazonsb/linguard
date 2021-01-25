@@ -9,7 +9,11 @@ from core.wireguard.exceptions import WireguardError
 @yaml_info(yaml_tag_ns='')
 class Interface(YamlAble):
 
+    MIN_PORT_NUMBER = 50000
+    MAX_PORT_NUMBER = 65535
+
     REGEX_NAME = "^[a-zA-Z0-9_\-]+$"
+    REGEX_IPV4 = "^([1-9]|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5])(\.(\d|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5])){3}\/(3[0-2]|[1-2]\d|\d)$"
 
     def __init__(self, name: str, conf_file: str, description: str, gw_iface: str, ipv4_address,
                  listen_port: int, private_key: str, public_key: str, wg_quick_bin: str):
