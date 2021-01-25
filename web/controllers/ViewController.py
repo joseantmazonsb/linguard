@@ -3,7 +3,7 @@ from typing import Any
 from web.utils import render_template
 
 
-class Controller:
+class ViewController:
 
     def __init__(self, template: str, **context: Any):
         self.template = template

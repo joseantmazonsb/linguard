@@ -1,12 +1,12 @@
 from datetime import datetime
-from logging import debug
 
 from flask import Blueprint, abort, request, Response
 
 from core.wireguard.exceptions import WireguardError
+from web.controllers.ViewController import ViewController
+from web.controllers.WireguardSaveIfaceController import WireguardSaveIfaceController
 from web.utils import get_all_interfaces, get_routing_table, get_wg_interfaces_summary
 from core.wireguard.server import Server
-from web.controller import Controller
 from web.static.assets.resources import EMPTY_FIELD
 
 
@@ -26,7 +26,7 @@ def index():
     context = {
         "title": "Dashboard"
     }
-    return Controller("web/index.html", **context).load()
+    return ViewController("web/index.html", **context).load()
 
 
 @router.route("/login")
@@ -34,7 +34,7 @@ def login():
     context = {
         "title": "Login"
     }
-    return Controller("web/login.html", **context).load()
+    return ViewController("web/login.html", **context).load()
 
 
 @router.route("/signup")
@@ -42,7 +42,7 @@ def signup():
     context = {
         "title": "Sign up"
     }
-    return Controller("web/signup.html", **context).load()
+    return ViewController("web/signup.html", **context).load()
 
 
 @router.route("/network")
@@ -57,7 +57,7 @@ def network():
         "last_update": datetime.now().strftime("%H:%M"),
         "EMPTY_FIELD": EMPTY_FIELD
     }
-    return Controller("web/network.html", **context).load()
+    return ViewController("web/network.html", **context).load()
 
 
 @router.route("/wireguard")
@@ -70,7 +70,7 @@ def wireguard():
         "last_update": datetime.now().strftime("%H:%M"),
         "EMPTY_FIELD": EMPTY_FIELD
     }
-    return Controller("web/wireguard.html", **context).load()
+    return ViewController("web/wireguard.html", **context).load()
 
 
 @router.route("/wireguard/interfaces/<name>",  methods=['GET'])
@@ -83,32 +83,23 @@ def get_wireguard_iface(name: str):
         "last_update": datetime.now().strftime("%H:%M"),
         "EMPTY_FIELD": EMPTY_FIELD
     }
-    return Controller("web/wireguard-iface.html", **context).load()
+    return ViewController("web/wireguard-iface.html", **context).load()
 
 
 @router.route("/wireguard/interfaces/<name>/save",  methods=['POST'])
 def save_wireguard_iface(name: str):
-    data = request.json["data"]
-    on_up_chunks = data["on_up"].strip().split("\n")
-    on_up = []
-    for cmd in on_up_chunks:
-        on_up.append(cmd)
-    on_down_chunks = data["on_down"].strip().split("\n")
-    on_down = []
-    for cmd in on_down_chunks:
-        on_down.append(cmd)
     try:
-        router.server.edit_interface(name, data["name"], data["description"], data["ipv4"],
-                                     data["port"], on_up, on_down)
-        return "200"
+        data = request.json["data"]
+        return WireguardSaveIfaceController(router.server, data, name).serve()
     except WireguardError as e:
         return Response(str(e), status=400)
+    except Exception as e:
+        return Response(str(e), status=500)
 
 
 @router.route("/wireguard/interfaces/<name>",  methods=['POST'])
 def operate_wireguard_iface(name: str):
     action = request.json["action"].lower()
-    debug(f"User requested to {action} {name}.")
     if action == "start":
         try:
             router.server.iface_up(name)
@@ -136,7 +127,7 @@ def themes():
     context = {
         "title": "Themes"
     }
-    return Controller("web/themes.html", **context).load()
+    return ViewController("web/themes.html", **context).load()
 
 
 @router.route("/error")
@@ -152,7 +143,7 @@ def bad_request(err):
         "error_code": error_code,
         "error_msg": str(err).split(":", 1)[1]
     }
-    return Controller("error/error-main.html", **context).load(), error_code
+    return ViewController("error/error-main.html", **context).load(), error_code
 
 
 @router.app_errorhandler(401)
@@ -163,7 +154,7 @@ def not_found(err):
         "error_code": error_code,
         "error_msg": str(err).split(":", 1)[1]
     }
-    return Controller("error/error-main.html", **context).load(), error_code
+    return ViewController("error/error-main.html", **context).load(), error_code
 
 
 @router.app_errorhandler(404)
@@ -175,7 +166,7 @@ def not_found(err):
         "error_msg": str(err).split(":", 1)[1],
         "image": "/static/assets/img/error-404-monochrome.svg"
     }
-    return Controller("error/error-img.html", **context).load(), error_code
+    return ViewController("error/error-img.html", **context).load(), error_code
 
 
 @router.app_errorhandler(500)
@@ -186,4 +177,4 @@ def not_found(err):
         "error_code": error_code,
         "error_msg": str(err).split(":", 1)[1]
     }
-    return Controller("error/error-main.html", **context).load(), error_code
+    return ViewController("error/error-main.html", **context).load(), error_code
