@@ -3,8 +3,8 @@ from datetime import datetime
 from flask import Blueprint, abort, request, Response
 
 from core.wireguard.exceptions import WireguardError
+from web.controllers.RestController import RestController
 from web.controllers.ViewController import ViewController
-from web.controllers.WireguardSaveIfaceController import WireguardSaveIfaceController
 from web.utils import get_all_interfaces, get_routing_table, get_wg_interfaces_summary
 from core.wireguard.server import Server
 from web.static.assets.resources import EMPTY_FIELD
@@ -61,6 +61,7 @@ def network():
 
 
 @router.route("/wireguard")
+@router.route("/wireguard/")
 def wireguard():
     wg_ifaces = list(router.server.interfaces.values())
     interfaces = get_wg_interfaces_summary(wg_bin=router.server.wg_bin, interfaces=wg_ifaces)
@@ -73,13 +74,33 @@ def wireguard():
     return ViewController("web/wireguard.html", **context).load()
 
 
+@router.route("/wireguard/interfaces/add",  methods=['GET'])
+def create_wireguard_iface():
+    name = None
+    iface_param = request.args.get("iface")
+    if iface_param:
+        name = iface_param
+    iface = router.server.create_interface(name)
+    context = {
+        "title": "Add interface",
+        "iface": iface,
+        "EMPTY_FIELD": EMPTY_FIELD
+    }
+    return ViewController("web/wireguard-add-iface.html", **context).load()
+
+
+@router.route("/wireguard/interfaces/add",  methods=['POST'])
+def add_wireguard_iface():
+    data = request.json["data"]
+    return RestController(router.server, data["name"]).add_iface(data)
+
+
 @router.route("/wireguard/interfaces/<name>",  methods=['GET'])
 def get_wireguard_iface(name: str):
     iface = router.server.interfaces[name]
     context = {
         "title": "Edit interface",
         "iface": iface,
-        "len": len,
         "last_update": datetime.now().strftime("%H:%M"),
         "EMPTY_FIELD": EMPTY_FIELD
     }
@@ -88,13 +109,19 @@ def get_wireguard_iface(name: str):
 
 @router.route("/wireguard/interfaces/<name>/save",  methods=['POST'])
 def save_wireguard_iface(name: str):
-    try:
-        data = request.json["data"]
-        return WireguardSaveIfaceController(router.server, data, name).serve()
-    except WireguardError as e:
-        return Response(str(e), status=400)
-    except Exception as e:
-        return Response(str(e), status=500)
+    data = request.json["data"]
+    return RestController(router.server, name).save_iface(data)
+
+
+@router.route("/wireguard/interfaces/<name>/apply",  methods=['POST'])
+def apply_wireguard_iface(name: str):
+    data = request.json["data"]
+    return RestController(router.server, name).apply_iface(data)
+
+
+@router.route("/wireguard/interfaces/<name>/regenerate-keys",  methods=['POST'])
+def regenerate_iface_keys(name: str):
+    return RestController(router.server, name).regenerate_iface_keys()
 
 
 @router.route("/wireguard/interfaces/<name>",  methods=['POST'])
@@ -105,19 +132,19 @@ def operate_wireguard_iface(name: str):
             router.server.iface_up(name)
             return Response(status=204)
         except WireguardError as e:
-            return Response(str(e), status=500)
+            return Response(str(e), status=e.http_code)
     elif action == "restart":
         try:
             router.server.restart_iface(name)
             return Response(status=204)
         except WireguardError as e:
-            return Response(str(e), status=500)
+            return Response(str(e), status=e.http_code)
     elif action == "stop":
         try:
             router.server.iface_down(name)
             return Response(status=204)
         except WireguardError as e:
-            return Response(str(e), status=500)
+            return Response(str(e), status=e.http_code)
     else:
         return Response(f"Invalid action request: '{action}'", status=400)
 

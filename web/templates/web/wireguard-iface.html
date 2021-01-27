@@ -62,10 +62,13 @@
                             </div>
                         </div>
                         <div class="mt-3">
+                            <button id="regenerateKeysBtn" class="btn btn-outline-primary">Regenerate keys</button>
+                        </div>
+                        <div class="mt-3">
                             <button id="saveBtn" class="btn btn-warning">Save</button>
                             <button id="applyBtn" class="btn btn-warning">Apply</button>
                             <i id="wgLoading" class="mt-2 ml-4 fas fa-circle-notch fa-spin" style="display: none"></i>
-                            <button id="resetBtn" class="btn btn-outline-dark float-right">Reset</button>
+                            <button id="resetBtn" class="btn btn-danger float-right">Reset</button>
                         </div>
                     </div>
                 </div>
@@ -77,6 +80,7 @@
                 <div class="card-header">
                     <i class="fas fa-user-friends"></i>
                     Peers
+                    <a href="/wireguard/peers/add?iface={{ iface.name }}" class="float-right"><i class="fas fa-plus mr-1"></i></a>
                 </div>
                 <div class="card-body">
                     <div id="wgIfacePeers">

@@ -5,8 +5,9 @@ export {
 const AlertType = Object.freeze({
     "DANGER": "danger",
     "WARN": "warning",
-    "INFO": "info"}
-);
+    "SUCCESS": "success",
+    "INFO": "info",
+});
 
 /**
  * Perform a POST request to a given url and display an alert if the server returns a non-successful HTTP code.
@@ -50,8 +51,9 @@ let previousAlert;
  * @param alertType Type of the alert: danger, warning, info...
  * @param delay Amount of time (millis) before automatically closing the alert. Use 0 to avoid auto close.
  * @param unique
+ * @param onEnd
  */
-function prependAlert(prependTo, text, alertType = AlertType.DANGER, delay=7000, unique = false) {
+function prependAlert(prependTo, text, alertType = AlertType.DANGER, delay=7000, unique = false, onEnd) {
     const salt = getRndInteger();
     const alertId = "alert-"+salt;
     const closeId = "close-"+salt;
@@ -62,16 +64,17 @@ function prependAlert(prependTo, text, alertType = AlertType.DANGER, delay=7000,
         "    </button>\n" +
         "</div>"
     const container = $("#"+prependTo);
-    if (unique && previousAlert !== undefined) {
-        fadeHTMLElement(previousAlert, 0, 200);
+    if (unique && previousAlert !== undefined && previousAlert.type !== AlertType.DANGER) {
+        fadeHTMLElement(previousAlert.id, 0, 200, 500, onEnd);
     }
-    previousAlert = alertId;
+
+    previousAlert = {"id": alertId, "type": alertType};
     $(alert).prependTo(container).hide().slideDown();
     $("#"+closeId).click(function (e) {
-        fadeHTMLElement(alertId, 0, 200);
+        fadeHTMLElement(alertId, 0, 200, 500, onEnd);
     });
     if (delay > 0) {
-        fadeHTMLElement(alertId, delay);
+        fadeHTMLElement(alertId, delay, 500, 500, onEnd);
     }
 }
 
@@ -91,11 +94,15 @@ function getRndInteger(min=0, max=9999999) {
  * @param delay Time (millis) before fade out.
  * @param fadeDuration Duration (millis) of the fade effect.
  * @param slideDuration Duration (millis) of the slide effect.
+ * @param onEnd Function to be called once the alert is gone and removed.
  */
-function fadeHTMLElement(id, delay, fadeDuration = 500, slideDuration = 500) {
+function fadeHTMLElement(id, delay, fadeDuration = 500, slideDuration = 500, onEnd = null) {
     setTimeout(function() {
         $("#"+id).fadeTo(fadeDuration, 0).slideUp(slideDuration, function(){
             $(this).remove();
+            if (typeof(onEnd) === "function") {
+                onEnd();
+            }
         });
     }, delay);
 }
