@@ -52,7 +52,7 @@ class Interface(YamlAble):
         iface.on_down = dct["on_down"]
         return iface
 
-    def save_configuration(self) -> str:
+    def save(self) -> str:
         """Generate a wireguard configuration file suitable for this interface and store it."""
 
         iface = f"[Interface]\n" \
@@ -81,7 +81,7 @@ class Interface(YamlAble):
         if is_up:
             warning(f"Unable to bring {self.name} up: already up.")
             return
-        self.save_configuration()
+        self.save()
         result = run_os_command(f"sudo {self.wg_quick_bin} up {self.conf_file}")
         if result.successful:
             info(f"Interface {self.name} started.")

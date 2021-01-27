@@ -1,4 +1,5 @@
-import re
+import namegenerator
+from faker import Faker
 from collections import OrderedDict
 from time import sleep
 import yaml
@@ -24,6 +25,8 @@ IP_RETRIEVER_URL = "https://api.ipify.org"
 
 # Show no tags when serializing
 yaml.emitter.Emitter.process_tag = lambda self, *args, **kw: None
+
+fake = Faker()
 
 
 @yaml_info(yaml_tag_ns='')
@@ -84,8 +87,8 @@ class Server(YamlAble):
             "wg_bin": self.wg_bin,
             "wg_quick_bin": self.wg_quick_bin,
             "iptables_bin": self.iptables_bin,
-            "interfaces": self.interfaces,
-            "clients": self.clients,
+            "interfaces": dict(self.interfaces),
+            "clients": dict(self.clients),
         }
 
     def __from_dict__(self, config: dict):
@@ -117,18 +120,26 @@ class Server(YamlAble):
                 return True
         return False
 
-    def add_interface(self, name: str, ipv4_address: str, description: str = ""):
+    def add_interface(self, iface: Interface):
+        self.interfaces[iface.name] = iface
+        self.interfaces = OrderedDict(sorted(self.interfaces.items()))
+
+    def create_interface(self, name: str = None, ipv4_address: str = None, description: str = "") -> Interface:
+        if not name:
+            name = namegenerator.gen()
+        if not ipv4_address:
+            mask = f"/{randint(8, 30)}"
+            ipv4_address = fake.ipv4_private() + mask
         port = randint(Interface.MIN_PORT_NUMBER, Interface.MAX_PORT_NUMBER)
         while self.is_port_in_use(port):
             port = randint(Interface.MIN_PORT_NUMBER, Interface.MAX_PORT_NUMBER)
-        privkey = generate_privkey(self.wg_bin)
-        pubkey = generate_pubkey(self.wg_bin, privkey)
+        privkey = self.generate_privkey()
+        pubkey = self.generate_pubkey(privkey)
         conf_file = os.path.join(self.interfaces_folder, name) + ".conf"
         iface = Interface(name, conf_file, description, self.gw_iface, ipv4_address,
                           port, privkey, pubkey, self.wg_quick_bin)
-        self.interfaces[name] = iface
         self.__set_iface_rules__(iface)
-        self.interfaces = OrderedDict(sorted(self.interfaces.items()))
+        return iface
 
     def remove_interface(self, iface: Union[Interface, str]):
         iface_to_remove = iface
@@ -144,6 +155,15 @@ class Server(YamlAble):
         del self.interfaces[iface_to_remove.name]
         self.interfaces = OrderedDict(sorted(self.interfaces.items()))
 
+    def __set_iface_rules__(self, iface: Interface):
+        iface.on_up.append(f"{self.iptables_bin} -I FORWARD -i {iface.name} -j ACCEPT")
+        iface.on_up.append(f"{self.iptables_bin} -I FORWARD -o {iface.name} -j ACCEPT")
+        iface.on_up.append(f"{self.iptables_bin} -t nat -I POSTROUTING -o {iface.gw_iface} -j MASQUERADE")
+
+        iface.on_down.append(f"{self.iptables_bin} -D FORWARD -i {iface.name} -j ACCEPT")
+        iface.on_down.append(f"{self.iptables_bin} -D FORWARD -o {iface.name} -j ACCEPT")
+        iface.on_down.append(f"{self.iptables_bin} -t nat -D POSTROUTING -o {iface.gw_iface} -j MASQUERADE")
+
     def edit_interface(self, old_name: str, name: str, description: str, ipv4_address: str,
                        port: int, gw_iface: str, on_up: List[str], on_down: List[str]):
         iface = self.interfaces[old_name]
@@ -157,14 +177,27 @@ class Server(YamlAble):
         self.interfaces[name] = iface
         self.interfaces = OrderedDict(sorted(self.interfaces.items()))
 
-    def __set_iface_rules__(self, iface: Interface):
-        iface.on_up.append(f"{self.iptables_bin} -I FORWARD -i {iface.name} -j ACCEPT")
-        iface.on_up.append(f"{self.iptables_bin} -I FORWARD -o {iface.name} -j ACCEPT")
-        iface.on_up.append(f"{self.iptables_bin} -t nat -I POSTROUTING -o {iface.gw_iface} -j MASQUERADE")
+    def regenerate_keys(self, iface: Union[Interface, str]):
+        privkey = self.generate_privkey()
+        pubkey = self.generate_pubkey(privkey)
+        if iface in self.interfaces:
+            self.interfaces[iface].private_key = privkey
+            self.interfaces[iface].public_key = pubkey
+        if iface in self.interfaces.values():
+            iface.private_key = privkey
+            iface.public_key = pubkey
 
-        iface.on_down.append(f"{self.iptables_bin} -D FORWARD -i {iface.name} -j ACCEPT")
-        iface.on_down.append(f"{self.iptables_bin} -D FORWARD -o {iface.name} -j ACCEPT")
-        iface.on_down.append(f"{self.iptables_bin} -t nat -D POSTROUTING -o {iface.gw_iface} -j MASQUERADE")
+    def generate_privkey(self) -> str:
+        result = generate_privkey(self.wg_bin)
+        if not result.successful:
+            raise WireguardError(result.err)
+        return result.output
+
+    def generate_pubkey(self, privkey: str) -> str:
+        result = generate_pubkey(self.wg_bin, privkey)
+        if not result.successful:
+            raise WireguardError(result.err)
+        return result.output
 
     def iface_up(self, iface: Union[Interface, str]):
         if iface in self.interfaces:
@@ -190,8 +223,8 @@ class Server(YamlAble):
         if interface not in self.interfaces:
             warning(f"Interface '{interface}' not registered.")
             return
-        privkey = generate_privkey(self.wg_bin)
-        pubkey = generate_pubkey(self.wg_bin, privkey)
+        privkey = self.generate_privkey()
+        pubkey = self.generate_pubkey(privkey)
         _endpoint = endpoint
         if not _endpoint:
             _endpoint = self.endpoint
@@ -223,7 +256,6 @@ class Server(YamlAble):
     def save_changes(self):
         """Write configuration to yaml file."""
         info("Saving current configuration...")
-        self.backup()
         with open(self.conf_file, 'w') as file:
             yaml.safe_dump(self, file, sort_keys=False)
         self.dirty = True
@@ -242,33 +274,34 @@ class Server(YamlAble):
             return
         info("Backup completed.")
 
-    def restore_backup(self, path: str = None):
+    def restore_latest_backup(self):
+        file = os.path.join(self.backup_folder, run_os_command(f"ls -t {self.backup_folder} | head -1").output)
+        self.restore_backup(file)
+
+    def restore_backup(self, path: str):
         """Restore configuration from a previously backed up yaml file."""
         info("Restoring backup...")
-        restore = path
-        if not restore:
-            # Restore most recent backup
-            restore = os.path.join(self.backup_folder, run_os_command(f"ls -t {self.backup_folder} | head -1").output)
-            debug(f"No backup specified, restoring latest ({restore})...")
-        with open(restore, "r") as backup:
+        if not path:
+            msg = "Unable to restore backup: no backup file specified."
+            error(msg)
+            raise WireguardError(msg, 400)
+        if not os.path.exists(path):
+            msg = f"Unable to restore backup: file {path} not found."
+            error(msg)
+            raise WireguardError(msg, 400)
+        with open(path, "r") as backup:
             config = list(yaml.safe_load_all(backup))[0]
             self.__from_dict__(config)
-        self.dirty = True
-        info("Backup restored.")
-
-    def discard_changes(self):
-        """Discard all **unsaved** changes by restoring the configuration saved in the yaml file."""
-        if self.dirty:
-            self.restore_backup()
-            self.dirty = False
+            self.dirty = True
+            info("Backup restored.")
 
     def apply_changes(self):
         """Write current configuration to wireguard files and restart all interfaces."""
         self.stop()
-        self.save_changes()
-        # TODO: write to wireguard .conf files
+        for iface in self.interfaces.values():
+            iface.save()
         self.dirty = False
-        self.start()
+        self.restart()
 
     def start(self):
         info("Starting VPN server...")
@@ -276,10 +309,7 @@ class Server(YamlAble):
             warning("Unable to start VPN server: already started.")
             return
         for iface in self.interfaces.values():
-            try:
-                iface.up()
-            except WireguardError as e:
-                pass
+            iface.up()
         self.started = True
         info("VPN server started.")
 
@@ -305,8 +335,8 @@ class Server(YamlAble):
 if __name__ == '__main__':
     server_folder = APP_NAME.lower()
     wg = Server(server_folder)
-    wg.add_interface("scranton-vpn", "10.0.100.1/24", "VPN for Scranton branch")
-    wg.add_interface("ny-vpn", "10.0.101.1/24", "VPN for NY branch")
+    wg.add_interface(wg.create_interface("scranton-vpn", "10.0.100.1/24", "VPN for Scranton branch"))
+    wg.add_interface(wg.create_interface("ny-vpn", "10.0.101.1/24", "VPN for NY branch"))
     wg.add_client(name="jim", interface="scranton-vpn", dns1="8.8.8.8", ipv4_address="10.0.100.2/24")
     wg.add_client(name="karen", interface="ny-vpn", dns1="8.8.8.8", ipv4_address="10.0.101.2/24")
     wg.start()
