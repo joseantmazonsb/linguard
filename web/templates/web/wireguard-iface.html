@@ -6,10 +6,12 @@
             <div class="my-4">
                 <i class="fas fa-pen mb-1 mr-2"></i>
                 <input readonly style="display: inline;"
-                       class="h1 border-0 col-8 col-lg-5 col-xl-3" id="name" value="{{ iface.name }}">
-                <a href="/wireguard" style="display: inline" class="float-right mt-3">
-                    <i class="fas fa-arrow-left mr-2"></i>Back
-                </a>
+                       class="h1 border-0 col-8 col-lg-5 col-xl-3 ifaceInputName" id="name" value="{{ iface.name }}">
+                {% if iface.status == "up" %}
+                    <h2 class="float-right mt-2"><span class="badge badge-success">up</span></h2>
+                {% else %}
+                    <h2 class="float-right mt-2"><span class="badge badge-danger">down</span></h2>
+                {% endif %}
             </div>
             <div class="card mb-4">
                 <div class="card-header">
@@ -18,6 +20,35 @@
                 </div>
                 <div class="card-body">
                     <div id="wgIfaceConfig">
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                <span>Auto</span>
+                                <span type="button" class="ml-1" data-toggle="popover"
+                                        data-placement="top"
+                                        data-content="Automatically start the interface after
+                                         {{ APP_NAME }} starts up.">
+                                        <i class="fas fa-question-circle"></i>
+                                </span>
+                                <br>
+                                    <div class="btn-group btn-group-toggle mt-2" data-toggle="buttons" id="autoStart">
+                                        {% if iface.auto %}
+                                            <label class="btn btn-primary active">
+                                                <input type="radio" name="options" autocomplete="off" checked> On
+                                            </label>
+                                            <label class="btn btn-primary">
+                                                <input type="radio" name="options" autocomplete="off"> Off
+                                            </label>
+                                        {% else %}
+                                            <label class="btn btn-primary">
+                                                <input type="radio" name="options" autocomplete="off"> On
+                                            </label>
+                                            <label class="btn btn-primary active">
+                                                <input type="radio" name="options" autocomplete="off" checked> Off
+                                            </label>
+                                        {% endif %}
+                                    </div>
+                            </div>
+                        </div>
                         <div class="form-row">
                             <div class="form-group col-md-4">
                               <label for="description">Description</label>
@@ -68,7 +99,7 @@
                             <button id="saveBtn" class="btn btn-warning">Save</button>
                             <button id="applyBtn" class="btn btn-warning">Apply</button>
                             <i id="wgLoading" class="mt-2 ml-4 fas fa-circle-notch fa-spin" style="display: none"></i>
-                            <button id="resetBtn" class="btn btn-danger float-right">Reset</button>
+                            <button id="resetBtn" class="btn btn-outline-info float-right">Reset</button>
                         </div>
                     </div>
                 </div>
@@ -80,7 +111,7 @@
                 <div class="card-header">
                     <i class="fas fa-user-friends"></i>
                     Peers
-                    <a href="/wireguard/peers/add?iface={{ iface.name }}" class="float-right"><i class="fas fa-plus mr-1"></i></a>
+                    <a href="/wireguard/peers/add?iface={{ iface.name }}" class="float-right" title="Add"><i class="fas fa-plus mr-1"></i></a>
                 </div>
                 <div class="card-body">
                     <div id="wgIfacePeers">

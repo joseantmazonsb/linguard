@@ -5,9 +5,9 @@ from flask import Blueprint, abort, request, Response
 from core.wireguard.exceptions import WireguardError
 from web.controllers.RestController import RestController
 from web.controllers.ViewController import ViewController
-from web.utils import get_all_interfaces, get_routing_table, get_wg_interfaces_summary
+from web.utils import get_all_interfaces, get_routing_table, get_wg_interfaces_summary, get_wg_interface_status
 from core.wireguard.server import Server
-from web.static.assets.resources import EMPTY_FIELD
+from web.static.assets.resources import EMPTY_FIELD, APP_NAME
 
 
 class Router(Blueprint):
@@ -61,7 +61,6 @@ def network():
 
 
 @router.route("/wireguard")
-@router.route("/wireguard/")
 def wireguard():
     wg_ifaces = list(router.server.interfaces.values())
     interfaces = get_wg_interfaces_summary(wg_bin=router.server.wg_bin, interfaces=wg_ifaces)
@@ -84,7 +83,8 @@ def create_wireguard_iface():
     context = {
         "title": "Add interface",
         "iface": iface,
-        "EMPTY_FIELD": EMPTY_FIELD
+        "EMPTY_FIELD": EMPTY_FIELD,
+        "APP_NAME": APP_NAME
     }
     return ViewController("web/wireguard-add-iface.html", **context).load()
 
@@ -95,53 +95,58 @@ def add_wireguard_iface():
     return RestController(router.server, data["name"]).add_iface(data)
 
 
-@router.route("/wireguard/interfaces/<name>",  methods=['GET'])
-def get_wireguard_iface(name: str):
-    iface = router.server.interfaces[name]
+@router.route("/wireguard/interfaces/<uuid>",  methods=['GET'])
+def get_wireguard_iface(uuid: str):
+    iface = router.server.interfaces[uuid]
+    iface_status = get_wg_interface_status(router.server.wg_quick_bin, iface.name)
     context = {
         "title": "Edit interface",
         "iface": iface,
+        "iface_status": iface_status,
         "last_update": datetime.now().strftime("%H:%M"),
-        "EMPTY_FIELD": EMPTY_FIELD
+        "EMPTY_FIELD": EMPTY_FIELD,
+        "APP_NAME": APP_NAME
     }
     return ViewController("web/wireguard-iface.html", **context).load()
 
 
-@router.route("/wireguard/interfaces/<name>/save",  methods=['POST'])
-def save_wireguard_iface(name: str):
+@router.route("/wireguard/interfaces/<uuid>/save",  methods=['POST'])
+def save_wireguard_iface(uuid: str):
+    if uuid not in router.server.interfaces:
+        return Response(f"Interface {uuid} not found.", status=404)
     data = request.json["data"]
-    return RestController(router.server, name).save_iface(data)
+    return RestController(router.server, uuid).save_iface(data)
 
 
-@router.route("/wireguard/interfaces/<name>/apply",  methods=['POST'])
-def apply_wireguard_iface(name: str):
+@router.route("/wireguard/interfaces/<uuid>/apply",  methods=['POST'])
+def apply_wireguard_iface(uuid: str):
     data = request.json["data"]
-    return RestController(router.server, name).apply_iface(data)
+    return RestController(router.server, uuid).apply_iface(data)
 
 
-@router.route("/wireguard/interfaces/<name>/regenerate-keys",  methods=['POST'])
-def regenerate_iface_keys(name: str):
-    return RestController(router.server, name).regenerate_iface_keys()
+@router.route("/wireguard/interfaces/<uuid>/regenerate-keys",  methods=['POST'])
+def regenerate_iface_keys(uuid: str):
+    return RestController(router.server, uuid).regenerate_iface_keys()
 
 
-@router.route("/wireguard/interfaces/<name>",  methods=['POST'])
-def operate_wireguard_iface(name: str):
+@router.route("/wireguard/interfaces/<uuid>",  methods=['POST'])
+def operate_wireguard_iface(uuid: str):
     action = request.json["action"].lower()
     if action == "start":
         try:
-            router.server.iface_up(name)
+            router.server.iface_up(uuid)
             return Response(status=204)
         except WireguardError as e:
             return Response(str(e), status=e.http_code)
     elif action == "restart":
         try:
-            router.server.restart_iface(name)
+            router.server.restart_iface(uuid)
             return Response(status=204)
         except WireguardError as e:
             return Response(str(e), status=e.http_code)
     elif action == "stop":
         try:
-            router.server.iface_down(name)
+            router.server.iface_down(uuid)
             return Response(status=204)
         except WireguardError as e:
             return Response(str(e), status=e.http_code)
@@ -155,11 +160,6 @@ def themes():
         "title": "Themes"
     }
     return ViewController("web/themes.html", **context).load()
-
-
-@router.route("/error")
-def error_test():
-    abort(400)
 
 
 @router.app_errorhandler(400)

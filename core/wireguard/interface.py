@@ -1,4 +1,5 @@
 from logging import info, warning, debug, error
+from uuid import uuid4 as gen_uuid
 
 from yamlable import YamlAble, yaml_info
 
@@ -15,8 +16,9 @@ class Interface(YamlAble):
     REGEX_NAME = "^[a-zA-Z0-9_\-]+$"
     REGEX_IPV4 = "^([1-9]|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5])(\.(\d|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5])){3}\/(3[0-2]|[1-2]\d|\d)$"
 
-    def __init__(self, name: str, conf_file: str, description: str, gw_iface: str, ipv4_address,
-                 listen_port: int, private_key: str, public_key: str, wg_quick_bin: str):
+    def __init__(self, uuid: str, name: str, conf_file: str, description: str, gw_iface: str, ipv4_address,
+                 listen_port: int, private_key: str, public_key: str, wg_quick_bin: str, auto: bool):
+        self.uuid = uuid
         self.name = name
         self.conf_file = conf_file
         self.gw_iface = gw_iface
@@ -26,6 +28,7 @@ class Interface(YamlAble):
         self.wg_quick_bin = wg_quick_bin
         self.private_key = private_key
         self.public_key = public_key
+        self.auto = auto
         self.on_up = []
         self.on_down = []
         self.peers = []
@@ -33,12 +36,16 @@ class Interface(YamlAble):
     def __to_yaml_dict__(self):
         """ Called when you call yaml.dump()"""
         return {
+            "uuid": self.uuid,
             "name": self.name,
+            "conf_file": self.conf_file,
             "description": self.description,
+            "gw_iface": self.gw_iface,
             "ipv4_address": self.ipv4_address,
             "listen_port": self.listen_port,
             "private_key": self.private_key,
             "public_key": self.public_key,
+            "auto": self.auto,
             "on_up": self.on_up,
             "on_down": self.on_down
         }
@@ -46,8 +53,25 @@ class Interface(YamlAble):
     @staticmethod
     def from_dict(dct):
         """ This optional method is called when you call yaml.load()"""
-        iface = Interface(dct["name"], dct["description"], "", dct["ipv4_address"], dct["listen_port"],
-                          dct["private_key"], dct["public_key"], "", "")
+        if "uuid" in dct:
+            uuid = dct["uuid"]
+        else:
+            uuid = gen_uuid().hex
+        name = dct["name"]
+        conf_file = dct["conf_file"]
+        description = dct["description"]
+        gw_iface = dct["gw_iface"]
+        ipv4_address = dct["ipv4_address"]
+        listen_port = dct["listen_port"]
+        private_key = dct["private_key"]
+        public_key = dct["public_key"]
+        auto = dct["auto"]
+        wg_quick_bin = None
+        if "wg_quick_bin" in dct:
+            wg_quick_bin = dct["wg_quick_bin"]
+        iface = Interface(uuid, name, conf_file, description, gw_iface,
+                          ipv4_address, listen_port, private_key,
+                          public_key, wg_quick_bin, auto)
         iface.on_up = dct["on_up"]
         iface.on_down = dct["on_down"]
         return iface

@@ -63,16 +63,7 @@ class WireguardIface {
            location.reload();
         });
 
-        function sendPost(url, onSuccess, onSuccessAlertType = AlertType.SUCCESS) {
-            const data = {
-                "name": $("#name").val(),
-                "description": $("#description").val(),
-                "gw": $("#gw").val(),
-                "ipv4": $("#ipv4").val(),
-                "port": $("#port").val(),
-                "on_up": $("#onUp").val(),
-                "on_down": $("#onDown").val()
-            };
+        function sendPost(url, onSuccess, onSuccessAlertType = AlertType.SUCCESS, data=null) {
             $.ajax({
                 type: "post",
                 url: url,
@@ -98,14 +89,34 @@ class WireguardIface {
         const saveIfaceBtn = $("#saveBtn");
         saveIfaceBtn.click(function (e) {
             const url = location.href+"/save";
-            sendPost(url, "Changes saved! Don't forget to <strong>apply</strong> them before leaving.",
-                AlertType.WARN)
+            const data = {
+                "name": $("#name").val(),
+                "description": $("#description").val(),
+                "gw_iface": $("#gw").val(),
+                "ipv4_address": $("#ipv4").val(),
+                "listen_port": $("#port").val(),
+                "on_up": $("#onUp").val(),
+                "on_down": $("#onDown").val(),
+                "auto": autoStart
+            };
+            sendPost(url,"Changes saved! Don't forget to <strong>apply</strong> them before leaving.",
+                AlertType.WARN, data)
         });
 
         const applytIfaceBtn = $("#applyBtn");
         applytIfaceBtn.click(function (e) {
             const url = location.href+"/apply";
-            sendPost(url, "Configuration <strong>applied</strong>!")
+            const data = {
+                "name": $("#name").val(),
+                "description": $("#description").val(),
+                "gw_iface": $("#gw").val(),
+                "ipv4_address": $("#ipv4").val(),
+                "listen_port": $("#port").val(),
+                "on_up": $("#onUp").val(),
+                "on_down": $("#onDown").val(),
+                "auto": autoStart
+            };
+            sendPost(url,"Configuration <strong>applied</strong>!", AlertType.SUCCESS, data)
         });
 
         const regenerateKeysBtn = $("#regenerateKeysBtn");
@@ -116,20 +127,14 @@ class WireguardIface {
 
         const addIfaceBtn = $("#addBtn");
         addIfaceBtn.click(function (e) {
+            addIfaceBtn.attr("disabled", true);
+            resetIfaceBtn.attr("disabled", true);
             const url = location.href.split("?")[0];
-            const data = {
-                "name": $("#name").val(),
-                "description": $("#description").val(),
-                "gw": $("#gw").val(),
-                "ipv4": $("#ipv4").val(),
-                "port": $("#port").val(),
-                "on_up": $("#onUp").val(),
-                "on_down": $("#onDown").val()
-            };
+            updateCurrentIface();
             $.ajax({
                 type: "post",
                 url: url,
-                data: JSON.stringify({"data": data}),
+                data: JSON.stringify({"data": current_iface}), // Filled up in jinja template
                 dataType: 'json',
                 contentType: 'application/json',
                 beforeSend : function () {
@@ -137,16 +142,49 @@ class WireguardIface {
                 },
                 success: function (resp) {
                     prependAlert(alertContainer, "New interface added!", AlertType.SUCCESS, 1500, true, function () {
-                        location.replace("..");
+                        const baseUrl = location.protocol + "//" + location.hostname + ":" + location.port;
+                        const url = baseUrl + "/wireguard";
+                        location.replace(url);
                     });
                 },
                 error: function(resp) {
                     prependAlert(alertContainer, "<strong>Oops, something went wrong</strong>: " + resp["responseText"]);
+                    addIfaceBtn.attr("disabled", false);
+                    resetIfaceBtn.attr("disabled", false);
                 },
                 complete: function (resp) {
                     loadFeeback.hide();
                 },
             });
         });
+
+        function updateCurrentIface() {
+            current_iface.name = $("#name").val();
+            current_iface.description = $("#description").val();
+            current_iface.gw_iface = $("#gw").val();
+            current_iface.ipv4_address = $("#ipv4").val();
+            current_iface.listen_port = $("#port").val();
+            current_iface.on_up = $("#onUp").val();
+            current_iface.on_down = $("#onDown").val();
+        }
+
+        let autoStart = $('#autoStart .active').text().trim().toLowerCase() === "on";
+
+        const autoStartGroup = $("#autoStart");
+        autoStartGroup.click(function(e) {
+            const status = $('#autoStart .active').text().trim().toLowerCase();
+            autoStart = !(status === "on");
+            current_iface.auto = autoStart;
+        });
+
+        $(".ifaceInputName").hover(function (e) {
+            $(this).css("color", "#4e555b");
+        }, function (e) {
+            $(this).css("color", "black");
+        });
+
+        current_iface.auto = autoStart;
+
+
     }
 }

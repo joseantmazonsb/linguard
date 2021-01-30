@@ -47,6 +47,7 @@ def get_all_interfaces(wg_bin: str, wg_interfaces: List[Interface]) -> Dict[str,
     for iface in wg_interfaces:
         if iface.name not in interfaces:
             interfaces[iface.name] = {
+                "uuid": iface.uuid,
                 "name": iface.name,
                 "status": "down",
                 "ipv4": iface.ipv4_address,
@@ -64,6 +65,12 @@ def get_all_interfaces(wg_bin: str, wg_interfaces: List[Interface]) -> Dict[str,
         interfaces[iface.name]["editable"] = True
 
     return interfaces
+
+
+def get_wg_interface_status(wg_bin: str, name: str) -> str:
+    if run_os_command(f"{wg_bin} {name}").successful:
+        return "up"
+    return "down"
 
 
 def get_system_interfaces() -> Dict[str, Dict[str, Any]]:
@@ -123,6 +130,8 @@ def get_wg_interfaces_summary(wg_bin: str, interfaces: List[Interface]) -> Dict[
         else:
             status = "down"
         dct[iface.name] = {
+            "uuid": iface.uuid,
+            "auto": iface.auto,
             "name": iface.name,
             "description": iface.description,
             "ipv4": iface.ipv4_address,

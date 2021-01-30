@@ -57,8 +57,25 @@ function prependAlert(prependTo, text, alertType = AlertType.DANGER, delay=7000,
     const salt = getRndInteger();
     const alertId = "alert-"+salt;
     const closeId = "close-"+salt;
+
+    let iconClass = "fas fa-exclamation-circle";
+    switch (alertType) {
+        case AlertType.WARN:
+            iconClass = "fas fa-exclamation-triangle"
+            break;
+        case AlertType.SUCCESS:
+            iconClass = "fas fa-check-circle"
+            break;
+        case AlertType.INFO:
+            iconClass = "fas fa-info-circle"
+            break;
+        default:
+            break;
+    }
+    let icon = '<i class="'+iconClass+' mr-2"></i>'
+
     const alert = "<div id=\""+alertId+"\" class=\"alert alert-"+alertType + " alert-dismissible fade show\" " +
-        "role=\"alert\">" + text +"\n" +
+        "role=\"alert\">" + icon + text +"\n" +
         "     <button type=\"button\" class=\"close\" id='"+closeId+"' aria-label=\"Close\">\n" +
         "         <span aria-hidden=\"true\">&times;</span>\n" +
         "    </button>\n" +

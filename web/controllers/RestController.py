@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from flask import Response
 
@@ -30,20 +30,12 @@ class RestController:
 
     def save_iface(self, data: Dict[str, Any]) -> Response:
         try:
-            on_up_chunks = data["on_up"].strip().split("\n")
-            on_up = []
-            for cmd in on_up_chunks:
-                on_up.append(cmd)
-            data["on_up"] = on_up
-            on_down_chunks = data["on_down"].strip().split("\n")
-            on_down = []
-            for cmd in on_down_chunks:
-                on_down.append(cmd)
-            data["on_down"] = on_down
+            on_up = self.get_list_from_str(data["on_up"])
+            on_down = self.get_list_from_str(data["on_down"])
             self.find_errors_in_save(data)
             self.server.edit_interface(self.iface, data["name"], data["description"],
-                                       data["ipv4"], data["port"], data["gw"],
-                                       data["on_up"], data["on_down"])
+                                       data["ipv4_address"], data["listen_port"], data["gw_iface"],
+                                       data["auto"], on_up, on_down)
             self.server.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
@@ -52,28 +44,36 @@ class RestController:
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     @staticmethod
+    def get_list_from_str(string: str, separator: str = "\n") -> List[str]:
+        chunks = string.strip().split(separator)
+        lst = []
+        for cmd in chunks:
+            lst.append(cmd)
+        return lst
+
+    @staticmethod
     def find_errors_in_save(data: Dict[str, Any]):
         if not re.match(Interface.REGEX_NAME, data["name"]):
             raise WireguardError("interface's name can only contain alphanumeric characters, "
                                  "underscores (_) and hyphens (-).", HTTP_BAD_REQUEST)
-        if not re.match(Interface.REGEX_IPV4, data["ipv4"]):
+        if not re.match(Interface.REGEX_IPV4, data["ipv4_address"]):
             raise WireguardError("invalid IPv4 address or mask. Must follow the format X.X.X.X/Y, "
                                  "just like 10.0.0.10/24.", HTTP_BAD_REQUEST)
         err_msg = f"listen port must be an integer between {Interface.MIN_PORT_NUMBER} " \
                   f"and {Interface.MAX_PORT_NUMBER} (both included)"
         try:
-            port = int(data["port"])
+            port = int(data["listen_port"])
             if port < Interface.MIN_PORT_NUMBER or port > Interface.MAX_PORT_NUMBER:
                 raise WireguardError(err_msg, HTTP_BAD_REQUEST)
         except Exception:
             raise WireguardError(err_msg, HTTP_BAD_REQUEST)
-        if data["gw"] not in get_system_interfaces():
-            raise WireguardError(f"{data['gw']} is not a valid gateway device.", HTTP_BAD_REQUEST)
+        if data["gw_iface"] not in get_system_interfaces():
+            raise WireguardError(f"{data['gw_iface']} is not a valid gateway device.", HTTP_BAD_REQUEST)
 
     def apply_iface(self, data: Dict[str, Any]) -> Response:
         try:
             self.save_iface(data)
-            self.server.apply_changes()
+            self.server.apply_iface(self.iface)
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
             return Response(str(e), status=e.http_code)
@@ -81,4 +81,8 @@ class RestController:
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     def add_iface(self, data: Dict[str, Any]) -> Response:
+        data["on_up"] = self.get_list_from_str(data["on_up"])
+        data["on_down"] = self.get_list_from_str(data["on_down"])
+        self.server.add_interface(Interface.from_dict(data))
+        self.server.save_changes()
         return Response(status=HTTP_NO_CONTENT)

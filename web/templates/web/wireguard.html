@@ -8,7 +8,7 @@
                 <div class="card-header">
                     <i class="fas fa-ethernet mr-1"></i>
                     Interfaces
-                    <a href="/wireguard/interfaces/add" class="float-right"><i class="fas fa-plus mr-1"></i></a>
+                    <a href="/wireguard/interfaces/add" class="float-right" title="Add"><i class="fas fa-plus mr-1"></i></a>
                 </div>
                 <div id="wgIfacesHeader" class="card-body">
                     <div class="row row-cols-1 row-cols-lg-2 row-cols-xl-3">
@@ -29,7 +29,7 @@
                                                         {% else %}
                                                             {% set status_color = "bg-warning" %}
                                                         {% endif %}
-                                                        <td id="statusIface-{{ iface.name }}" class="{{ status_color }} text-white"> {{ iface.status }}</td>
+                                                        <td id="statusIface-{{ iface.uuid }}" class="{{ status_color }} text-white"> {{ iface.status }}</td>
                                                     </tr>
                                                     <tr>
                                                         <th>Description</th>
@@ -67,12 +67,20 @@
                                         {% elif iface.status == "down" %}
                                             {% set button_action = "Start" %}
                                         {% endif %}
-                                        <button id="startOrStopIface-{{ iface.name }}-Btn" value="{{ iface.name }}" class="btn btn-warning startOrStopIfaceBtn">{{ button_action }}</button>
-                                        <button id="restartIface-{{ iface.name }}-Btn" value="{{ iface.name }}" class="btn btn-warning restartIfaceBtn">Restart</button>
-                                        <i id="wgIface-{{ iface.name }}-loading" class="float-right mt-2 fas fa-circle-notch fa-spin" style="display: none"></i>
+                                        <button id="startOrStopIface-{{ iface.uuid }}-Btn" value="{{ iface.uuid }}" class="btn btn-warning startOrStopIfaceBtn">{{ button_action }}</button>
+                                        <button id="restartIface-{{ iface.uuid }}-Btn" value="{{ iface.uuid }}" class="btn btn-warning restartIfaceBtn">Restart</button>
+                                        <i id="wgIface-{{ iface.uuid }}-loading" class="float-right mt-2 fas fa-circle-notch fa-spin" style="display: none"></i>
                                     </div>
                                     <div class="card-footer">
-                                        <small><a href="wireguard/interfaces/{{ iface.name }}">Edit</a></small>
+                                        {% if iface.auto %}
+                                            <span class="badge badge-pill badge-secondary">auto</span>
+                                        {% endif %}
+                                        <div class="float-right">
+                                        <a href="/wireguard/interfaces/{{ iface.uuid }}"
+                                           title="Edit" class="mr-2"><i class="fas fa-pen"></i></a>
+                                        <a href="/wireguard/interfaces/{{ iface.uuid }}/remove"
+                                           title="Remove"><i class="fas fa-trash"></i></a>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -87,7 +95,7 @@
                 <div class="card-header">
                     <i class="fas fa-user-friends"></i>
                     Peers
-                    <a href="/wireguard/peers/add" class="float-right"><i class="fas fa-plus mr-1"></i></a>
+                    <a href="/wireguard/peers/add" class="float-right" title="Add"><i class="fas fa-plus mr-1"></i></a>
                 </div>
                 <div class="card-body">
                     <div id="wgIfacePeers">
@@ -107,8 +115,8 @@
                                     {% for iface in interfaces.values() %}
                                     {% for peer in iface.peers %}
                                         <tr>
-                                            <td><a href="/wireguard/peers/{{ peer.name }}">{{ peer.name }}</a></td>
-                                            <td><a href="/wireguard/interfaces/{{ iface.name }}">{{ iface.name }}</a></td>
+                                            <td><a href="/wireguard/peers/{{ peer.uuid }}">{{ peer.name }}</a></td>
+                                            <td><a href="/wireguard/interfaces/{{ iface.uuid }}">{{ iface.name }}</a></td>
                                             {% if peer.description %}
                                                 <td>{{ peer.description }}</td>
                                             {% else %}

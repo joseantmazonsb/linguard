@@ -1,4 +1,5 @@
 import namegenerator
+from uuid import uuid4 as gen_uuid
 from faker import Faker
 from collections import OrderedDict
 from time import sleep
@@ -83,7 +84,6 @@ class Server(YamlAble):
         """ Called when you call yaml.dump()"""
         return {
             "endpoint": self.endpoint,
-            "gw_iface": self.gw_iface,
             "wg_bin": self.wg_bin,
             "wg_quick_bin": self.wg_quick_bin,
             "iptables_bin": self.iptables_bin,
@@ -93,7 +93,6 @@ class Server(YamlAble):
 
     def __from_dict__(self, config: dict):
         self.endpoint = config["endpoint"]
-        self.gw_iface = config["gw_iface"]
         self.wg_bin = config["wg_bin"]
         self.wg_quick_bin = config["wg_quick_bin"]
         self.iptables_bin = config["iptables_bin"]
@@ -104,8 +103,7 @@ class Server(YamlAble):
             iface.wg_quick_bin = self.wg_quick_bin
             iface.gw_iface = self.gw_iface
             iface.conf_file = os.path.join(self.interfaces_folder, iface.name) + ".conf"
-            iface.is_up = False
-            self.interfaces[iface.name] = iface
+            self.interfaces[iface.uuid] = iface
         clients = config["clients"]
         for client in clients.values():
             client = Client.from_dict(client)
@@ -121,23 +119,32 @@ class Server(YamlAble):
         return False
 
     def add_interface(self, iface: Interface):
-        self.interfaces[iface.name] = iface
+        self.interfaces[iface.uuid] = iface
         self.interfaces = OrderedDict(sorted(self.interfaces.items()))
 
-    def create_interface(self, name: str = None, ipv4_address: str = None, description: str = "") -> Interface:
+    def create_interface(self, uuid: str = None, name: str = None, conf_file: str = None, description: str = "",
+                         gw_iface: str = None, ipv4_address: str = None, port: int = None,
+                         public_key: str = None, private_key: str = None, auto: bool = True) -> Interface:
+        if not uuid:
+            uuid = gen_uuid().hex
         if not name:
             name = namegenerator.gen()
         if not ipv4_address:
             mask = f"/{randint(8, 30)}"
             ipv4_address = fake.ipv4_private() + mask
-        port = randint(Interface.MIN_PORT_NUMBER, Interface.MAX_PORT_NUMBER)
-        while self.is_port_in_use(port):
+        if not port:
             port = randint(Interface.MIN_PORT_NUMBER, Interface.MAX_PORT_NUMBER)
-        privkey = self.generate_privkey()
-        pubkey = self.generate_pubkey(privkey)
-        conf_file = os.path.join(self.interfaces_folder, name) + ".conf"
-        iface = Interface(name, conf_file, description, self.gw_iface, ipv4_address,
-                          port, privkey, pubkey, self.wg_quick_bin)
+            while self.is_port_in_use(port):
+                port = randint(Interface.MIN_PORT_NUMBER, Interface.MAX_PORT_NUMBER)
+        if not conf_file:
+            conf_file = os.path.join(self.interfaces_folder, name) + ".conf"
+        if not private_key or not public_key:
+            private_key = self.generate_privkey()
+            public_key = self.generate_pubkey(private_key)
+        if not gw_iface:
+            gw_iface = self.gw_iface
+        iface = Interface(uuid, name, conf_file, description, gw_iface, ipv4_address,
+                          port, private_key, public_key, self.wg_quick_bin, auto)
         self.__set_iface_rules__(iface)
         return iface
 
@@ -164,17 +171,17 @@ class Server(YamlAble):
         iface.on_down.append(f"{self.iptables_bin} -D FORWARD -o {iface.name} -j ACCEPT")
         iface.on_down.append(f"{self.iptables_bin} -t nat -D POSTROUTING -o {iface.gw_iface} -j MASQUERADE")
 
-    def edit_interface(self, old_name: str, name: str, description: str, ipv4_address: str,
-                       port: int, gw_iface: str, on_up: List[str], on_down: List[str]):
-        iface = self.interfaces[old_name]
+    def edit_interface(self, uuid: str, name: str, description: str, ipv4_address: str,
+                       port: int, gw_iface: str, auto: bool, on_up: List[str], on_down: List[str]):
+        iface = self.interfaces[uuid]
+        iface.name = name
         iface.gw_iface = gw_iface
         iface.description = description
         iface.ipv4_address = ipv4_address
         iface.listen_port = port
+        iface.auto = auto
         iface.on_up = on_up
         iface.on_down = on_down
-        del self.interfaces[old_name]
-        self.interfaces[name] = iface
         self.interfaces = OrderedDict(sorted(self.interfaces.items()))
 
     def regenerate_keys(self, iface: Union[Interface, str]):
@@ -210,6 +217,17 @@ class Server(YamlAble):
             self.interfaces[iface].down()
         if iface in self.interfaces.values():
             iface.down()
+
+    def save_iface(self, iface: Union[Interface, str]):
+        if iface in self.interfaces:
+            self.interfaces[iface].save()
+        if iface in self.interfaces.values():
+            iface.save()
+
+    def apply_iface(self, iface: Union[Interface, str]):
+        self.iface_down(iface)
+        self.save_iface(iface)
+        self.iface_up(iface)
 
     def restart_iface(self, iface: Union[Interface, str]):
         self.iface_down(iface)
@@ -274,6 +292,13 @@ class Server(YamlAble):
             return
         info("Backup completed.")
 
+    def load_config(self):
+        try:
+            info("Loading configuration...")
+            self.restore_backup(self.conf_file)
+        except WireguardError:
+            warning("No configuration file found. Starting fresh...")
+
     def restore_latest_backup(self):
         file = os.path.join(self.backup_folder, run_os_command(f"ls -t {self.backup_folder} | head -1").output)
         self.restore_backup(file)
@@ -286,7 +311,7 @@ class Server(YamlAble):
             error(msg)
             raise WireguardError(msg, 400)
         if not os.path.exists(path):
-            msg = f"Unable to restore backup: file {path} not found."
+            msg = f"Unable to restore backup file {path}: not found."
             error(msg)
             raise WireguardError(msg, 400)
         with open(path, "r") as backup:
@@ -295,21 +320,19 @@ class Server(YamlAble):
             self.dirty = True
             info("Backup restored.")
 
-    def apply_changes(self):
-        """Write current configuration to wireguard files and restart all interfaces."""
-        self.stop()
-        for iface in self.interfaces.values():
-            iface.save()
-        self.dirty = False
-        self.restart()
-
     def start(self):
         info("Starting VPN server...")
         if self.started:
             warning("Unable to start VPN server: already started.")
             return
+        self.load_config()
         for iface in self.interfaces.values():
-            iface.up()
+            if not iface.auto:
+                continue
+            try:
+                iface.up()
+            except WireguardError:
+                pass
         self.started = True
         info("VPN server started.")
 
@@ -321,7 +344,7 @@ class Server(YamlAble):
         for iface in self.interfaces.values():
             try:
                 iface.down()
-            except WireguardError as e:
+            except WireguardError:
                 pass
         self.started = False
         info("VPN server stopped.")
@@ -335,8 +358,10 @@ class Server(YamlAble):
 if __name__ == '__main__':
     server_folder = APP_NAME.lower()
     wg = Server(server_folder)
-    wg.add_interface(wg.create_interface("scranton-vpn", "10.0.100.1/24", "VPN for Scranton branch"))
-    wg.add_interface(wg.create_interface("ny-vpn", "10.0.101.1/24", "VPN for NY branch"))
+    wg.add_interface(wg.create_interface(name="scranton-vpn", ipv4_address="10.0.100.1/24",
+                                         description="VPN for Scranton branch"))
+    wg.add_interface(wg.create_interface(name="ny-vpn", ipv4_address="10.0.101.1/24",
+                                         description="VPN for NY branch"))
     wg.add_client(name="jim", interface="scranton-vpn", dns1="8.8.8.8", ipv4_address="10.0.100.2/24")
     wg.add_client(name="karen", interface="ny-vpn", dns1="8.8.8.8", ipv4_address="10.0.101.2/24")
     wg.start()
