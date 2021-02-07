@@ -98,7 +98,7 @@ def add_wireguard_iface():
 @router.route("/wireguard/interfaces/<uuid>",  methods=['GET'])
 def get_wireguard_iface(uuid: str):
     iface = router.server.interfaces[uuid]
-    iface_status = get_wg_interface_status(router.server.wg_quick_bin, iface.name)
+    iface_status = get_wg_interface_status(router.server.wg_bin, iface.name)
     context = {
         "title": "Edit interface",
         "iface": iface,
@@ -122,6 +122,13 @@ def save_wireguard_iface(uuid: str):
 def apply_wireguard_iface(uuid: str):
     data = request.json["data"]
     return RestController(router.server, uuid).apply_iface(data)
+
+
+@router.route("/wireguard/interfaces/<uuid>/remove",  methods=['POST'])
+def remove_wireguard_iface(uuid: str):
+    if uuid not in router.server.interfaces:
+        return Response(f"Interface {uuid} not found.", status=404)
+    return RestController(router.server, uuid).remove_iface()
 
 
 @router.route("/wireguard/interfaces/<uuid>/regenerate-keys",  methods=['POST'])
