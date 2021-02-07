@@ -7,7 +7,7 @@
                 <i class="fas fa-pen mb-1 mr-2"></i>
                 <input readonly style="display: inline;"
                        class="h1 border-0 col-8 col-lg-5 col-xl-3 ifaceInputName" id="name" value="{{ iface.name }}">
-                {% if iface.status == "up" %}
+                {% if iface_status == "up" %}
                     <h2 class="float-right mt-2"><span class="badge badge-success">up</span></h2>
                 {% else %}
                     <h2 class="float-right mt-2"><span class="badge badge-danger">down</span></h2>

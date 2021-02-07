@@ -159,8 +159,12 @@ class Server(YamlAble):
             return False
         for peer in iface_to_remove.peers:
             self.remove_client(peer)
-        del self.interfaces[iface_to_remove.name]
+        self.iface_down(iface_to_remove)
+        if os.path.exists(iface_to_remove.conf_file):
+            os.remove(iface_to_remove.conf_file)
+        del self.interfaces[iface_to_remove.uuid]
         self.interfaces = OrderedDict(sorted(self.interfaces.items()))
+        self.save_changes()
 
     def __set_iface_rules__(self, iface: Interface):
         iface.on_up.append(f"{self.iptables_bin} -I FORWARD -i {iface.name} -j ACCEPT")

@@ -68,7 +68,7 @@ def get_all_interfaces(wg_bin: str, wg_interfaces: List[Interface]) -> Dict[str,
 
 
 def get_wg_interface_status(wg_bin: str, name: str) -> str:
-    if run_os_command(f"{wg_bin} {name}").successful:
+    if run_os_command(f"sudo {wg_bin} show {name}").successful:
         return "up"
     return "down"
 

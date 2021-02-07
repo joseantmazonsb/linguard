@@ -86,3 +86,12 @@ class RestController:
         self.server.add_interface(Interface.from_dict(data))
         self.server.save_changes()
         return Response(status=HTTP_NO_CONTENT)
+
+    def remove_iface(self) -> Response:
+        try:
+            self.server.remove_interface(self.iface)
+            return Response(status=HTTP_NO_CONTENT)
+        except WireguardError as e:
+            return Response(str(e), status=e.http_code)
+        except Exception as e:
+            return Response(str(e), status=HTTP_INTERNAL_ERROR)
