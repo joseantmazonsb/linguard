@@ -82,13 +82,25 @@ class Server(YamlAble):
 
     def __to_yaml_dict__(self):
         """ Called when you call yaml.dump()"""
+        interfaces = OrderedDict()
+        for iface in self.interfaces.values():
+            if iface.confirmed:
+                interfaces[iface.uuid] = iface
+        interfaces = OrderedDict(sorted(interfaces.items()))
+
+        clients = OrderedDict()
+        for client in self.clients.values():
+            if client.confirmed:
+                interfaces[client.uuid] = client
+        clients = OrderedDict(sorted(clients.items()))
+
         return {
             "endpoint": self.endpoint,
             "wg_bin": self.wg_bin,
             "wg_quick_bin": self.wg_quick_bin,
             "iptables_bin": self.iptables_bin,
-            "interfaces": dict(self.interfaces),
-            "clients": dict(self.clients),
+            "interfaces": dict(interfaces),
+            "clients": dict(clients),
         }
 
     def __from_dict__(self, config: dict):
@@ -103,6 +115,7 @@ class Server(YamlAble):
             iface.wg_quick_bin = self.wg_quick_bin
             iface.gw_iface = self.gw_iface
             iface.conf_file = os.path.join(self.interfaces_folder, iface.name) + ".conf"
+            iface.confirmed = True
             self.interfaces[iface.uuid] = iface
         clients = config["clients"]
         for client in clients.values():
@@ -118,7 +131,10 @@ class Server(YamlAble):
                 return True
         return False
 
-    def add_interface(self, iface: Interface):
+    def confirm_interface(self, iface: Interface):
+        self.interfaces[iface.uuid].confirmed = True
+
+    def add_iface(self, iface: Interface):
         self.interfaces[iface.uuid] = iface
         self.interfaces = OrderedDict(sorted(self.interfaces.items()))
 
@@ -143,9 +159,12 @@ class Server(YamlAble):
             public_key = self.generate_pubkey(private_key)
         if not gw_iface:
             gw_iface = self.gw_iface
+
         iface = Interface(uuid, name, conf_file, description, gw_iface, ipv4_address,
                           port, private_key, public_key, self.wg_quick_bin, auto)
         self.__set_iface_rules__(iface)
+        self.add_iface(iface)
+
         return iface
 
     def remove_interface(self, iface: Union[Interface, str]):
@@ -362,10 +381,10 @@ class Server(YamlAble):
 if __name__ == '__main__':
     server_folder = APP_NAME.lower()
     wg = Server(server_folder)
-    wg.add_interface(wg.create_interface(name="scranton-vpn", ipv4_address="10.0.100.1/24",
-                                         description="VPN for Scranton branch"))
-    wg.add_interface(wg.create_interface(name="ny-vpn", ipv4_address="10.0.101.1/24",
-                                         description="VPN for NY branch"))
+    wg.confirm_interface(wg.create_interface(name="scranton-vpn", ipv4_address="10.0.100.1/24",
+                                             description="VPN for Scranton branch"))
+    wg.confirm_interface(wg.create_interface(name="ny-vpn", ipv4_address="10.0.101.1/24",
+                                             description="VPN for NY branch"))
     wg.add_client(name="jim", interface="scranton-vpn", dns1="8.8.8.8", ipv4_address="10.0.100.2/24")
     wg.add_client(name="karen", interface="ny-vpn", dns1="8.8.8.8", ipv4_address="10.0.101.2/24")
     wg.start()

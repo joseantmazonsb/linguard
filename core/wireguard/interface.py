@@ -13,7 +13,7 @@ class Interface(YamlAble):
     MIN_PORT_NUMBER = 50000
     MAX_PORT_NUMBER = 65535
 
-    REGEX_NAME = "^[a-zA-Z0-9_\-]+$"
+    REGEX_NAME = "^[a-z]+[a-z\-_0-9]+$"
     REGEX_IPV4 = "^([1-9]|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5])(\.(\d|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5])){3}\/(3[0-2]|[1-2]\d|\d)$"
 
     def __init__(self, uuid: str, name: str, conf_file: str, description: str, gw_iface: str, ipv4_address,
@@ -32,6 +32,7 @@ class Interface(YamlAble):
         self.on_up = []
         self.on_down = []
         self.peers = []
+        self.confirmed = False
 
     def __to_yaml_dict__(self):
         """ Called when you call yaml.dump()"""

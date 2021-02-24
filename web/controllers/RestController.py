@@ -55,7 +55,7 @@ class RestController:
     def find_errors_in_save(data: Dict[str, Any]):
         if not re.match(Interface.REGEX_NAME, data["name"]):
             raise WireguardError("interface's name can only contain alphanumeric characters, "
-                                 "underscores (_) and hyphens (-).", HTTP_BAD_REQUEST)
+                                 "underscores (_) and hyphens (-), and it must begin with a character.", HTTP_BAD_REQUEST)
         if not re.match(Interface.REGEX_IPV4, data["ipv4_address"]):
             raise WireguardError("invalid IPv4 address or mask. Must follow the format X.X.X.X/Y, "
                                  "just like 10.0.0.10/24.", HTTP_BAD_REQUEST)
@@ -80,12 +80,25 @@ class RestController:
         except Exception as e:
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
-    def add_iface(self, data: Dict[str, Any]) -> Response:
-        data["on_up"] = self.get_list_from_str(data["on_up"])
-        data["on_down"] = self.get_list_from_str(data["on_down"])
-        self.server.add_interface(Interface.from_dict(data))
-        self.server.save_changes()
-        return Response(status=HTTP_NO_CONTENT)
+    def add_iface(self, uuid: str, data: Dict[str, Any]) -> Response:
+        try:
+            self.find_errors_in_save(data)
+            iface = self.server.interfaces[uuid]
+            iface.on_up = self.get_list_from_str(data["on_up"])
+            iface.on_down = self.get_list_from_str(data["on_down"])
+            iface.name = data["name"]
+            iface.gw_iface = data["gw_iface"]
+            iface.auto = data["auto"]
+            iface.listen_port = data["listen_port"]
+            iface.ipv4_address = data["ipv4_address"]
+            iface.description = data["description"]
+            self.server.confirm_interface(iface)
+            self.server.save_changes()
+            return Response(status=HTTP_NO_CONTENT)
+        except WireguardError as e:
+            return Response(str(e), status=e.http_code)
+        except Exception as e:
+            return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     def remove_iface(self) -> Response:
         try:

@@ -75,11 +75,7 @@ def wireguard():
 
 @router.route("/wireguard/interfaces/add",  methods=['GET'])
 def create_wireguard_iface():
-    name = None
-    iface_param = request.args.get("iface")
-    if iface_param:
-        name = iface_param
-    iface = router.server.create_interface(name)
+    iface = router.server.create_interface()
     context = {
         "title": "Add interface",
         "iface": iface,
@@ -89,15 +85,17 @@ def create_wireguard_iface():
     return ViewController("web/wireguard-add-iface.html", **context).load()
 
 
-@router.route("/wireguard/interfaces/add",  methods=['POST'])
-def add_wireguard_iface():
+@router.route("/wireguard/interfaces/add/<uuid>",  methods=['POST'])
+def add_wireguard_iface(uuid: str):
     data = request.json["data"]
-    return RestController(router.server, data["name"]).add_iface(data)
+    return RestController(router.server, data["name"]).add_iface(uuid, data)
 
 
 @router.route("/wireguard/interfaces/<uuid>",  methods=['GET'])
 def get_wireguard_iface(uuid: str):
     iface = router.server.interfaces[uuid]
+    if not iface.confirmed:
+        abort(404)
     iface_status = get_wg_interface_status(router.server.wg_bin, iface.name)
     context = {
         "title": "Edit interface",

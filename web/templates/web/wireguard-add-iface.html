@@ -1,31 +1,13 @@
 {% extends "web/web-main.html" %}
 
 {% block content %}
-
-    {% set iface_dict = {
-            "name": iface.name,
-            "conf_file": iface.conf_file,
-            "description": iface.description,
-            "ipv4_address": iface.ipv4_address,
-            "gw_iface": iface.gw_iface,
-            "listen_port": iface.listen_port,
-            "private_key": iface.private_key,
-            "public_key": iface.public_key,
-            "wg_quick_bin": iface.wg_quick_bin,
-            "auto": iface.auto,
-            "on_up": iface.on_up,
-            "on_down": iface.on_down,
-        }
-    %}
-    <script type="text/javascript">
-        let current_iface = {{ iface_dict | tojson }};
-    </script>
     <main>
         <div class="container-fluid">
             <div class="my-4">
                 <i class="fas fa-pen mb-1 mr-2"></i>
                 <input readonly style="display: inline;"
                        class="h1 border-0 col-8 col-lg-5 col-xl-3 ifaceInputName" id="name" value="{{ iface.name }}">
+                <span id="uuid" hidden>{{ iface.uuid }}</span>
                 <a href="/wireguard" style="display: inline" class="float-right mt-3">
                     <i class="fas fa-arrow-left mr-2"></i>Back
                 </a>

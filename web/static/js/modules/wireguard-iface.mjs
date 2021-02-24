@@ -30,13 +30,15 @@ class WireguardIface {
         });
 
         function replaceOnUpDownComands(oldVal, newVal) {
-            let value = onUp.val()
-            value = value.replaceAll(oldVal, newVal)
-            onUp.val(value)
+            let value = onUp.val();
+            value = value.replace(oldVal, newVal);
+            onUp.val(value);
 
-            value = onDown.val()
-            value = value.replaceAll(oldVal, newVal)
-            onDown.val(value)
+            value = onDown.val();
+            // FIXME: this should only match the word but it doesn't and just fuck js.
+            //value = value.replace("/\b"+oldVal+"\b/", newVal);
+            value = value.replace(oldVal, newVal);
+            onDown.val(value);
         }
 
         ifaceNameInput.focusout(function (e) {
@@ -129,12 +131,21 @@ class WireguardIface {
         addIfaceBtn.click(function (e) {
             addIfaceBtn.attr("disabled", true);
             resetIfaceBtn.attr("disabled", true);
-            const url = location.href.split("?")[0];
-            updateCurrentIface();
+            const url = location.href+"/"+$("#uuid").text();
+            const data = {
+                "name": $("#name").val(),
+                "description": $("#description").val(),
+                "gw_iface": $("#gw").val(),
+                "ipv4_address": $("#ipv4").val(),
+                "listen_port": $("#port").val(),
+                "on_up": $("#onUp").val(),
+                "on_down": $("#onDown").val(),
+                "auto": autoStart
+            };
             $.ajax({
                 type: "post",
                 url: url,
-                data: JSON.stringify({"data": current_iface}), // Filled up in jinja template
+                data: JSON.stringify({"data": data}), // Filled up in jinja template
                 dataType: 'json',
                 contentType: 'application/json',
                 beforeSend : function () {
@@ -158,23 +169,12 @@ class WireguardIface {
             });
         });
 
-        function updateCurrentIface() {
-            current_iface.name = $("#name").val();
-            current_iface.description = $("#description").val();
-            current_iface.gw_iface = $("#gw").val();
-            current_iface.ipv4_address = $("#ipv4").val();
-            current_iface.listen_port = $("#port").val();
-            current_iface.on_up = $("#onUp").val();
-            current_iface.on_down = $("#onDown").val();
-        }
-
         let autoStart = $('#autoStart .active').text().trim().toLowerCase() === "on";
 
         const autoStartGroup = $("#autoStart");
         autoStartGroup.click(function(e) {
             const status = $('#autoStart .active').text().trim().toLowerCase();
             autoStart = !(status === "on");
-            current_iface.auto = autoStart;
         });
 
         $(".ifaceInputName").hover(function (e) {
@@ -182,9 +182,5 @@ class WireguardIface {
         }, function (e) {
             $(this).css("color", "black");
         });
-
-        current_iface.auto = autoStart;
-
-
     }
 }
