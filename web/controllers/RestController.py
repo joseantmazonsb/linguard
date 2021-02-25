@@ -15,13 +15,13 @@ HTTP_INTERNAL_ERROR = 500
 
 
 class RestController:
-    def __init__(self, server: Server, iface: str):
+    def __init__(self, server: Server, uuid: str):
         self.server = server
-        self.iface = iface
+        self.uuid = uuid
 
     def regenerate_iface_keys(self) -> Response:
         try:
-            self.server.regenerate_keys(self.iface)
+            self.server.regenerate_keys(self.uuid)
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
             return Response(str(e), status=e.http_code)
@@ -33,7 +33,8 @@ class RestController:
             on_up = self.get_list_from_str(data["on_up"])
             on_down = self.get_list_from_str(data["on_down"])
             self.find_errors_in_save(data)
-            self.server.edit_interface(self.iface, data["name"], data["description"],
+            iface = self.server.interfaces[self.uuid]
+            self.server.edit_interface(iface, data["name"], data["description"],
                                        data["ipv4_address"], data["listen_port"], data["gw_iface"],
                                        data["auto"], on_up, on_down)
             self.server.save_changes()
@@ -73,25 +74,22 @@ class RestController:
     def apply_iface(self, data: Dict[str, Any]) -> Response:
         try:
             self.save_iface(data)
-            self.server.apply_iface(self.iface)
+            self.server.apply_iface(self.uuid)
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
             return Response(str(e), status=e.http_code)
         except Exception as e:
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
-    def add_iface(self, uuid: str, data: Dict[str, Any]) -> Response:
+    def add_iface(self, data: Dict[str, Any]) -> Response:
         try:
             self.find_errors_in_save(data)
-            iface = self.server.interfaces[uuid]
-            iface.on_up = self.get_list_from_str(data["on_up"])
-            iface.on_down = self.get_list_from_str(data["on_down"])
-            iface.name = data["name"]
-            iface.gw_iface = data["gw_iface"]
-            iface.auto = data["auto"]
-            iface.listen_port = data["listen_port"]
-            iface.ipv4_address = data["ipv4_address"]
-            iface.description = data["description"]
+            iface = self.server.interfaces[self.uuid]
+            on_up = self.get_list_from_str(data["on_up"])
+            on_down = self.get_list_from_str(data["on_down"])
+            self.server.edit_interface(iface, data["name"], data["description"],
+                                       data["ipv4_address"], data["listen_port"], data["gw_iface"],
+                                       data["auto"], on_up, on_down)
             self.server.confirm_interface(iface)
             self.server.save_changes()
             return Response(status=HTTP_NO_CONTENT)
@@ -102,7 +100,7 @@ class RestController:
 
     def remove_iface(self) -> Response:
         try:
-            self.server.remove_interface(self.iface)
+            self.server.remove_interface(self.uuid)
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
             return Response(str(e), status=e.http_code)

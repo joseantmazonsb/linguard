@@ -194,9 +194,8 @@ class Server(YamlAble):
         iface.on_down.append(f"{self.iptables_bin} -D FORWARD -o {iface.name} -j ACCEPT")
         iface.on_down.append(f"{self.iptables_bin} -t nat -D POSTROUTING -o {iface.gw_iface} -j MASQUERADE")
 
-    def edit_interface(self, uuid: str, name: str, description: str, ipv4_address: str,
+    def edit_interface(self, iface: Interface, name: str, description: str, ipv4_address: str,
                        port: int, gw_iface: str, auto: bool, on_up: List[str], on_down: List[str]):
-        iface = self.interfaces[uuid]
         iface.name = name
         iface.gw_iface = gw_iface
         iface.description = description
@@ -205,6 +204,9 @@ class Server(YamlAble):
         iface.auto = auto
         iface.on_up = on_up
         iface.on_down = on_down
+        if os.path.exists(iface.conf_file):
+            os.remove(iface.conf_file)
+        iface.conf_file = f"{os.path.join(self.interfaces_folder, iface.name)}.conf"
         self.interfaces = OrderedDict(sorted(self.interfaces.items()))
 
     def regenerate_keys(self, iface: Union[Interface, str]):

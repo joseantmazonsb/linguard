@@ -88,7 +88,7 @@ def create_wireguard_iface():
 @router.route("/wireguard/interfaces/add/<uuid>",  methods=['POST'])
 def add_wireguard_iface(uuid: str):
     data = request.json["data"]
-    return RestController(router.server, data["name"]).add_iface(uuid, data)
+    return RestController(router.server, uuid).add_iface(data)
 
 
 @router.route("/wireguard/interfaces/<uuid>",  methods=['GET'])
