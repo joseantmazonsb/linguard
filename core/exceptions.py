@@ -1,8 +1,10 @@
+from http.client import INTERNAL_SERVER_ERROR
+
 from web.static.assets.resources import APP_NAME
 
 
 class WireguardError(Exception):
-    def __init__(self, cause: str, http_code: int = 500):
+    def __init__(self, cause: str, http_code: int = INTERNAL_SERVER_ERROR):
         self.http_code = http_code
         if "sudo" in cause:
             self.cause = f"unable to perform an operation which requires root permissions. " \

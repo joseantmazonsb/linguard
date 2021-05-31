@@ -138,7 +138,7 @@
                                 </thead>
                                 <tbody>
                                     {% for iface in interfaces.values() %}
-                                    {% for peer in iface.peers %}
+                                    {% for peer in iface.peers.values() %}
                                         <tr>
                                             <td><a href="/wireguard/peers/{{ peer.uuid }}">{{ peer.name }}</a></td>
                                             <td><a href="/wireguard/interfaces/{{ iface.uuid }}">{{ iface.name }}</a></td>
@@ -172,4 +172,9 @@
             </div>
         </div>
     </main>
+{% endblock %}
+
+{% block additional_scripts %}
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js" crossorigin="anonymous"></script>
+    <script type="module" src="/static/js/modules/wireguard.mjs"></script>
 {% endblock %}

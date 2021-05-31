@@ -1,20 +1,22 @@
+from yamlable import YamlAble, yaml_info
+from collections import OrderedDict
 from logging import info, warning, debug, error
 from uuid import uuid4 as gen_uuid
-
-from yamlable import YamlAble, yaml_info
-
 from core.utils import run_os_command, write_lines
-from core.wireguard.exceptions import WireguardError
+from core.exceptions import WireguardError
 
 
 @yaml_info(yaml_tag_ns='')
 class Interface(YamlAble):
-
     MIN_PORT_NUMBER = 50000
     MAX_PORT_NUMBER = 65535
 
-    REGEX_NAME = "^[a-z]+[a-z\-_0-9]+$"
-    REGEX_IPV4 = "^([1-9]|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5])(\.(\d|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5])){3}\/(3[0-2]|[1-2]\d|\d)$"
+    MIN_NAME_LENGTH = 2
+    MAX_NAME_LENGTH = 32
+    REGEX_NAME = f"^[a-z][a-z\-_0-9]{{{MIN_NAME_LENGTH-1},{MAX_NAME_LENGTH-1}}}$"
+    REGEX_IPV4_PARTIAL = "([1-9]|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5])(\.(\d|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5])){3}"
+    REGEX_IPV4 = f"^{REGEX_IPV4_PARTIAL}$"
+    REGEX_IPV4_CIDR = f"^{REGEX_IPV4_PARTIAL}\/(3[0-2]|[1-2]\d|\d)$"
 
     def __init__(self, uuid: str, name: str, conf_file: str, description: str, gw_iface: str, ipv4_address,
                  listen_port: int, private_key: str, public_key: str, wg_quick_bin: str, auto: bool):
@@ -31,8 +33,7 @@ class Interface(YamlAble):
         self.auto = auto
         self.on_up = []
         self.on_down = []
-        self.peers = []
-        self.confirmed = False
+        self.peers = OrderedDict()
 
     def __to_yaml_dict__(self):
         """ Called when you call yaml.dump()"""
@@ -48,11 +49,12 @@ class Interface(YamlAble):
             "public_key": self.public_key,
             "auto": self.auto,
             "on_up": self.on_up,
-            "on_down": self.on_down
+            "on_down": self.on_down,
+            "peers": dict(self.peers)
         }
 
     @staticmethod
-    def from_dict(dct):
+    def from_dict(dct: dict):
         """ This optional method is called when you call yaml.load()"""
         if "uuid" in dct:
             uuid = dct["uuid"]
@@ -75,6 +77,13 @@ class Interface(YamlAble):
                           public_key, wg_quick_bin, auto)
         iface.on_up = dct["on_up"]
         iface.on_down = dct["on_down"]
+
+        if "peers" in dct:
+            peers = dct["peers"]
+            for peer in peers.values():
+                peer = Peer.from_dict(peer)
+                peer.interface = iface
+                iface.peers[peer.uuid] = peer
         return iface
 
     def save(self) -> str:
@@ -90,7 +99,7 @@ class Interface(YamlAble):
             iface += f"PostDown = {cmd}\n"
 
         peers = ""
-        for peer in self.peers:
+        for peer in self.peers.values():
             peers += f"\n[Peer]\n" \
                      f"PublicKey = {peer.public_key}\n" \
                      f"AllowedIPs = {peer.ipv4_address}\n"
@@ -126,3 +135,70 @@ class Interface(YamlAble):
         else:
             error(f"Failed to stop interface {self.name}: code={result.code} | err={result.err} | out={result.output}")
             raise WireguardError(result.err)
+
+
+@yaml_info(yaml_tag_ns='')
+class Peer(YamlAble):
+
+    MIN_NAME_LENGTH = 2
+    MAX_NAME_LENGTH = 64
+    REGEX_NAME = f"^[a-zA-Z][\w\-. ]{{{MIN_NAME_LENGTH-1},{MAX_NAME_LENGTH-1}}}$"
+
+    def __init__(self, uuid: str, name: str, description: str, ipv4_address: str, private_key: str, public_key: str,
+                 nat: bool, interface: Interface, endpoint: str, dns1: str, dns2: str = None):
+        self.uuid = uuid
+        self.name = name
+        self.description = description
+        self.ipv4_address = ipv4_address
+        self.private_key = private_key
+        self.public_key = public_key
+        self.nat = nat
+        self.interface = interface
+        if interface is None:
+            self.endpoint = f"{endpoint}"
+        else:
+            self.endpoint = f"{endpoint}:{interface.listen_port}"
+        self.dns1 = dns1
+        self.dns2 = dns2
+        self.confirmed = False
+
+    def __to_yaml_dict__(self):
+        """ Called when you call yaml.dump()"""
+        return {
+            "uuid": self.uuid,
+            "name": self.name,
+            "description": self.description,
+            "ipv4_address": self.ipv4_address,
+            "private_key": self.private_key,
+            "public_key": self.public_key,
+            "endpoint": self.endpoint,
+            "nat": self.nat,
+            "dns1": self.dns1,
+            "dns2": self.dns2
+        }
+
+    @staticmethod
+    def from_dict(dct):
+        """ This optional method is called when you call yaml.load()"""
+        return Peer(dct["uuid"], dct["name"], dct["description"], dct["ipv4_address"], dct["private_key"],
+                    dct["public_key"], dct["nat"], None, dct["dns1"], dct["dns2"])
+
+    def generate_conf(self) -> str:
+        """Generate a wireguard configuration file suitable for this client."""
+
+        iface = f"[Interface]\n" \
+                f"PrivateKey = {self.private_key}\n"
+        iface += f"Address = {self.ipv4_address}\n" \
+                 f"DNS = {self.dns1}"
+        if self.dns2:
+            iface += f", {self.dns2}\n"
+        else:
+            iface += "\n"
+        peer = f"\n[Peer]\n" \
+               f"PublicKey = {self.public_key}\n" \
+               f"AllowedIPs = 0.0.0.0/0\n" \
+               f"Endpoint = {self.endpoint}\n"
+        if self.nat:
+            peer += "PersistentKeepalive = 25\n"
+
+        return iface + peer

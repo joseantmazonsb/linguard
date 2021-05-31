@@ -111,57 +111,47 @@
                 <div class="card-header">
                     <i class="fas fa-user-friends"></i>
                     Peers
-                    <a href="/wireguard/peers/add?iface={{ iface.name }}" class="float-right" title="Add"><i class="fas fa-plus mr-1"></i></a>
+                    <a href="/wireguard/peers/add?interface={{ iface.uuid }}" class="float-right" title="Add"><i class="fas fa-plus mr-1"></i></a>
                 </div>
                 <div class="card-body">
                     <div id="wgIfacePeers">
-                        <div class="row row-cols-1 row-cols-lg-2 row-cols-xl-3">
-                            {% for peer in iface.peers %}
-                                <div class="col mb-4">
-                                    <div class="card">
-                                        <div class="card-body">
-                                            <h5 class="card-title mb-3">{{ peer.name }}</h5>
-                                            <div class="table-responsive">
-                                                <table class="table table-bordered">
-                                                    <tbody>
-                                                        <tr>
-                                                            <th>Description</th>
-                                                            {% if peer.description %}
-                                                                <td>{{ peer.description }}</td>
-                                                            {% else %}
-                                                                <td>{{ EMPTY_FIELD | safe }}</td>
-                                                            {% endif %}
-                                                        </tr>
-                                                        <tr>
-                                                            <th>IPv4</th>
-                                                            {% if peer.ipv4_address %}
-                                                                <td>{{ peer.ipv4_address }}</td>
-                                                            {% else %}
-                                                                <td>{{ EMPTY_FIELD | safe }}</td>
-                                                            {% endif %}
-                                                        </tr>
-                                                        <tr>
-                                                            <th>Primary DNS</th>
-                                                            <td>{{ peer.dns1 }}</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <th>Secondary DNS</th>
-                                                            {% if peer.dns2 %}
-                                                                <td>{{ peer.dns2 }}</td>
-                                                            {% else %}
-                                                                <td>{{ EMPTY_FIELD | safe }}</td>
-                                                            {% endif %}
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                        <div class="card-footer">
-                                            <small><a href="wireguard/peers/{{ peer.name }}">Edit</a></small>
-                                        </div>
-                                    </div>
-                                </div>
-                            {% endfor %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="dataTable">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Description</th>
+                                        <th>IPv4</th>
+                                        <th>Primary DNS</th>
+                                        <th>Secondary DNS</th>
+                                        <th>NAT</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for peer in iface.peers.values() %}
+                                        <tr>
+                                            <td><a href="/wireguard/peers/{{ peer.uuid }}">{{ peer.name }}</a></td>
+                                            {% if peer.description %}
+                                                <td>{{ peer.description }}</td>
+                                            {% else %}
+                                                <td>{{ EMPTY_FIELD | safe }}</td>
+                                            {% endif %}
+                                            {% if peer.ipv4_address %}
+                                                <td>{{ peer.ipv4_address }}</td>
+                                            {% else %}
+                                                <td>{{ EMPTY_FIELD | safe }}</td>
+                                            {% endif %}
+                                            <td>{{ peer.dns1}}</td>
+                                            {% if peer.dns2 %}
+                                                <td>{{ peer.dns2 }}</td>
+                                            {% else %}
+                                                <td>{{ EMPTY_FIELD | safe }}</td>
+                                            {% endif %}
+                                            <td>{{ peer.nat }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
