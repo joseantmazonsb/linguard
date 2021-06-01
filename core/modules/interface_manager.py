@@ -32,13 +32,16 @@ class InterfaceManager:
                 return True
         return False
 
-    def add_iface(self, iface: Interface):
-        self.interfaces[iface.uuid] = iface
-        sorted_ifaces = OrderedDict(sorted(self.interfaces.items()))
+    def sort_ifaces(self):
+        sorted_ifaces = OrderedDict(sorted(self.interfaces.items(), key=lambda t: t[1].name,))
         self.interfaces.clear()
         for uuid in sorted_ifaces:
             iface = sorted_ifaces[uuid]
             self.interfaces[uuid] = iface
+
+    def add_iface(self, iface: Interface):
+        self.interfaces[iface.uuid] = iface
+        self.sort_ifaces()
 
     def generate_interface(self) -> Interface:
         uuid = gen_uuid().hex
@@ -73,7 +76,7 @@ class InterfaceManager:
         if os.path.exists(iface_to_remove.conf_file):
             os.remove(iface_to_remove.conf_file)
         del self.interfaces[iface_to_remove.uuid]
-        self.interfaces = OrderedDict(sorted(self.interfaces.items()))
+        self.sort_ifaces()
 
     def __set_iface_rules__(self, iface: Interface):
         iface.on_up.append(f"{self.iptables_bin} -I FORWARD -i {iface.name} -j ACCEPT")

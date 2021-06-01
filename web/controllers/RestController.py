@@ -118,7 +118,7 @@ class RestController:
         if not wg_iface:
             raise WireguardError(f"a valid wireguard interface must be provided,.", HTTP_BAD_REQUEST)
         try:
-            self.server.get_iface_by_name(wg_iface)
+            self.server.interfaces[wg_iface]
         except WireguardError:
             raise WireguardError(f"'{wg_iface}' is not a valid wireguard interface.", HTTP_BAD_REQUEST)
         if not re.match(Peer.REGEX_NAME, data["name"]):
@@ -138,7 +138,7 @@ class RestController:
     def add_peer(self, data: Dict[str, Any]) -> Response:
         try:
             self.find_errors_in_save_peer(data)
-            iface = self.server.get_iface_by_name(data["interface"])
+            iface = self.server.interfaces[data["interface"]]
             peer = self.server.get_pending_peer_by_name(data["name"])
             self.server.edit_peer(peer, data["name"], data["description"], data["ipv4_address"], iface, data["dns1"],
                                   data["nat"])

@@ -49,7 +49,16 @@
                         <div class="form-row">
                             <div class="form-group col-md-4">
                               <label for="interface">Interface</label>
-                              <input type="text" class="form-control" id="interface" value="{{ peer.interface.name }}">
+                                <select class="form-control" id="interface">
+                                    {% if peer.interface.name %}
+                                        <option selected value="{{ peer.interface.uuid }}">{{ peer.interface.name }}</option>
+                                    {% else %}
+                                        <option selected disabled hidden>Select an interface</option>
+                                        {% for iface in interfaces %}
+                                            <option value="{{ iface.uuid }}">{{ iface.name }}</option>
+                                        {% endfor %}
+                                    {% endif %}
+                                </select>
                             </div>
                             <div class="form-group col-md-4">
                                 <label for="ipv4">IPv4</label>

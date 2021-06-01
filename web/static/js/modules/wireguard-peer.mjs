@@ -4,14 +4,7 @@ const addPeerBtn = $("#addPeerBtn");
 const loadFeeback = $("#wgLoading");
 const alertContainer = "wgPeerConfig";
 const resetBtn = $("#resetBtn");
-const natGroup = $("#nat");
 
-let nat = $('#nat .active').text().trim().toLowerCase() === "yes";
-
-natGroup.click(function(e) {
-    const status = $('#nat .active').text().trim().toLowerCase();
-    nat = !(status === "yes");
-});
 
 $(".peerInputName").hover(function (e) {
     $(this).css("color", "#4e555b");
@@ -34,7 +27,7 @@ addPeerBtn.click(function (e) {
         "ipv4_address": $("#ipv4").val(),
         "dns1": $("#dns1").val(),
         "dns2": $("#dns2").val(),
-        "nat": nat
+        "nat": $('#nat .active').text().trim().toLowerCase() === "yes"
     };
     $.ajax({
         type: "post",
@@ -47,8 +40,7 @@ addPeerBtn.click(function (e) {
         },
         success: function (resp) {
             prependAlert(alertContainer, "New peer added!", AlertType.SUCCESS, 1500, true, function () {
-                const url = location.href.substring(0, location.href.lastIndexOf("/"));
-                location.replace(url);
+                location.replace(document.referrer);
             });
         },
         error: function(resp) {

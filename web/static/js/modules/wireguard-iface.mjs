@@ -94,7 +94,7 @@ saveIfaceBtn.click(function (e) {
         "listen_port": $("#port").val(),
         "on_up": $("#onUp").val(),
         "on_down": $("#onDown").val(),
-        "auto": autoStart
+        "auto": $('#autoStart .active').text().trim().toLowerCase() === "on"
     };
     sendPost(url,"Changes saved! Don't forget to <strong>apply</strong> them before leaving.",
         AlertType.WARN, data)
@@ -111,15 +111,15 @@ applytIfaceBtn.click(function (e) {
         "listen_port": $("#port").val(),
         "on_up": $("#onUp").val(),
         "on_down": $("#onDown").val(),
-        "auto": autoStart
+        "auto": $('#autoStart .active').text().trim().toLowerCase() === "on"
     };
     sendPost(url,"Configuration <strong>applied</strong>!", AlertType.SUCCESS, data)
 });
 
-const regenerateKeysBtn = $("#regenerateKeysBtn");
-regenerateKeysBtn.click(function (e) {
+const refreshKeysBtn = $("#refreshKeysBtn");
+refreshKeysBtn.click(function (e) {
     const url = location.href+"/regenerate-keys";
-    sendPost(url, "Keys regenerated!");
+    sendPost(url, "Keys updated!");
 });
 
 const addIfaceBtn = $("#addBtn");
@@ -135,7 +135,7 @@ addIfaceBtn.click(function (e) {
         "listen_port": $("#port").val(),
         "on_up": $("#onUp").val(),
         "on_down": $("#onDown").val(),
-        "auto": autoStart
+        "auto": $('#autoStart .active').text().trim().toLowerCase() === "on"
     };
     $.ajax({
         type: "post",
@@ -148,9 +148,7 @@ addIfaceBtn.click(function (e) {
         },
         success: function (resp) {
             prependAlert(alertContainer, "New interface added!", AlertType.SUCCESS, 1500, true, function () {
-                const baseUrl = location.protocol + "//" + location.hostname + ":" + location.port;
-                const url = baseUrl + "/wireguard";
-                location.replace(url);
+                location.replace(document.referrer);
             });
         },
         error: function(resp) {
@@ -162,14 +160,6 @@ addIfaceBtn.click(function (e) {
             loadFeeback.hide();
         },
     });
-});
-
-let autoStart = $('#autoStart .active').text().trim().toLowerCase() === "on";
-
-const autoStartGroup = $("#autoStart");
-autoStartGroup.click(function(e) {
-    const status = $('#autoStart .active').text().trim().toLowerCase();
-    autoStart = !(status === "on");
 });
 
 $(".ifaceInputName").hover(function (e) {

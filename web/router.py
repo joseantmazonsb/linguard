@@ -169,9 +169,12 @@ def create_wireguard_peer():
             abort(BAD_REQUEST, f"Unable to create peer for unknown interface '{iface_uuid}'.")
         iface = router.server.interfaces[iface_uuid]
     peer = router.server.generate_peer(iface)
+    interfaces = get_wg_interfaces_summary(wg_bin=router.server.config.wg_bin,
+                                           interfaces=list(router.server.interfaces.values())).values()
     context = {
         "title": "Add peer",
         "peer": peer,
+        "interfaces": interfaces,
         "EMPTY_FIELD": EMPTY_FIELD,
         "APP_NAME": APP_NAME
     }

@@ -31,14 +31,17 @@ class PeerManager:
         return peer
 
     @staticmethod
-    def add_peer(peer: Peer):
-        iface = peer.interface
-        iface.peers[peer.uuid] = peer
-        sorted_peers = OrderedDict(sorted(iface.peers.items()))
+    def sort_peers(iface: Interface):
+        sorted_peers = OrderedDict(sorted(iface.peers.items(),  key=lambda t: t[1].name))
         iface.peers.clear()
         for uuid in sorted_peers:
             p = sorted_peers[uuid]
             iface.peers[uuid] = p
+
+    def add_peer(self, peer: Peer):
+        iface = peer.interface
+        iface.peers[peer.uuid] = peer
+        self.sort_peers(iface)
 
     def edit_peer(self, peer: Peer, name: str, description: str, ipv4_address: str,
                        iface: Interface, dns1: str, nat: bool, dns2: str = ""):

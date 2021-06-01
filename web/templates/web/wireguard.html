@@ -78,12 +78,12 @@
                                         <div class="float-right">
                                             <a href="/wireguard/interfaces/{{ iface.uuid }}"
                                                title="Edit" class="mr-2"><i class="fas fa-pen"></i></a>
-                                            <span data-toggle="modal" data-target="#removeIfaceModal"
+                                            <span data-toggle="modal" data-target="#removeIfaceModal-{{ iface.uuid }}"
                                                   type="button" class="btn-link">
                                                 <i title="Remove" class="fas fa-trash"></i>
                                             </span>
                                             <!-- Modal -->
-                                            <div class="modal fade" id="removeIfaceModal" tabindex="-1" role="dialog"
+                                            <div class="modal fade" id="removeIfaceModal-{{ iface.uuid }}" tabindex="-1" role="dialog"
                                                  aria-labelledby="removeIfaceModalTitle" aria-hidden="true">
                                               <div class="modal-dialog" role="document">
                                                 <div class="modal-content">
