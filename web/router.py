@@ -123,7 +123,7 @@ def apply_wireguard_iface(uuid: str):
     return RestController(router.server, uuid).apply_iface(data)
 
 
-@router.route("/wireguard/interfaces/<uuid>/remove",  methods=['POST'])
+@router.route("/wireguard/interfaces/<uuid>/remove",  methods=['DELETE'])
 def remove_wireguard_iface(uuid: str):
     if uuid not in router.server.interfaces:
         abort(NOT_FOUND, f"Interface {uuid} not found.")
@@ -185,6 +185,11 @@ def create_wireguard_peer():
 def add_wireguard_peer():
     data = request.json["data"]
     return RestController(router.server).add_peer(data)
+
+
+@router.route("/wireguard/peers/<uuid>/remove",  methods=['DELETE'])
+def remove_wireguard_peer(uuid: str):
+    return RestController(router.server).remove_peer(uuid)
 
 
 @router.route("/themes")

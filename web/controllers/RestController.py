@@ -151,3 +151,21 @@ class RestController:
         except Exception as e:
             error(str(e))
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
+
+    def remove_peer(self, uuid: str) -> Response:
+        try:
+            peer = None
+            for iface in self.server.interfaces.values():
+                if uuid in iface.peers:
+                    peer = iface.peers[uuid]
+            if peer is None:
+                raise WireguardError("unable to remove interface.", HTTP_BAD_REQUEST)
+            self.server.remove_peer(peer)
+            self.server.save_changes()
+            return Response(status=HTTP_NO_CONTENT)
+        except WireguardError as e:
+            error(str(e))
+            return Response(str(e), status=e.http_code)
+        except Exception as e:
+            error(str(e))
+            return Response(str(e), status=HTTP_INTERNAL_ERROR)
