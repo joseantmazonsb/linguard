@@ -1,14 +1,14 @@
 import re
+from http.client import NOT_FOUND
 from logging import error
 from typing import Dict, Any, List
 
 from flask import Response
 
 from core.exceptions import WireguardError
-from core.wireguard import Interface, Peer
 from core.server import Server
+from core.wireguard import Interface, Peer
 from web.utils import get_system_interfaces
-
 
 HTTP_NO_CONTENT = 204
 HTTP_BAD_REQUEST = 400
@@ -168,4 +168,24 @@ class RestController:
             return Response(str(e), status=e.http_code)
         except Exception as e:
             error(str(e))
+            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+
+    def save_peer(self, data: Dict[str, Any]) -> Response:
+        try:
+            peer = None
+            for iface in self.server.interfaces.values():
+                if self.uuid in iface.peers:
+                    peer = iface.peers[self.uuid]
+            if not peer:
+                raise WireguardError(f"Unknown peer '{self.uuid}'.", NOT_FOUND)
+            self.find_errors_in_save_peer(data)
+            iface = self.server.interfaces[data["interface"]]
+            self.server.edit_peer(peer, data["name"], data["description"],
+                                  data["ipv4_address"], iface, data["dns1"],
+                                  data["nat"], data["dns2"])
+            self.server.save_changes()
+            return Response(status=HTTP_NO_CONTENT)
+        except WireguardError as e:
+            return Response(str(e), status=e.http_code)
+        except Exception as e:
             return Response(str(e), status=HTTP_INTERNAL_ERROR)

@@ -140,7 +140,7 @@ addIfaceBtn.click(function (e) {
     $.ajax({
         type: "post",
         url: url,
-        data: JSON.stringify({"data": data}), // Filled up in jinja template
+        data: JSON.stringify({"data": data}),
         dataType: 'json',
         contentType: 'application/json',
         beforeSend : function () {

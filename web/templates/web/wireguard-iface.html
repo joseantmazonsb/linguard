@@ -30,23 +30,23 @@
                                         <i class="fas fa-question-circle"></i>
                                 </span>
                                 <br>
-                                    <div class="btn-group btn-group-toggle mt-2" data-toggle="buttons" id="autoStart">
-                                        {% if iface.auto %}
-                                            <label class="btn btn-primary active">
-                                                <input type="radio" name="options" autocomplete="off" checked> On
-                                            </label>
-                                            <label class="btn btn-primary">
-                                                <input type="radio" name="options" autocomplete="off"> Off
-                                            </label>
-                                        {% else %}
-                                            <label class="btn btn-primary">
-                                                <input type="radio" name="options" autocomplete="off"> On
-                                            </label>
-                                            <label class="btn btn-primary active">
-                                                <input type="radio" name="options" autocomplete="off" checked> Off
-                                            </label>
-                                        {% endif %}
-                                    </div>
+                                <div class="btn-group btn-group-toggle mt-2" data-toggle="buttons" id="autoStart">
+                                    {% if iface.auto %}
+                                        <label class="btn btn-primary active">
+                                            <input type="radio" name="options" autocomplete="off" checked> On
+                                        </label>
+                                        <label class="btn btn-primary">
+                                            <input type="radio" name="options" autocomplete="off"> Off
+                                        </label>
+                                    {% else %}
+                                        <label class="btn btn-primary">
+                                            <input type="radio" name="options" autocomplete="off"> On
+                                        </label>
+                                        <label class="btn btn-primary active">
+                                            <input type="radio" name="options" autocomplete="off" checked> Off
+                                        </label>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
                         <div class="form-row">

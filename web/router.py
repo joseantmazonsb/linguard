@@ -4,11 +4,11 @@ from http.client import BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR, UNAUTHORI
 from flask import Blueprint, abort, request, Response
 
 from core.exceptions import WireguardError
+from core.server import Server
 from web.controllers.RestController import RestController
 from web.controllers.ViewController import ViewController
-from web.utils import get_all_interfaces, get_routing_table, get_wg_interfaces_summary, get_wg_interface_status
-from core.server import Server
 from web.static.assets.resources import EMPTY_FIELD, APP_NAME
+from web.utils import get_all_interfaces, get_routing_table, get_wg_interfaces_summary, get_wg_interface_status
 
 
 class Router(Blueprint):
@@ -190,6 +190,30 @@ def add_wireguard_peer():
 @router.route("/wireguard/peers/<uuid>/remove",  methods=['DELETE'])
 def remove_wireguard_peer(uuid: str):
     return RestController(router.server).remove_peer(uuid)
+
+
+@router.route("/wireguard/peers/<uuid>",  methods=['GET'])
+def get_wireguard_peer(uuid: str):
+    peer = None
+    for iface in router.server.interfaces.values():
+        if uuid in iface.peers:
+            peer = iface.peers[uuid]
+    if not peer:
+        abort(NOT_FOUND, f"Unknown peer '{uuid}'.")
+    context = {
+        "title": "Edit peer",
+        "peer": peer,
+        "last_update": datetime.now().strftime("%H:%M"),
+        "EMPTY_FIELD": EMPTY_FIELD,
+        "APP_NAME": APP_NAME
+    }
+    return ViewController("web/wireguard-peer.html", **context).load()
+
+
+@router.route("/wireguard/peers/<uuid>/save",  methods=['POST'])
+def save_wireguard_peers(uuid: str):
+    data = request.json["data"]
+    return RestController(router.server, uuid).save_peer(data)
 
 
 @router.route("/themes")
