@@ -139,3 +139,5 @@ function fadeHTMLElement(id, delay, fadeDuration = 500, slideDuration = 500, onE
         });
     }, delay);
 }
+
+
