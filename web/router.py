@@ -74,7 +74,7 @@ def wireguard():
     return ViewController("web/wireguard.html", **context).load()
 
 
-@router.route("/wireguard/interfaces/add",  methods=['GET'])
+@router.route("/wireguard/interfaces/add", methods=['GET'])
 def create_wireguard_iface():
     iface = router.server.generate_interface()
     context = {
@@ -86,13 +86,13 @@ def create_wireguard_iface():
     return ViewController("web/wireguard-add-iface.html", **context).load()
 
 
-@router.route("/wireguard/interfaces/add/<uuid>",  methods=['POST'])
+@router.route("/wireguard/interfaces/add/<uuid>", methods=['POST'])
 def add_wireguard_iface(uuid: str):
     data = request.json["data"]
     return RestController(router.server, uuid).add_iface(data)
 
 
-@router.route("/wireguard/interfaces/<uuid>",  methods=['GET'])
+@router.route("/wireguard/interfaces/<uuid>", methods=['GET'])
 def get_wireguard_iface(uuid: str):
     if uuid not in router.server.interfaces:
         abort(NOT_FOUND, f"Unknown interface '{uuid}'.")
@@ -109,7 +109,7 @@ def get_wireguard_iface(uuid: str):
     return ViewController("web/wireguard-iface.html", **context).load()
 
 
-@router.route("/wireguard/interfaces/<uuid>/save",  methods=['POST'])
+@router.route("/wireguard/interfaces/<uuid>/save", methods=['POST'])
 def save_wireguard_iface(uuid: str):
     if uuid not in router.server.interfaces:
         abort(NOT_FOUND, f"Interface {uuid} not found.")
@@ -117,25 +117,25 @@ def save_wireguard_iface(uuid: str):
     return RestController(router.server, uuid).save_iface(data)
 
 
-@router.route("/wireguard/interfaces/<uuid>/apply",  methods=['POST'])
+@router.route("/wireguard/interfaces/<uuid>/apply", methods=['POST'])
 def apply_wireguard_iface(uuid: str):
     data = request.json["data"]
     return RestController(router.server, uuid).apply_iface(data)
 
 
-@router.route("/wireguard/interfaces/<uuid>/remove",  methods=['DELETE'])
+@router.route("/wireguard/interfaces/<uuid>/remove", methods=['DELETE'])
 def remove_wireguard_iface(uuid: str):
     if uuid not in router.server.interfaces:
         abort(NOT_FOUND, f"Interface {uuid} not found.")
     return RestController(router.server, uuid).remove_iface()
 
 
-@router.route("/wireguard/interfaces/<uuid>/regenerate-keys",  methods=['POST'])
+@router.route("/wireguard/interfaces/<uuid>/regenerate-keys", methods=['POST'])
 def regenerate_iface_keys(uuid: str):
     return RestController(router.server, uuid).regenerate_iface_keys()
 
 
-@router.route("/wireguard/interfaces/<uuid>",  methods=['POST'])
+@router.route("/wireguard/interfaces/<uuid>", methods=['POST'])
 def operate_wireguard_iface(uuid: str):
     action = request.json["action"].lower()
     if action == "start":
@@ -160,7 +160,7 @@ def operate_wireguard_iface(uuid: str):
         abort(BAD_REQUEST, f"Invalid action request: '{action}'")
 
 
-@router.route("/wireguard/peers/add",  methods=['GET'])
+@router.route("/wireguard/peers/add", methods=['GET'])
 def create_wireguard_peer():
     iface = None
     iface_uuid = request.args.get("interface")
@@ -181,18 +181,18 @@ def create_wireguard_peer():
     return ViewController("web/wireguard-add-peer.html", **context).load()
 
 
-@router.route("/wireguard/peers/add",  methods=['POST'])
+@router.route("/wireguard/peers/add", methods=['POST'])
 def add_wireguard_peer():
     data = request.json["data"]
     return RestController(router.server).add_peer(data)
 
 
-@router.route("/wireguard/peers/<uuid>/remove",  methods=['DELETE'])
+@router.route("/wireguard/peers/<uuid>/remove", methods=['DELETE'])
 def remove_wireguard_peer(uuid: str):
     return RestController(router.server).remove_peer(uuid)
 
 
-@router.route("/wireguard/peers/<uuid>",  methods=['GET'])
+@router.route("/wireguard/peers/<uuid>", methods=['GET'])
 def get_wireguard_peer(uuid: str):
     peer = None
     for iface in router.server.interfaces.values():
@@ -210,10 +210,15 @@ def get_wireguard_peer(uuid: str):
     return ViewController("web/wireguard-peer.html", **context).load()
 
 
-@router.route("/wireguard/peers/<uuid>/save",  methods=['POST'])
+@router.route("/wireguard/peers/<uuid>/save", methods=['POST'])
 def save_wireguard_peers(uuid: str):
     data = request.json["data"]
     return RestController(router.server, uuid).save_peer(data)
+
+
+@router.route("/wireguard/peers/<uuid>/download", methods=['GET'])
+def download_wireguard_peer(uuid: str):
+    return RestController(router.server, uuid).download_peer()
 
 
 @router.route("/themes")

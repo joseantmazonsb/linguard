@@ -1,9 +1,10 @@
+import io
 import re
 from http.client import NOT_FOUND
 from logging import error
 from typing import Dict, Any, List
 
-from flask import Response
+from flask import Response, send_file
 
 from core.exceptions import WireguardError
 from core.server import Server
@@ -16,10 +17,6 @@ HTTP_INTERNAL_ERROR = 500
 
 
 class RestController:
-    def __init__(self, server: Server, uuid: str = None):
-        self.server = server
-        self.uuid = uuid
-
     def regenerate_iface_keys(self) -> Response:
         try:
             self.server.regenerate_keys(self.uuid)
@@ -28,6 +25,10 @@ class RestController:
             return Response(str(e), status=e.http_code)
         except Exception as e:
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
+
+    def __init__(self, server: Server, uuid: str = None):
+        self.server = server
+        self.uuid = uuid
 
     def save_iface(self, data: Dict[str, Any]) -> Response:
         try:
@@ -185,6 +186,29 @@ class RestController:
                                   data["nat"], data["dns2"])
             self.server.save_changes()
             return Response(status=HTTP_NO_CONTENT)
+        except WireguardError as e:
+            return Response(str(e), status=e.http_code)
+        except Exception as e:
+            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+
+    def download_peer(self) -> Response:
+        try:
+            peer = None
+            for iface in self.server.interfaces.values():
+                if self.uuid in iface.peers:
+                    peer = iface.peers[self.uuid]
+            if not peer:
+                raise WireguardError(f"Unknown peer '{self.uuid}'.", NOT_FOUND)
+            conf = peer.generate_conf()
+            proxy = io.StringIO()
+            proxy.writelines(conf)
+            # Creating the byteIO object from the StringIO Object
+            mem = io.BytesIO()
+            mem.write(proxy.getvalue().encode())
+            # seeking was necessary. Python 3.5.2, Flask 0.12.2
+            mem.seek(0)
+            proxy.close()
+            return send_file(mem, as_attachment=True, attachment_filename=f"{peer.name}.conf", mimetype="text/plain")
         except WireguardError as e:
             return Response(str(e), status=e.http_code)
         except Exception as e:

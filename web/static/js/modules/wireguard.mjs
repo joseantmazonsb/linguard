@@ -55,3 +55,13 @@ function removeItem(removeBtn, itemType) {
         });
     });
 }
+
+const downloadBtn = $(".downloadBtn");
+downloadBtn.click(function (e) {
+    let item = e.target.id.split("-")[1];
+    if (!item) {
+        item = e.target.farthestViewportElement.id.split("-")[1];
+    }
+    const url = "/wireguard/peers/"+item+"/download";
+    location.replace(url);
+});
