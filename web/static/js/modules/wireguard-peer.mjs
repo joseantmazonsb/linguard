@@ -107,3 +107,10 @@ removePeerBtn.click(function (e) {
         },
     });
 });
+
+const downloadBtn = $(".downloadBtn");
+downloadBtn.click(function (e) {
+    const item = e.target.id.split("-")[1];
+    const url = "/wireguard/peers/"+item+"/download";
+    location.replace(url);
+});

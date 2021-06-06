@@ -154,12 +154,15 @@
                                                 <td>No</td>
                                             {% endif %}
                                             <td>
+                                                <span type="button" class="btn-link mr-2 downloadBtn" id="downloadBtn-{{ peer.uuid }}">
+                                                    <i title="Download" class="fa fa-download downloadBtn" id="downloadBtn-{{ peer.uuid }}"></i>
+                                                </span>
                                                 <a href="/wireguard/peers/{{ peer.uuid }}"
                                                    title="Edit" class="mr-2"><i class="fas fa-pen"></i></a>
-                                                    <span data-toggle="modal" data-target="#removeModal-{{ peer.uuid }}"
-                                                          type="button" class="btn-link mr-3 removal-link">
-                                                        <i title="Remove" class="fas fa-trash"></i>
-                                                    </span>
+                                                <span data-toggle="modal" data-target="#removeModal-{{ peer.uuid }}"
+                                                      type="button" class="btn-link mr-3 removal-link">
+                                                    <i title="Remove" class="fas fa-trash"></i>
+                                                </span>
                                                 <!-- Modal -->
                                                 <div class="modal fade" id="removeModal-{{ peer.uuid }}" tabindex="-1" role="dialog"
                                                      aria-labelledby="removeTitle" aria-hidden="true">
@@ -197,4 +200,8 @@
             </div>
         </div>
     </main>
+{% endblock %}
+
+{% block additional_scripts %}
+    <script type="module" src="/static/js/modules/wireguard-iface.mjs"></script>
 {% endblock %}

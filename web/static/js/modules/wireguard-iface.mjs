@@ -167,3 +167,13 @@ $(".ifaceInputName").hover(function (e) {
 }, function (e) {
     $(this).css("color", "black");
 });
+
+const downloadBtn = $(".downloadBtn");
+downloadBtn.click(function (e) {
+    let item = e.target.id.split("-")[1];
+    if (!item) {
+        item = e.target.farthestViewportElement.id.split("-")[1];
+    }
+    const url = "/wireguard/peers/"+item+"/download";
+    location.replace(url);
+});
