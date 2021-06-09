@@ -55,24 +55,33 @@ gwIface.focusout(function (e) {
     oldGw = newGw;
 });
 
-const removeBtn = $(".removeBtn");
-removeBtn.click(function (e) {
-    const iface = e.target.id.split("-")[1];
-    const url = "/wireguard/interfaces/"+iface+"/remove";
-    const alertType = "danger";
-    $.ajax({
-        type: "delete",
-        url: url,
-        success: function () {
-            location.replace(document.referrer);
-        },
-        error: function(resp) {
-            prependAlert(alertContainer, "<strong>Oops, something went wrong</strong>: " + resp["responseText"],
-                alertType);
-            $("#removeModal").modal("toggle");
-        },
-    });
+const removeIfaceBtn = $(".removeIfaceBtn");
+removeItem(removeIfaceBtn, "interface", function () {
+    location.replace(document.referrer);
 });
+
+const removePeerBtn = $(".removePeerBtn");
+removeItem(removePeerBtn, "peer", function () {
+    location.reload();
+});
+
+function removeItem(removeBtn, itemType, onSuccess) {
+    removeBtn.click(function (e) {
+        const item = e.target.id.split("-")[1];
+        const url = "/wireguard/"+itemType+"s/"+item+"/remove";
+        const alertType = "danger";
+        $.ajax({
+            type: "delete",
+            url: url,
+            success: onSuccess,
+            error: function(resp) {
+                prependAlert(alertContainer, "<strong>Oops, something went wrong</strong>: " + resp["responseText"],
+                    alertType);
+                $("#removeModal").modal("toggle");
+            },
+        });
+    });
+}
 
 function sendPost(url, onSuccess, onSuccessAlertType = AlertType.SUCCESS, data=null) {
     $.ajax({
