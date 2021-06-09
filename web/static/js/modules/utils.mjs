@@ -1,7 +1,3 @@
-export {
-    postJSON, AlertType, prependAlert
-}
-
 (function($) {
     $("[data-toggle=popover]").popover();
     // Add active state to sidebar nav links
@@ -18,7 +14,7 @@ export {
     });
 })(jQuery);
 
-const AlertType = Object.freeze({
+export const AlertType = Object.freeze({
     "DANGER": "danger",
     "WARN": "warning",
     "SUCCESS": "success",
@@ -34,7 +30,7 @@ const AlertType = Object.freeze({
  * @param loadFeedback Id of the HTML element to be used as visual feedback (a loading circle or bar, for example).
  * @param jsonData [Optional] JSON data to post.
  */
-function postJSON(url, alertContainer, alertType = AlertType.DANGER, loadFeedback, jsonData = null) {
+export function postJSON(url, alertContainer, alertType = AlertType.DANGER, loadFeedback, jsonData = null) {
     const loadItem = $("#"+loadFeedback);
     $.ajax({
         type: "post",
@@ -69,7 +65,7 @@ let previousAlert;
  * @param unique
  * @param onEnd
  */
-function prependAlert(prependTo, text, alertType = AlertType.DANGER, delay=7000, unique = false, onEnd) {
+export function prependAlert(prependTo, text, alertType = AlertType.DANGER, delay=7000, unique = false, onEnd) {
     const salt = getRndInteger();
     const alertId = "alert-"+salt;
     const closeId = "close-"+salt;
@@ -139,5 +135,3 @@ function fadeHTMLElement(id, delay, fadeDuration = 500, slideDuration = 500, onE
         });
     }, delay);
 }
-
-

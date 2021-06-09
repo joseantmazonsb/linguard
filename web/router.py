@@ -114,12 +114,6 @@ def save_wireguard_iface(uuid: str):
     if uuid not in router.server.interfaces:
         abort(NOT_FOUND, f"Interface {uuid} not found.")
     data = request.json["data"]
-    return RestController(router.server, uuid).save_iface(data)
-
-
-@router.route("/wireguard/interfaces/<uuid>/apply", methods=['POST'])
-def apply_wireguard_iface(uuid: str):
-    data = request.json["data"]
     return RestController(router.server, uuid).apply_iface(data)
 
 

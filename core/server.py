@@ -162,6 +162,7 @@ class Server:
 
     def start(self):
         info("Starting VPN server...")
+        self.load_config()
         if self.started:
             warning("Unable to start VPN server: already started.")
             return
@@ -173,7 +174,6 @@ class Server:
             except WireguardError:
                 pass
         self.started = True
-        self.load_config()
         info("VPN server started.")
 
     def stop(self):

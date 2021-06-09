@@ -59,7 +59,7 @@ class RestController:
         if not re.match(Interface.REGEX_NAME, data["name"]):
             raise WireguardError("interface name can only contain alphanumeric characters, "
                                  "underscores (_) and hyphens (-). It must also begin with a "
-                                 f"letter and cannot exceed {Interface.MAX_NAME_LENGTH}.", HTTP_BAD_REQUEST)
+                                 f"letter and cannot exceed {Interface.MAX_NAME_LENGTH} characters.", HTTP_BAD_REQUEST)
         if not re.match(Interface.REGEX_IPV4_CIDR, data["ipv4_address"]):
             raise WireguardError("invalid IPv4 address or mask. Must follow the format X.X.X.X/Y, "
                                  "just like 10.0.0.10/24, for instance.", HTTP_BAD_REQUEST)
@@ -80,7 +80,8 @@ class RestController:
     def apply_iface(self, data: Dict[str, Any]) -> Response:
         try:
             self.save_iface(data)
-            self.server.apply_iface(self.uuid)
+            iface = self.server.interfaces[self.uuid]
+            self.server.apply_iface(iface)
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
             return Response(str(e), status=e.http_code)

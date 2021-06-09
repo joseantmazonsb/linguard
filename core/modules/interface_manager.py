@@ -97,8 +97,6 @@ class InterfaceManager:
         iface.auto = auto
         iface.on_up = on_up
         iface.on_down = on_down
-        if os.path.exists(iface.conf_file):
-            os.remove(iface.conf_file)
         iface.conf_file = f"{os.path.join(self.interfaces_folder, iface.name)}.conf"
 
     def regenerate_keys(self, iface: Union[Interface, str]):
