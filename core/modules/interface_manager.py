@@ -1,7 +1,7 @@
 import os
 from time import sleep
 
-import namegenerator
+from coolname import generate_slug
 
 from collections import OrderedDict
 from random import randint
@@ -45,7 +45,7 @@ class InterfaceManager:
 
     def generate_interface(self) -> Interface:
         uuid = gen_uuid().hex
-        name = namegenerator.gen()
+        name = generate_slug(2)[:Interface.MAX_NAME_LENGTH]
         description = ""
         mask = f"/{randint(8, 30)}"
         ipv4_address = self.faker.ipv4_private() + mask
