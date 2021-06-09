@@ -6,12 +6,7 @@
             <div class="my-4">
                 <i class="fas fa-pen mb-1 mr-2"></i>
                 <input readonly style="display: inline;"
-                       class="h1 border-0 col-8 col-lg-5 col-xl-3 ifaceInputName" id="name" value="{{ iface.name }}">
-                {% if iface_status == "up" %}
-                    <h2 style="display: inline"><span class="badge badge-success">up</span></h2>
-                {% else %}
-                    <h2 style="display: inline" class="ml-1"><span class="badge badge-danger">down</span></h2>
-                {% endif %}
+                       class="h1 border-0 col-7 col-lg-4 col-xl-2 ifaceInputName" id="name" value="{{ iface.name }}">
                 <a href="#" onclick="location.replace(document.referrer)" style="display: inline" class="float-right mt-3">
                     <i class="fas fa-arrow-left mr-2"></i>Back
                 </a>
@@ -20,6 +15,11 @@
                 <div class="card-header">
                     <i class="fas fa-cog"></i>
                     Configuration
+                    {% if iface_status == "up" %}
+                        <h6 title="Status" class="float-right mt-1"><span class="badge badge-pill badge-success">up</span></h6>
+                    {% else %}
+                        <h6 title="Status" class="float-right mt-1"><span class="badge badge-pill badge-danger">down</span></h6>
+                    {% endif %}
                 </div>
                 <div class="card-body">
                     <div id="wgIfaceConfig">
