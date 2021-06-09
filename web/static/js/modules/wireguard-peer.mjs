@@ -5,11 +5,19 @@ const loadFeeback = $("#wgLoading");
 const alertContainer = "wgPeerConfig";
 const resetBtn = $("#resetBtn");
 
-
-$(".peerInputName").hover(function (e) {
-    $(this).css("color", "#4e555b");
-}, function (e) {
-    $(this).css("color", "black");
+const peerInputName= $(".peerInputName")
+peerInputName.click(function (e) {
+    if (peerInputName.attr("clicked") === "yes") return;
+    peerInputName.attr("clicked", "yes");
+    const noBorder = "border-0";
+    if (peerInputName.hasClass(noBorder)) {
+        peerInputName.attr("readonly", false);
+        peerInputName.removeClass(noBorder);
+    }
+    else {
+        peerInputName.addClass(noBorder);
+        peerInputName.attr("readonly", true);
+    }
 });
 
 resetBtn.click(function (e) {
@@ -92,7 +100,6 @@ const removePeerBtn = $(".removeBtn");
 removePeerBtn.click(function (e) {
     const item = e.target.id.split("-")[1];
     const url = "/wireguard/peers/"+item+"/remove";
-    const alertContainer = "wgPeerConfig";
     const alertType = "danger";
     $.ajax({
         type: "delete",

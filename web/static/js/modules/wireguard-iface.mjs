@@ -55,9 +55,23 @@ gwIface.focusout(function (e) {
     oldGw = newGw;
 });
 
-const resetIfaceBtn = $("#resetBtn");
-resetIfaceBtn.click(function (e) {
-   location.reload();
+const removeBtn = $(".removeBtn");
+removeBtn.click(function (e) {
+    const iface = e.target.id.split("-")[1];
+    const url = "/wireguard/interfaces/"+iface+"/remove";
+    const alertType = "danger";
+    $.ajax({
+        type: "delete",
+        url: url,
+        success: function () {
+            location.replace(document.referrer);
+        },
+        error: function(resp) {
+            prependAlert(alertContainer, "<strong>Oops, something went wrong</strong>: " + resp["responseText"],
+                alertType);
+            $("#removeModal").modal("toggle");
+        },
+    });
 });
 
 function sendPost(url, onSuccess, onSuccessAlertType = AlertType.SUCCESS, data=null) {
@@ -123,6 +137,7 @@ refreshKeysBtn.click(function (e) {
 });
 
 const addIfaceBtn = $("#addBtn");
+const resetIfaceBtn = $("#resetBtn");
 addIfaceBtn.click(function (e) {
     addIfaceBtn.attr("disabled", true);
     resetIfaceBtn.attr("disabled", true);
