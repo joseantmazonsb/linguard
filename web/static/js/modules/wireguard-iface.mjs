@@ -1,4 +1,4 @@
-import {AlertType, prependAlert} from "./utils.mjs";
+import {AlertType, postJSON, prependAlert, blockUI} from "./utils.mjs";
 
 const ifaceNameInput = $("#name");
 const gwIface = $("#gw");
@@ -119,24 +119,25 @@ saveIfaceBtn.click(function (e) {
         "on_down": $("#onDown").val(),
         "auto": $('#autoStart .active').text().trim().toLowerCase() === "on"
     };
-    sendPost(url,"Changes saved! Don't forget to <strong>apply</strong> them before leaving.",
-        AlertType.WARN, data)
-});
-
-const applytIfaceBtn = $("#applyBtn");
-applytIfaceBtn.click(function (e) {
-    const url = location.href+"/apply";
-    const data = {
-        "name": $("#name").val(),
-        "description": $("#description").val(),
-        "gw_iface": $("#gw").val(),
-        "ipv4_address": $("#ipv4").val(),
-        "listen_port": $("#port").val(),
-        "on_up": $("#onUp").val(),
-        "on_down": $("#onDown").val(),
-        "auto": $('#autoStart .active').text().trim().toLowerCase() === "on"
-    };
-    sendPost(url,"Configuration <strong>applied</strong>!", AlertType.SUCCESS, data)
+    $.ajax({
+        type: "post",
+        url: url,
+        data: JSON.stringify({"data": data}),
+        dataType: 'json',
+        contentType: 'application/json',
+        beforeSend : resp => {
+            loadFeeback.show();
+        },
+        success: resp => {
+            location.reload();
+        },
+        error: resp => {
+            prependAlert(alertContainer, "<strong>Oops, something went wrong</strong>: " + resp["responseText"]);
+        },
+        complete: resp => {
+            loadFeeback.hide();
+        }
+    });
 });
 
 const refreshKeysBtn = $("#refreshKeysBtn");
@@ -204,4 +205,27 @@ downloadBtn.click(function (e) {
     }
     const url = "/wireguard/peers/"+item+"/download";
     location.replace(url);
+});
+
+const startOrStopIfaceBtn = $(".startOrStopIfaceBtn");
+startOrStopIfaceBtn.click(function (e) {
+    const button = e.target;
+    const iface = button.value;
+    const action = button.innerText;
+
+    const url = "/wireguard/interfaces/" + iface;
+    const data = JSON.stringify({"action": action})
+    const alertType = "danger";
+    postJSON(url, alertContainer, alertType, "wgLoading", data);
+});
+
+const restartIfaceBtn = $(".restartIfaceBtn");
+restartIfaceBtn.click(function (e) {
+    const iface = e.target.value;
+    const action = "restart";
+
+    const url = "/wireguard/interfaces/" + iface;
+    const data = JSON.stringify({"action": action})
+    const alertType = "danger";
+    postJSON(url, alertContainer, alertType, "wgLoading", data);
 });

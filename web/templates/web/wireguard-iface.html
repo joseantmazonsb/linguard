@@ -2,230 +2,239 @@
 
 {% block content %}
     <main>
-        <div class="container-fluid">
-            <div class="my-4">
-                <i class="fas fa-pen mb-1 mr-2"></i>
-                <input readonly style="display: inline;"
-                       class="h1 border-0 col-7 col-lg-4 col-xl-2 ifaceInputName" id="name" value="{{ iface.name }}">
-                {% if iface_status == "up" %}
-                    <h2 title="Status" class="float-right mt-1"><span class="badge badge-pill badge-success">up</span></h2>
-                {% else %}
-                    <h2 title="Status" class="float-right mt-1"><span class="badge badge-pill badge-danger">down</span></h2>
-                {% endif %}
-            </div>
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-cog"></i>
-                    Configuration
+        <div id="main" class="enabled">
+            <div class="container-fluid">
+                <div class="my-4">
+                    <i class="fas fa-pen mb-1 mr-2"></i>
+                    <input readonly style="display: inline;"
+                           class="h1 border-0 col-7 col-lg-4 col-xl-2 ifaceInputName" id="name" value="{{ iface.name }}">
+                    {% if iface_status == "up" %}
+                        <h2 title="Status" class="float-right mt-1"><span class="badge badge-pill badge-success">up</span></h2>
+                    {% else %}
+                        <h2 title="Status" class="float-right mt-1"><span class="badge badge-pill badge-danger">down</span></h2>
+                    {% endif %}
                 </div>
-                <div class="card-body">
-                    <div id="wgIfaceConfig">
-                        <div class="form-row">
-                            <div class="form-group col-md-4">
-                                <span>Auto</span>
-                                <span type="button" class="ml-1" data-toggle="popover"
-                                        data-placement="top"
-                                        data-content="Automatically start the interface after
-                                         {{ APP_NAME }} starts up.">
-                                        <i class="fas fa-question-circle"></i>
-                                </span>
-                                <br>
-                                <div class="btn-group btn-group-toggle mt-2" data-toggle="buttons" id="autoStart">
-                                    {% if iface.auto %}
-                                        <label class="btn btn-primary active">
-                                            <input type="radio" name="options" autocomplete="off" checked> On
-                                        </label>
-                                        <label class="btn btn-primary">
-                                            <input type="radio" name="options" autocomplete="off"> Off
-                                        </label>
-                                    {% else %}
-                                        <label class="btn btn-primary">
-                                            <input type="radio" name="options" autocomplete="off"> On
-                                        </label>
-                                        <label class="btn btn-primary active">
-                                            <input type="radio" name="options" autocomplete="off" checked> Off
-                                        </label>
-                                    {% endif %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="fas fa-cog"></i>
+                        Configuration
+                    </div>
+                    <div class="card-body">
+                        <div id="wgIfaceConfig">
+                            <div class="form-row">
+                                <div class="form-group col-md-4">
+                                    <span>Auto</span>
+                                    <span type="button" class="ml-1" data-toggle="popover"
+                                            data-placement="top"
+                                            data-content="Automatically start the interface after
+                                             {{ APP_NAME }} starts up.">
+                                            <i class="fas fa-question-circle"></i>
+                                    </span>
+                                    <br>
+                                    <div class="btn-group btn-group-toggle mt-2" data-toggle="buttons" id="autoStart">
+                                        {% if iface.auto %}
+                                            <label class="btn btn-primary active">
+                                                <input type="radio" name="options" autocomplete="off" checked> On
+                                            </label>
+                                            <label class="btn btn-primary">
+                                                <input type="radio" name="options" autocomplete="off"> Off
+                                            </label>
+                                        {% else %}
+                                            <label class="btn btn-primary">
+                                                <input type="radio" name="options" autocomplete="off"> On
+                                            </label>
+                                            <label class="btn btn-primary active">
+                                                <input type="radio" name="options" autocomplete="off" checked> Off
+                                            </label>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group col-md-4">
-                              <label for="description">Description</label>
-                              <textarea type="text" class="form-control"
-                                        id="description"
-                                        placeholder="Some details..."
-                                        >{{ iface.description }}</textarea>
+                            <div class="form-row">
+                                <div class="form-group col-md-4">
+                                  <label for="description">Description</label>
+                                  <textarea type="text" class="form-control"
+                                            id="description"
+                                            placeholder="Some details..."
+                                            >{{ iface.description }}</textarea>
+                                </div>
                             </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group col-md-4">
-                              <label for="gw">Gateway interface</label>
-                              <input type="text" class="form-control" id="gw" value="{{ iface.gw_iface }}">
+                            <div class="form-row">
+                                <div class="form-group col-md-4">
+                                  <label for="gw">Gateway interface</label>
+                                  <input type="text" class="form-control" id="gw" value="{{ iface.gw_iface }}">
+                                </div>
                             </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group col-md-4">
-                              <label for="ipv4">IPv4</label>
-                              <input type="text" class="form-control" id="ipv4" value="{{ iface.ipv4_address }}">
+                            <div class="form-row">
+                                <div class="form-group col-md-4">
+                                  <label for="ipv4">IPv4</label>
+                                  <input type="text" class="form-control" id="ipv4" value="{{ iface.ipv4_address }}">
+                                </div>
+                                <div class="form-group col-md-4">
+                                  <label for="port">Listen port</label>
+                                  <input type="text" class="form-control" id="port" value="{{ iface.listen_port }}">
+                                </div>
                             </div>
-                            <div class="form-group col-md-4">
-                              <label for="port">Listen port</label>
-                              <input type="text" class="form-control" id="port" value="{{ iface.listen_port }}">
+                            <div class="form-row">
+                                <div class="form-group col-md-4">
+                                  <label for="onUp">On up</label>
+                                  <textarea type="text"
+                                            class="form-control"
+                                            id="onUp"
+                                  >{% for cmd in iface.on_up %}{{ cmd }}&#13;&#10;{% endfor %}
+                                  </textarea>
+                                </div>
+                                <div class="form-group col-md-4">
+                                  <label for="onDown">On down</label>
+                                  <textarea type="text"
+                                            class="form-control"
+                                            id="onDown"
+                                  >{% for cmd in iface.on_down %}{{ cmd }}&#13;&#10;{% endfor %}
+                                  </textarea>
+                                </div>
                             </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group col-md-4">
-                              <label for="onUp">On up</label>
-                              <textarea type="text"
-                                        class="form-control"
-                                        id="onUp"
-                              >{% for cmd in iface.on_up %}{{ cmd }}&#13;&#10;{% endfor %}
-                              </textarea>
+                            <div class="mt-3">
+                                <button id="refreshKeysBtn" class="btn btn-outline-info">Refresh keys</button>
                             </div>
-                            <div class="form-group col-md-4">
-                              <label for="onDown">On down</label>
-                              <textarea type="text"
-                                        class="form-control"
-                                        id="onDown"
-                              >{% for cmd in iface.on_down %}{{ cmd }}&#13;&#10;{% endfor %}
-                              </textarea>
-                            </div>
-                        </div>
-                        <div class="mt-3">
-                            <button id="refreshKeysBtn" class="btn btn-outline-primary">Refresh keys</button>
-                        </div>
-                        <div class="mt-3">
-                            <button id="saveBtn" class="btn btn-warning">Save</button>
-                            <button id="applyBtn" class="btn btn-warning">Apply</button>
-                            <i id="wgLoading" class="mt-2 ml-4 fas fa-circle-notch fa-spin" style="display: none"></i>
-                            <button id="removeIfaceBtn" class="btn btn-danger float-right"
-                                    data-toggle="modal" data-target="#removeModal-{{ iface.uuid }}">Delete</button>
-                            <!-- Modal -->
-                            <div class="modal fade" id="removeModal-{{ iface.uuid }}" tabindex="-1" role="dialog"
-                                 aria-labelledby="removeModalTitle" aria-hidden="true">
-                              <div class="modal-dialog" role="document">
-                                <div class="modal-content">
-                                  <div class="modal-header">
-                                    <h5 class="modal-title" id="removeModalTitle">Delete interface</h5>
-                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                      <span aria-hidden="true">&times;</span>
-                                    </button>
-                                  </div>
-                                  <div class="modal-body">
-                                      Do you really want to remove <strong>{{ iface.name }}</strong>?
-                                      This cannot be undone.
-                                  </div>
-                                  <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                                    <button type="button" id="removeIfaceBtn-{{ iface.uuid }}"
-                                            class="btn btn-danger removeIfaceBtn">Remove</button>
+                            <div class="mt-3">
+                                <button id="saveBtn" class="btn btn-primary">Save</button>
+                                {% if iface_status == "up" %}
+                                    {% set button_action = "Stop" %}
+                                {% elif iface_status == "down" %}
+                                    {% set button_action = "Start" %}
+                                {% endif %}
+                                <button value="{{ iface.uuid }}" class="btn btn-warning startOrStopIfaceBtn">{{ button_action }}</button>
+                                <button value="{{ iface.uuid }}" class="btn btn-warning restartIfaceBtn">Restart</button>
+                                <i id="wgLoading" class="mt-2 ml-4 fas fa-circle-notch fa-spin" style="display: none"></i>
+                                <button id="removeIfaceBtn" class="btn btn-danger float-right"
+                                        data-toggle="modal" data-target="#removeModal-{{ iface.uuid }}">Delete</button>
+                                <!-- Modal -->
+                                <div class="modal fade" id="removeModal-{{ iface.uuid }}" tabindex="-1" role="dialog"
+                                     aria-labelledby="removeModalTitle" aria-hidden="true">
+                                  <div class="modal-dialog" role="document">
+                                    <div class="modal-content">
+                                      <div class="modal-header">
+                                        <h5 class="modal-title" id="removeModalTitle">Delete interface</h5>
+                                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                          <span aria-hidden="true">&times;</span>
+                                        </button>
+                                      </div>
+                                      <div class="modal-body">
+                                          Do you really want to remove <strong>{{ iface.name }}</strong>?
+                                          This cannot be undone.
+                                      </div>
+                                      <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                        <button type="button" id="removeIfaceBtn-{{ iface.uuid }}"
+                                                class="btn btn-danger removeIfaceBtn">Remove</button>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
                             </div>
                         </div>
                     </div>
+                    <div class="card-footer">
+                      <small class="text-muted">Information provided at {{ last_update }}.</small>
+                    </div>
                 </div>
-                <div class="card-footer">
-                  <small class="text-muted">Information provided at {{ last_update }}.</small>
-                </div>
-            </div>
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-user-friends"></i>
-                    Peers
-                    <a href="/wireguard/peers/add?interface={{ iface.uuid }}" class="float-right" title="Add"><i class="fas fa-plus mr-1"></i></a>
-                </div>
-                <div class="card-body">
-                    <div id="wgIfacePeers">
-                        <div class="table-responsive">
-                            <table class="table table-bordered" id="dataTable">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Description</th>
-                                        <th>IPv4</th>
-                                        <th>Primary DNS</th>
-                                        <th>Secondary DNS</th>
-                                        <th>NAT</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for peer in iface.peers.values() %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="fas fa-user-friends"></i>
+                        Peers
+                        <a href="/wireguard/peers/add?interface={{ iface.uuid }}" class="float-right" title="Add"><i class="fas fa-plus mr-1"></i></a>
+                    </div>
+                    <div class="card-body">
+                        <div id="wgIfacePeers">
+                            <div class="table-responsive">
+                                <table class="table table-bordered" id="dataTable">
+                                    <thead>
                                         <tr>
-                                            <td>{{ peer.name }}</td>
-                                            {% if peer.description %}
-                                                <td>{{ peer.description }}</td>
-                                            {% else %}
-                                                <td>{{ EMPTY_FIELD | safe }}</td>
-                                            {% endif %}
-                                            {% if peer.ipv4_address %}
-                                                <td>{{ peer.ipv4_address }}</td>
-                                            {% else %}
-                                                <td>{{ EMPTY_FIELD | safe }}</td>
-                                            {% endif %}
-                                            <td>{{ peer.dns1}}</td>
-                                            {% if peer.dns2 %}
-                                                <td>{{ peer.dns2 }}</td>
-                                            {% else %}
-                                                <td>{{ EMPTY_FIELD | safe }}</td>
-                                            {% endif %}
-                                            {% if peer.nat %}
-                                                <td>Yes</td>
-                                            {% else %}
-                                                <td>No</td>
-                                            {% endif %}
-                                            <td>
-                                                <span type="button" class="btn-link mr-2 downloadBtn" id="downloadBtn-{{ peer.uuid }}">
-                                                    <i title="Download" class="fa fa-download downloadBtn" id="downloadBtn-{{ peer.uuid }}"></i>
-                                                </span>
-                                                <a href="/wireguard/peers/{{ peer.uuid }}"
-                                                   title="Edit" class="mr-2"><i class="fas fa-pen"></i></a>
-                                                <span data-toggle="modal" data-target="#removeModal-{{ peer.uuid }}"
-                                                      type="button" class="btn-link mr-3 removal-link">
-                                                    <i title="Remove" class="fas fa-trash"></i>
-                                                </span>
-                                                <!-- Modal -->
-                                                <div class="modal fade" id="removeModal-{{ peer.uuid }}" tabindex="-1" role="dialog"
-                                                     aria-labelledby="removeTitle" aria-hidden="true">
-                                                  <div class="modal-dialog" role="document">
-                                                    <div class="modal-content">
-                                                      <div class="modal-header">
-                                                        <h5 class="modal-title" id="removeModalTitle">Delete peer</h5>
-                                                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                                          <span aria-hidden="true">&times;</span>
-                                                        </button>
-                                                      </div>
-                                                      <div class="modal-body">
-                                                          Do you really want to remove <strong>{{ peer.name }}</strong>?
-                                                          This cannot be undone.
-                                                      </div>
-                                                      <div class="modal-footer">
-                                                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                                                        <button type="button" id="removePeerBtn-{{ peer.uuid }}"
-                                                                class="btn btn-danger removePeerBtn">Remove</button>
+                                            <th>Name</th>
+                                            <th>Description</th>
+                                            <th>IPv4</th>
+                                            <th>Primary DNS</th>
+                                            <th>Secondary DNS</th>
+                                            <th>NAT</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for peer in iface.peers.values() %}
+                                            <tr>
+                                                <td>{{ peer.name }}</td>
+                                                {% if peer.description %}
+                                                    <td>{{ peer.description }}</td>
+                                                {% else %}
+                                                    <td>{{ EMPTY_FIELD | safe }}</td>
+                                                {% endif %}
+                                                {% if peer.ipv4_address %}
+                                                    <td>{{ peer.ipv4_address }}</td>
+                                                {% else %}
+                                                    <td>{{ EMPTY_FIELD | safe }}</td>
+                                                {% endif %}
+                                                <td>{{ peer.dns1}}</td>
+                                                {% if peer.dns2 %}
+                                                    <td>{{ peer.dns2 }}</td>
+                                                {% else %}
+                                                    <td>{{ EMPTY_FIELD | safe }}</td>
+                                                {% endif %}
+                                                {% if peer.nat %}
+                                                    <td>Yes</td>
+                                                {% else %}
+                                                    <td>No</td>
+                                                {% endif %}
+                                                <td>
+                                                    <span type="button" class="btn-link mr-2 downloadBtn" id="downloadBtn-{{ peer.uuid }}">
+                                                        <i title="Download" class="fa fa-download downloadBtn" id="downloadBtn-{{ peer.uuid }}"></i>
+                                                    </span>
+                                                    <a href="/wireguard/peers/{{ peer.uuid }}"
+                                                       title="Edit" class="mr-2"><i class="fas fa-pen"></i></a>
+                                                    <span data-toggle="modal" data-target="#removeModal-{{ peer.uuid }}"
+                                                          type="button" class="btn-link mr-3 removal-link">
+                                                        <i title="Remove" class="fas fa-trash"></i>
+                                                    </span>
+                                                    <!-- Modal -->
+                                                    <div class="modal fade" id="removeModal-{{ peer.uuid }}" tabindex="-1" role="dialog"
+                                                         aria-labelledby="removeTitle" aria-hidden="true">
+                                                      <div class="modal-dialog" role="document">
+                                                        <div class="modal-content">
+                                                          <div class="modal-header">
+                                                            <h5 class="modal-title" id="removeModalTitle">Delete peer</h5>
+                                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                              <span aria-hidden="true">&times;</span>
+                                                            </button>
+                                                          </div>
+                                                          <div class="modal-body">
+                                                              Do you really want to remove <strong>{{ peer.name }}</strong>?
+                                                              This cannot be undone.
+                                                          </div>
+                                                          <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                                            <button type="button" id="removePeerBtn-{{ peer.uuid }}"
+                                                                    class="btn btn-danger removePeerBtn">Remove</button>
+                                                          </div>
+                                                        </div>
                                                       </div>
                                                     </div>
-                                                  </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="card-footer">
-                  <small class="text-muted">Information provided at {{ last_update }}.</small>
+                    <div class="card-footer">
+                      <small class="text-muted">Information provided at {{ last_update }}.</small>
+                    </div>
                 </div>
             </div>
         </div>
+
     </main>
 {% endblock %}
 
 {% block additional_scripts %}
-    <script type="module" src="/static/js/modules/wireguard-iface.mjs"></script>
+    <script type="module" src="../../static/js/modules/wireguard-iface.mjs"></script>
 {% endblock %}

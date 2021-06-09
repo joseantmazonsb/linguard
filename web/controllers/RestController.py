@@ -80,7 +80,8 @@ class RestController:
     def apply_iface(self, data: Dict[str, Any]) -> Response:
         try:
             self.save_iface(data)
-            self.server.apply_iface(self.uuid)
+            iface = self.server.interfaces[self.uuid]
+            self.server.apply_iface(iface)
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
             return Response(str(e), status=e.http_code)
