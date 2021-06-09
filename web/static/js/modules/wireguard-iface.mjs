@@ -1,4 +1,4 @@
-import {AlertType, postJSON, prependAlert, blockUI} from "./utils.mjs";
+import {AlertType, postJSON, prependAlert} from "./utils.mjs";
 
 const ifaceNameInput = $("#name");
 const gwIface = $("#gw");
