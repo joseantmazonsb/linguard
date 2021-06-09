@@ -136,8 +136,12 @@ refreshKeysBtn.click(function (e) {
     sendPost(url, "Keys updated!");
 });
 
-const addIfaceBtn = $("#addBtn");
 const resetIfaceBtn = $("#resetBtn");
+resetIfaceBtn.click(function (e) {
+    location.reload();
+});
+
+const addIfaceBtn = $("#addBtn");
 addIfaceBtn.click(function (e) {
     addIfaceBtn.attr("disabled", true);
     resetIfaceBtn.attr("disabled", true);

@@ -12,7 +12,7 @@ class Interface(YamlAble):
     MAX_PORT_NUMBER = 65535
 
     MIN_NAME_LENGTH = 2
-    MAX_NAME_LENGTH = 32
+    MAX_NAME_LENGTH = 15
     REGEX_NAME = f"^[a-z][a-z\-_0-9]{{{MIN_NAME_LENGTH-1},{MAX_NAME_LENGTH-1}}}$"
     REGEX_IPV4_PARTIAL = "([1-9]|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5])(\.(\d|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5])){3}"
     REGEX_IPV4 = f"^{REGEX_IPV4_PARTIAL}$"
