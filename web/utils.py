@@ -56,6 +56,8 @@ def get_all_interfaces(wg_bin: str, wg_interfaces: List[Interface]) -> Dict[str,
                 "flags": EMPTY_FIELD
             }
         else:
+            if iface in wg_interfaces:
+                interfaces[iface.name]["uuid"] = iface.uuid
             if interfaces[iface.name]["status"] == "unknown":
                 wg_iface_up = run_os_command(f"sudo {wg_bin} show {iface.name}").successful
                 if wg_iface_up:
@@ -113,7 +115,7 @@ def get_routing_table() -> List[Dict[str, Any]]:
             value = entry[key]
             if not value:
                 entry[key] = EMPTY_FIELD
-            elif value is list:
+            elif isinstance(value, list):
                 entry[key] = list_to_str(value)
     return table
 

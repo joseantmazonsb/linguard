@@ -132,26 +132,40 @@ def regenerate_iface_keys(uuid: str):
 @router.route("/wireguard/interfaces/<uuid>", methods=['POST'])
 def operate_wireguard_iface(uuid: str):
     action = request.json["action"].lower()
-    if action == "start":
-        try:
+    try:
+        if action == "start":
             router.server.iface_up(uuid)
             return Response(status=NO_CONTENT)
-        except WireguardError as e:
-            return Response(str(e), status=e.http_code)
-    elif action == "restart":
-        try:
+        if action == "restart":
             router.server.restart_iface(uuid)
             return Response(status=NO_CONTENT)
-        except WireguardError as e:
-            return Response(str(e), status=e.http_code)
-    elif action == "stop":
-        try:
+        if action == "stop":
             router.server.iface_down(uuid)
             return Response(status=NO_CONTENT)
-        except WireguardError as e:
-            return Response(str(e), status=e.http_code)
-    else:
-        abort(BAD_REQUEST, f"Invalid action request: '{action}'")
+        raise WireguardError(f"Invalid operation: {action}", BAD_REQUEST)
+    except WireguardError as e:
+        return Response(e.cause, status=e.http_code)
+
+
+@router.route("/wireguard/interfaces", methods=['POST'])
+def operate_wireguard_ifaces():
+    action = request.json["action"].lower()
+    try:
+        if action == "start":
+            for iface in router.server.interfaces.values():
+                router.server.iface_up(iface.uuid)
+            return Response(status=NO_CONTENT)
+        if action == "restart":
+            for iface in router.server.interfaces.values():
+                router.server.restart_iface(iface.uuid)
+            return Response(status=NO_CONTENT)
+        if action == "stop":
+            for iface in router.server.interfaces.values():
+                router.server.iface_down(iface.uuid)
+            return Response(status=NO_CONTENT)
+        raise WireguardError(f"invalid operation: {action}", BAD_REQUEST)
+    except WireguardError as e:
+        return Response(e.cause, status=e.http_code)
 
 
 @router.route("/wireguard/peers/add", methods=['GET'])

@@ -63,12 +63,11 @@
                                             </table>
                                         </div>
                                         {% if iface.status == "up" %}
-                                            {% set button_action = "Stop" %}
+                                            <button value="{{ iface.uuid }}" class="btn btn-danger startOrStopIfaceBtn">Stop</button>
                                         {% elif iface.status == "down" %}
-                                            {% set button_action = "Start" %}
+                                            <button value="{{ iface.uuid }}" class="btn btn-success startOrStopIfaceBtn">Start</button>
                                         {% endif %}
-                                        <button value="{{ iface.uuid }}" class="btn btn-warning startOrStopIfaceBtn">{{ button_action }}</button>
-                                        <button value="{{ iface.uuid }}" class="btn btn-warning restartIfaceBtn">Restart</button>
+                                        <button value="{{ iface.uuid }}" class="btn btn-outline-info restartIfaceBtn">Restart</button>
                                         <i id="wgIface-{{ iface.uuid }}-loading" class="float-right mt-2 fas fa-circle-notch fa-spin" style="display: none"></i>
                                     </div>
                                     <div class="card-footer">
@@ -111,6 +110,9 @@
                             </div>
                         {% endfor %}
                     </div>
+                    <button id="startAllBtn" class="btn btn-success">Start all</button>
+                    <button id="stopAllBtn" class="btn btn-danger">Stop all</button>
+                    <i id="wgIfacesLoading" class="float-right mt-2 fas fa-circle-notch fa-spin" style="display: none"></i>
                 </div>
                 <div class="card-footer">
                   <small class="text-muted">Information provided by <code>wg</code> at {{ last_update }}.</small>
