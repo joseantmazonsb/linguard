@@ -29,6 +29,30 @@ restartIfaceBtn.click(function (e) {
     postJSON(url, alertContainer, alertType, loadFeedback, data);
 });
 
+const startAllBtn = $("#startAllBtn");
+startAllBtn.click(function (e) {
+    const action = "start";
+    const url = "/wireguard/interfaces";
+    const data = JSON.stringify({"action": action})
+    const alertContainer = "wgIfacesHeader";
+    const alertType = "danger";
+    const loadFeedback = "wgIfacesLoading";
+
+    postJSON(url, alertContainer, alertType, loadFeedback, data);
+});
+
+const stopAllBtn = $("#stopAllBtn");
+stopAllBtn.click(function (e) {
+    const action = "stop";
+    const url = "/wireguard/interfaces";
+    const data = JSON.stringify({"action": action})
+    const alertContainer = "wgIfacesHeader";
+    const alertType = "danger";
+    const loadFeedback = "wgIfacesLoading";
+
+    postJSON(url, alertContainer, alertType, loadFeedback, data);
+});
+
 const removeIfaceBtn = $(".removeIfaceBtn");
 removeItem(removeIfaceBtn, "interface");
 
