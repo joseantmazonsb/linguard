@@ -43,8 +43,9 @@ class PeerManager:
         iface.peers[peer.uuid] = peer
         self.sort_peers(iface)
 
-    def edit_peer(self, peer: Peer, name: str, description: str, ipv4_address: str,
-                       iface: Interface, dns1: str, nat: bool, dns2: str = ""):
+    @staticmethod
+    def edit_peer(peer: Peer, name: str, description: str, ipv4_address: str,
+                  iface: Interface, dns1: str, nat: bool, dns2: str = ""):
         peer.name = name
         peer.interface = iface
         peer.description = description
@@ -55,5 +56,6 @@ class PeerManager:
         peer.nat = nat
         peer.interface.peers = OrderedDict(sorted(peer.interface.peers.items()))
 
-    def remove_peer(self, peer: Peer):
+    @staticmethod
+    def remove_peer(peer: Peer):
         del peer.interface.peers[peer.uuid]

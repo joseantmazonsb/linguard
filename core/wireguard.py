@@ -181,7 +181,7 @@ class Peer(YamlAble):
     def from_dict(dct):
         """ This optional method is called when you call yaml.load()"""
         return Peer(dct["uuid"], dct["name"], dct["description"], dct["ipv4_address"], dct["private_key"],
-                    dct["public_key"], dct["nat"], None, dct["dns1"], dct["dns2"])
+                    dct["public_key"], dct["nat"], None, None, dct["dns1"], dct["dns2"])
 
     def generate_conf(self) -> str:
         """Generate a wireguard configuration file suitable for this client."""

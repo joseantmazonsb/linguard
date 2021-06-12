@@ -60,6 +60,8 @@ class Config(YamlAble):
             iface.gw_iface = self.gw_iface
             iface.conf_filepath = os.path.join(self.interfaces_folder, iface.name) + ".conf"
             self.interfaces[iface.uuid] = iface
+            for peer in iface.peers.values():
+                peer.endpoint = self.endpoint
 
     def save(self):
         """Write configuration to yaml file."""
