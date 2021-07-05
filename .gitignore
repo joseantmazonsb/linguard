@@ -125,3 +125,6 @@ dmypy.yaml
 
 # Pycharm
 .idea/
+
+linguard.yaml
+uwgsi.yaml

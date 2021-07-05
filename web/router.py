@@ -49,7 +49,7 @@ def signup():
 @router.route("/network")
 def network():
     wg_ifaces = list(router.server.interfaces.values())
-    interfaces = get_all_interfaces(wg_bin=router.server.config.wg_bin, wg_interfaces=wg_ifaces)
+    interfaces = get_all_interfaces(wg_bin=router.server.config.linguard()["wg_bin"], wg_interfaces=wg_ifaces)
     routes = get_routing_table()
     context = {
         "title": "Network",
@@ -64,7 +64,7 @@ def network():
 @router.route("/wireguard")
 def wireguard():
     wg_ifaces = list(router.server.interfaces.values())
-    interfaces = get_wg_interfaces_summary(wg_bin=router.server.config.wg_bin, interfaces=wg_ifaces)
+    interfaces = get_wg_interfaces_summary(wg_bin=router.server.config.linguard()["wg_bin"], interfaces=wg_ifaces)
     context = {
         "title": "Wireguard",
         "interfaces": interfaces,
@@ -97,7 +97,7 @@ def get_wireguard_iface(uuid: str):
     if uuid not in router.server.interfaces:
         abort(NOT_FOUND, f"Unknown interface '{uuid}'.")
     iface = router.server.interfaces[uuid]
-    iface_status = get_wg_interface_status(router.server.config.wg_bin, iface.name)
+    iface_status = get_wg_interface_status(router.server.config.linguard()["wg_bin"], iface.name)
     context = {
         "title": "Edit interface",
         "iface": iface,
@@ -177,7 +177,7 @@ def create_wireguard_peer():
             abort(BAD_REQUEST, f"Unable to create peer for unknown interface '{iface_uuid}'.")
         iface = router.server.interfaces[iface_uuid]
     peer = router.server.generate_peer(iface)
-    interfaces = get_wg_interfaces_summary(wg_bin=router.server.config.wg_bin,
+    interfaces = get_wg_interfaces_summary(wg_bin=router.server.config.linguard()["wg_bin"],
                                            interfaces=list(router.server.interfaces.values())).values()
     context = {
         "title": "Add peer",

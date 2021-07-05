@@ -1,21 +1,29 @@
+import logging
+import sys
+
 from flask import Flask
 
+from core.modules.config import Config
 from core.server import Server
 from web.router import router
-import logging
 
 from web.static.assets.resources import APP_NAME
 
-if __name__ == '__main__':
+
+def start(debug: bool = False):
+    logging.basicConfig(format=Config.LOG_FORMAT, level=Config.DEFAULT_LEVEL)
     app = Flask(__name__, template_folder="templates")
     app.register_blueprint(router)
-    logging.basicConfig(level=logging.DEBUG)
-
-    FILES_PATH = f"/srv/{APP_NAME.lower()}"
-
-    server_folder = APP_NAME.lower()
-    wg = Server(server_folder)
+    conf_dir = APP_NAME.lower()
+    if len(sys.argv) > 1:
+        conf_dir = sys.argv[1]
+    wg = Server(conf_dir)
     router.server = wg
     wg.start()
-    server_port = 5000
-    app.run(debug=False, port=server_port)
+    app.run(debug=False, port=wg.config.web()["bindport"])
+
+
+if __name__ == '__main__':
+    start(True)
+else:
+    start()

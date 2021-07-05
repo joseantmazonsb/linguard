@@ -1,5 +1,5 @@
 import os
-from logging import debug, fatal
+from logging import debug, error
 from subprocess import run, PIPE
 
 ###########
@@ -44,14 +44,15 @@ def get_filename_without_extension(path: str) -> str:
     return os.path.basename(filename)
 
 
-def try_makedirs(path: str):
+def try_makedir(path: str):
     try:
         os.makedirs(path)
         debug(f"Created folder ({path})...")
     except FileExistsError:
         pass
     except Exception as e:
-        fatal(f"Unable to create folder: {e}.")
+        error(f"Unable to create folder: {e}.")
+        raise
 
 
 #############
