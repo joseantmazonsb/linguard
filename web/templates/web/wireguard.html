@@ -110,9 +110,11 @@
                             </div>
                         {% endfor %}
                     </div>
-                    <button id="startAllBtn" class="btn btn-success">Start all</button>
-                    <button id="stopAllBtn" class="btn btn-danger">Stop all</button>
-                    <i id="wgIfacesLoading" class="float-right mt-2 fas fa-circle-notch fa-spin" style="display: none"></i>
+                    {% if interfaces | length > 0  %}
+                        <button id="startAllBtn" class="btn btn-success">Start all</button>
+                        <button id="stopAllBtn" class="btn btn-danger">Stop all</button>
+                        <i id="wgIfacesLoading" class="float-right mt-2 fas fa-circle-notch fa-spin" style="display: none"></i>
+                    {% endif %}
                 </div>
                 <div class="card-footer">
                   <small class="text-muted">Information provided by <code>wg</code> at {{ last_update }}.</small>
