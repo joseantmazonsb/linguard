@@ -4,16 +4,15 @@ from faker import Faker
 from collections import OrderedDict
 from time import sleep
 import os
-from logging import fatal, info, debug, warning
+from logging import fatal, info, warning
 from typing import Union, List, Dict
-from urllib import request
 
 from core.modules.config import Config
 from core.modules.interface_manager import InterfaceManager
 from core.modules.key_manager import KeyManager
 from core.modules.peer_manager import PeerManager
-from core.utils import run_os_command
 from core.exceptions import WireguardError
+from core.utils import try_makedir
 from core.wireguard import Peer, Interface
 
 from web.static.assets.resources import APP_NAME
@@ -21,7 +20,6 @@ from web.static.assets.resources import APP_NAME
 CONFIG_FILE_NAME = "config.yaml"
 BACKUPS_FOLDER_NAME = "backups"
 INTERFACES_FOLDER_NAME = "interfaces"
-IP_RETRIEVER_URL = "https://api.ipify.org"
 
 fake = Faker()
 
@@ -30,54 +28,30 @@ class Server:
     pending_interfaces: Dict[str, Interface]
     pending_peers: Dict[str, Peer]
     interfaces: Dict[str, Interface]
-    config = Config
+    config: Config
 
-    def __init__(self, config_dir: str, wg_bin: str = None, wg_quick_bin: str = None, iptables_bin: str = None,
-                 gw_iface: str = None, endpoint: str = None):
-        super().__init__()
+    def __init__(self, config_filepath: str):
         try:
+            info(f"Using {config_filepath} as configuration file...")
             self.started = False
-            abs_conf_dir = os.path.abspath(config_dir)
-            conf_file = os.path.join(abs_conf_dir, CONFIG_FILE_NAME)
-            backup_folder = os.path.join(abs_conf_dir, BACKUPS_FOLDER_NAME)
-            interfaces_folder = os.path.join(abs_conf_dir, INTERFACES_FOLDER_NAME)
-            if not gw_iface:
-                gw_iface = run_os_command("ip route | head -1 | xargs | cut -d ' ' -f 5").output
-            if not wg_bin:
-                wg_bin = run_os_command("whereis wg | tr ' ' '\n' | grep bin").output
-            if not wg_quick_bin:
-                wg_quick_bin = run_os_command("whereis wg-quick | tr ' ' '\n' | grep bin").output
-            if not iptables_bin:
-                iptables_bin = run_os_command("whereis iptables | tr ' ' '\n' | grep bin").output
-            if endpoint is None:
-                try:
-                    warning("No endpoint specified. Retrieving public IP address...")
-                    endpoint = request.urlopen(IP_RETRIEVER_URL).read().decode("utf-8")
-                    debug(f"Public IP is {endpoint}. This will be used as default endpoint.")
-                except Exception as e:
-                    warning("Unable to obtain server's public IP address. Using private IP instead...")
-                    debug(f"Public IP could not be obtained because of: {e}")
-                    ip = run_os_command(f"ip a show {gw_iface} | grep inet | head -n1 | xargs | cut -d ' ' -f2") \
-                        .output
-                    endpoint = ip.split("/")[0]
-            info(f"Server endpoint set to {endpoint}.")
-
-            self.config = Config(conf_file, backup_folder, interfaces_folder, wg_bin, wg_quick_bin, iptables_bin,
-                                 gw_iface, endpoint)
-            self.interfaces = self.config.interfaces
+            self.config = Config(config_filepath)
+            self.config.load()
             self.pending_interfaces = OrderedDict()
             self.pending_peers = OrderedDict()
-            self.key_manager = KeyManager(wg_bin)
-            self.interface_manager = InterfaceManager(self.interfaces, self.key_manager, interfaces_folder,
-                                                      iptables_bin,
-                                                      wg_quick_bin, gw_iface, fake)
-            self.peer_manager = PeerManager(endpoint, self.key_manager, fake)
+            linguard_config = self.config.linguard()
+            self.interfaces = linguard_config["interfaces"]
+            self.key_manager = KeyManager(linguard_config["wg_bin"])
+            self.interface_manager = InterfaceManager(linguard_config["interfaces"], self.key_manager,
+                                                      linguard_config["interfaces_folder"], linguard_config["iptables_bin"],
+                                                      linguard_config["wg_quick_bin"], linguard_config["gw_iface"], fake)
+            self.peer_manager = PeerManager(linguard_config["endpoint"], self.key_manager, fake)
 
         except Exception as e:
             fatal(f"Unable to initialize server: {e}")
             exit(1)
 
     def save_changes(self):
+        self.config.linguard()["interfaces"] = self.interfaces
         self.config.save()
 
     # Interfaces
@@ -162,7 +136,6 @@ class Server:
 
     def start(self):
         info("Starting VPN server...")
-        self.load_config()
         if self.started:
             warning("Unable to start VPN server: already started.")
             return

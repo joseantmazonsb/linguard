@@ -1,21 +1,32 @@
+import argparse
+import logging
+
 from flask import Flask
 
+from core.modules.config import Config
 from core.server import Server
 from web.router import router
-import logging
 
 from web.static.assets.resources import APP_NAME
 
-if __name__ == '__main__':
+
+parser = argparse.ArgumentParser(description="Welcome to Linguard, the best WireGuard's web GUI :)")
+parser.add_argument("config", type=str, help="Path to the configuration file.")
+parser.add_argument("--debug", help="Start flask in debug mode.", action="store_true")
+args = parser.parse_args()
+
+
+def start():
+    logging.basicConfig(format=Config.LOG_FORMAT, level=Config.DEFAULT_LEVEL)
     app = Flask(__name__, template_folder="templates")
     app.register_blueprint(router)
-    logging.basicConfig(level=logging.DEBUG)
-
-    FILES_PATH = f"/srv/{APP_NAME.lower()}"
-
-    server_folder = APP_NAME.lower()
-    wg = Server(server_folder)
+    conf_dir = args.config
+    if not conf_dir:
+        conf_dir = APP_NAME.lower()
+    wg = Server(conf_dir)
     router.server = wg
     wg.start()
-    server_port = 5000
-    app.run(debug=False, port=server_port)
+    app.run(debug=args.debug, port=wg.config.web()["bindport"])
+
+
+start()
