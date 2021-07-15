@@ -50,7 +50,7 @@ Linguard aims to provide an easy way to manage your WireGuard server, and it's w
     ```
 6. Start linguard:
     ```bash
-    sudo -u linguard uwsgi --yaml /var/www/linguard/uwgsi.yaml
+    sudo -u linguard uwsgi --yaml /var/www/linguard/uwsgi.yaml
     ```
 
 ### Debian package
@@ -71,10 +71,10 @@ The following table describes every argument accepted by Linguard:
 
 ### Configuration
 
-Two sample configuration files are provided, `uwgsi.sample.yaml` and `linguard.sample.yaml`, although the most interesting one is the second, since the first only contains options for a third party software, 
-[uWGSI](https://uwsgi-docs.readthedocs.io/en/latest/).
+Two sample configuration files are provided, `uwsgi.sample.yaml` and `linguard.sample.yaml`, although the most interesting one is the second, since the first only contains options for a third party software, 
+[UWSGI](https://uwsgi-docs.readthedocs.io/en/latest/).
 
-Nonetheless, it is worth noting that the path to the Linguard's configuration file needs to be provided through uwgsi's configuration, using the field `pyargv`.
+Nonetheless, it is worth noting that the path to the Linguard's configuration file needs to be provided through uwsgi's configuration, using the field `pyargv`.
 
 For now on, we will only discuss Linguard's configuration values. Although the file `linguard.sample.yaml`
 contains every possible option, the following tables explain each one of them and detail
