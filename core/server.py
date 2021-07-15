@@ -30,14 +30,11 @@ class Server:
     interfaces: Dict[str, Interface]
     config: Config
 
-    def __init__(self, config_dir: str):
+    def __init__(self, config_filepath: str):
         try:
+            info(f"Using {config_filepath} as configuration file...")
             self.started = False
-            info(f"Using {config_dir} as root directory...")
-            try_makedir(config_dir)
-            abs_conf_dir = os.path.abspath(config_dir)
-
-            self.config = Config(abs_conf_dir)
+            self.config = Config(config_filepath)
             self.config.load()
             self.pending_interfaces = OrderedDict()
             self.pending_peers = OrderedDict()

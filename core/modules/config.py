@@ -20,10 +20,9 @@ yaml.emitter.Emitter.process_tag = lambda self, *args, **kw: None
 @yaml_info(yaml_tag_ns='')
 class BaseConfig(YamlAble):
     optional = False
-    filename = "config.yaml"
 
-    def __init__(self, config_dir: str):
-        self.filepath = os.path.join(config_dir, self.filename)
+    def __init__(self, filepath: str):
+        self.filepath = filepath
         self.config = {}
 
     def save(self):
@@ -60,8 +59,6 @@ class BaseConfig(YamlAble):
 
 @yaml_info(yaml_tag_ns='')
 class Config(BaseConfig):
-
-    filename = "linguard.yaml"
 
     DEFAULT_BINDPORT = 8080
     DEFAULT_LOGIN_ATTEMPTS = 100
@@ -110,6 +107,7 @@ class Config(BaseConfig):
             info(f"Logging to {logfile}...")
             handlers = [logging.FileHandler(logfile, filemode, "utf-8")]
         else:
+            warning("No logfile specified. Logging to stdout...")
             handlers = None
         logging.basicConfig(format=self.LOG_FORMAT, level=self.LEVELS[level], handlers=handlers, force=True)
 
@@ -152,10 +150,11 @@ class Config(BaseConfig):
             iface = Interface.from_dict(iface)
             iface.wg_quick_bin = options["wg_quick_bin"]
             iface.gw_iface = options["gw_iface"]
-            iface.conf_filepath = os.path.join(options["interfaces_folder"], iface.name) + ".conf"
+            iface.conf_file = os.path.join(options["interfaces_folder"], iface.name) + ".conf"
             interfaces[iface.uuid] = iface
             for peer in iface.peers.values():
                 peer.endpoint = options["endpoint"]
+            iface.save()
 
     def __to_yaml_dict__(self):
         copy = super().__to_yaml_dict__()

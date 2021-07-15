@@ -2,8 +2,7 @@ uwsgi:
   http-socket: 6000
   master: true
   wsgi-file: web/app.py
-  pyargv: /var/www/linguard
-  venv: venv
+  pyargv: /var/www/linguard/config/linguard.sample.yaml
+  venv: /var/www/linguard/venv
   need-plugin: python3
   callable: app
-  logto: file:/var/www/linguard/uwgsi.log

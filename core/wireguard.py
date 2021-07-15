@@ -40,7 +40,6 @@ class Interface(YamlAble):
         return {
             "uuid": self.uuid,
             "name": self.name,
-            "conf_file": self.conf_file,
             "description": self.description,
             "gw_iface": self.gw_iface,
             "ipv4_address": self.ipv4_address,
@@ -61,7 +60,6 @@ class Interface(YamlAble):
         else:
             uuid = gen_uuid().hex
         name = dct["name"]
-        conf_file = dct["conf_file"]
         description = dct["description"]
         gw_iface = dct["gw_iface"]
         ipv4_address = dct["ipv4_address"]
@@ -72,7 +70,7 @@ class Interface(YamlAble):
         wg_quick_bin = None
         if "wg_quick_bin" in dct:
             wg_quick_bin = dct["wg_quick_bin"]
-        iface = Interface(uuid, name, conf_file, description, gw_iface,
+        iface = Interface(uuid, name, None, description, gw_iface,
                           ipv4_address, listen_port, private_key,
                           public_key, wg_quick_bin, auto)
         iface.on_up = dct["on_up"]

@@ -1,6 +1,6 @@
 logger:
   level: info
-  filepath: /var/www/linguard/linguard.log
+  logfile: /var/www/linguard/linguard.log
   overwrite: no
 
 web:
@@ -18,7 +18,6 @@ linguard:
     9e11e7305c9b4878a1f2a17aab67828d:
       uuid: 9e11e7305c9b4878a1f2a17aab67828d
       name: scranton-vpn
-      conf_file: /var/www/linguard/interfaces/scranton-vpn.conf
       description: 'vpn for scranton branch'
       gw_iface: eth0
       ipv4_address: 10.200.51.226/28
@@ -39,7 +38,7 @@ linguard:
           uuid: 35c026b40a8a4c8d92f8668006905c5a
           name: Jim Halpert
           description: ''
-          ipv4_address: 192.168.27.112/12
+          ipv4_address: 10.200.51.227/28
           private_key: yCAiQuYDUxjyzrCP7BwbE2UgqV5L6d+YlaxretwtvlI=
           public_key: YmuZlDpuJed8uV9BkjHuzBKZTlAhdoqPKwgNtEWDdU4=
           endpoint: vpn.example.com:60726
