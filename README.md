@@ -160,4 +160,4 @@ These options must be specified inside a `peer` node.
 
 ## Contributing
 
-You may contribute opening issues and creating pull requests with new features and bugfixes :)
+You may contribute by opening new issues, commenting on existent ones and creating pull requests with new features and bugfixes. All help is welcome :)
