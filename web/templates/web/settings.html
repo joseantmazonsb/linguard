@@ -1,0 +1,163 @@
+{% extends "web/web-main.html" %}
+
+{% block content %}
+    <main>
+        <div class="container-fluid">
+            <div class="my-4">
+                <a href="#" onclick="location.replace(document.referrer)" style="display: inline" class="float-right mt-3">
+                    <i class="fas fa-arrow-left mr-2"></i>Back
+                </a>
+                <h1 class="my-4">{{ title }}</h1>
+            </div>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-cog"></i>
+                    Web
+                </div>
+                <div class="card-body">
+                    <div id="wgWebConfig">
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                              <label for="port">Port</label>
+                              <input type="number" class="form-control"
+                                        id="port"
+                                        placeholder="8080"
+                                        value="{{ config["web"]["bindport"] }}">
+                            </div>
+                            <div class="form-group col-md-4">
+                                <label for="loginAttempts">Maximum login attempts</label>
+                                <span type="button" class="ml-1" data-toggle="popover"
+                                        data-placement="top"
+                                        data-content="0 means unlimited attempts.">
+                                        <i class="fas fa-question-circle"></i>
+                                </span>
+                                <input type="number" class="form-control"
+                                        id="loginAttempts"
+                                        placeholder="0"
+                                        value="{{ config["web"]["login_attempts"] }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-cog"></i>
+                    {{ app_name }}
+                </div>
+                <div class="card-body">
+                    <div id="wgLinguardConfig">
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                              <label for="endpoint">Endpoint</label>
+                              <input type="text" class="form-control"
+                                        id="endpoint"
+                                        placeholder="vpn.example.com"
+                                        value="{{ config["linguard"]["endpoint"] }}">
+                            </div>
+                            <div class="form-group col-md-4">
+                                <label for="interfacesDir">Interfaces' directory</label>
+                                <input type="text" class="form-control"
+                                        id="interfacesDir"
+                                        placeholder="path/to/folder"
+                                        value="{{ config["linguard"]["interfaces_folder"] }}">
+                            </div>
+                            <div class="form-group col-md-4">
+                                <label for="configFile">Configuration file</label>
+                                <input type="text" class="form-control" disabled
+                                        id="configFile"
+                                        value="{{ config_file }}">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                <label for="wgBin"><strong>wg</strong> binary</label>
+                                <input type="text" class="form-control"
+                                        id="wgBin"
+                                        placeholder="path/to/file"
+                                        value="{{ config["linguard"]["wg_bin"] }}">
+                            </div>
+                            <div class="form-group col-md-4">
+                                <label for="wgQuickBin"><strong>wg-quick</strong> binary</label>
+                                <input type="text" class="form-control"
+                                        id="wgQuickBin"
+                                        placeholder="path/to/file"
+                                        value="{{ config["linguard"]["wg_quick_bin"] }}">
+                            </div>
+                            <div class="form-group col-md-4">
+                                <label for="iptablesBin"><strong>iptables</strong> binary</label>
+                                <input type="text" class="form-control"
+                                        id="iptablesBin"
+                                        placeholder="path/to/file"
+                                        value="{{ config["linguard"]["iptables_bin"] }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-cog"></i>
+                    Logging
+                </div>
+                <div class="card-body">
+                    <div id="wgLoggingConfig">
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                <span>Overwrite</span>
+                                <span type="button" class="ml-1" data-toggle="popover"
+                                        data-placement="top"
+                                        data-content="Whether to overwrite the log file each time {{ app_name }} boots up,
+                                        discarding its previous content, or to append the new logs to the file.">
+                                        <i class="fas fa-question-circle"></i>
+                                </span>
+                                <br>
+                                <div class="btn-group btn-group-toggle mt-2" data-toggle="buttons" id="nat">
+                                    {% if config["logger"]["overwrite"] %}
+                                        <label class="btn btn-primary active">
+                                            <input type="radio" name="options" autocomplete="off" checked> Yes
+                                        </label>
+                                        <label class="btn btn-primary">
+                                            <input type="radio" name="options" autocomplete="off"> No
+                                        </label>
+                                    {% else %}
+                                        <label class="btn btn-primary">
+                                            <input type="radio" name="options" autocomplete="off"> Yes
+                                        </label>
+                                        <label class="btn btn-primary active">
+                                            <input type="radio" name="options" autocomplete="off" checked> No
+                                        </label>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                              <label for="logfile">Logfile</label>
+                              <input type="text" class="form-control"
+                                        id="logfile"
+                                        placeholder="/path/to/logfile"
+                                        value="{{ config["logger"]["logfile"] if config["logger"]["logfile"] is not none }}">
+                            </div>
+                            <div class="form-group col-md-4">
+                              <label for="loglevel">Level</label>
+                                <select class="form-control" id="loglevel">
+                                    <option selected value="{{ config["logger"]["level"] | lower }}">{{ config["logger"]["level"] | lower }}</option>
+                                    {% for level in log_levels if not level == config["logger"]["level"] | lower %}
+                                        <option value="{{ level }}">{{ level }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3">
+                <button id="saveBtn" class="btn btn-warning">Save</button>
+            </div>
+        </div>
+    </main>
+{% endblock %}
+
+{% block additional_scripts %}
+{% endblock %}

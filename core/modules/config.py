@@ -61,7 +61,7 @@ class BaseConfig(YamlAble):
 class Config(BaseConfig):
 
     DEFAULT_BINDPORT = 8080
-    DEFAULT_LOGIN_ATTEMPTS = 100
+    DEFAULT_LOGIN_ATTEMPTS = 0
 
     LEVELS = {
         "debug": logging.DEBUG,
@@ -92,6 +92,7 @@ class Config(BaseConfig):
     def __set_logger_properties(self):
         self.config["logger"] = self.config.get("logger", {})
         options = self.config["logger"]
+
         options["logfile"] = options.get("logfile", None)
         options["level"] = options.get("level", logging.getLevelName(self.DEFAULT_LEVEL)).lower()
         level = options["level"]
@@ -104,6 +105,8 @@ class Config(BaseConfig):
             filemode = "a"
         logfile = options["logfile"]
         if logfile:
+            logfile = os.path.abspath(logfile)
+            options["logfile"] = logfile
             info(f"Logging to {logfile}...")
             handlers = [logging.FileHandler(logfile, filemode, "utf-8")]
         else:
@@ -136,13 +139,17 @@ class Config(BaseConfig):
                 if not options["endpoint"]:
                     raise WireguardError("unable to automatically set endpoint.")
                 warning(f"Server endpoint set to {options['endpoint']}: this might not be a public IP address!")
-        options["wg_bin"] = options.get("wg_bin", run_os_command("whereis wg | tr ' ' '\n' | grep bin").output)
-        options["wg_quick_bin"] = options.get("wg_quick_bin",
-                                              run_os_command("whereis wg-quick | tr ' ' '\n' | grep bin").output)
-        options["iptables_bin"] = options.get("iptables_bin",
-                                              run_os_command("whereis iptables | tr ' ' '\n' | grep bin").output)
-        options["interfaces_folder"] = options.get("interfaces_folder",
-                                                   os.path.join(os.path.dirname(self.filepath), "interfaces"))
+        options["wg_bin"] = os.path.abspath(options.get("wg_bin", run_os_command("whereis wg | tr ' ' '\n' | grep bin")
+                                                        .output))
+        options["wg_quick_bin"] = os.path.abspath(options.get("wg_quick_bin",
+                                                              run_os_command("whereis wg-quick | tr ' ' '\n' | grep bin")
+                                                              .output))
+        options["iptables_bin"] = os.path.abspath(options.get("iptables_bin",
+                                                              run_os_command("whereis iptables | tr ' ' '\n' | grep bin")
+                                                              .output))
+        options["interfaces_folder"] = os.path.abspath(options.get("interfaces_folder",
+                                                                   os.path.join(os.path.dirname(self.filepath),
+                                                                                "interfaces")))
         try_makedir(options["interfaces_folder"])
         options["interfaces"] = options.get("interfaces", OrderedDict())
         interfaces = options["interfaces"]

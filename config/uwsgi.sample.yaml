@@ -3,6 +3,5 @@ uwsgi:
   master: true
   wsgi-file: web/app.py
   pyargv: /var/www/linguard/config/linguard.sample.yaml
-  venv: /var/www/linguard/venv
   need-plugin: python3
   callable: app

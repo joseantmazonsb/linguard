@@ -237,6 +237,17 @@ def themes():
     return ViewController("web/themes.html", **context).load()
 
 
+@router.route("/settings")
+def settings():
+    context = {
+        "title": "Settings",
+        "config": router.server.config.config,
+        "config_file": router.server.config.filepath,
+        "log_levels": router.server.config.LEVELS.keys()
+    }
+    return ViewController("web/settings.html", **context).load()
+
+
 @router.app_errorhandler(BAD_REQUEST)
 def bad_request(err):
     error_code = 400

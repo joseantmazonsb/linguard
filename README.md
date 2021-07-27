@@ -37,20 +37,25 @@ Linguard aims to provide an easy way to manage your WireGuard server, and it's w
     sudo apt install wireguard iptables uwsgi uwsgi-plugin-python3 libpcre3 libpcre3-dev
     ```
 2. Download any [release](https://github.com/joseantmazonsb/linguard/releases) (or clone the repository) and put the files somewhere you will remember later, such as `/var/www/linguard`.
-3. Edit the configuration files to fit your needs.
-4. Add a `linguard` user and group to your computer:
+3. Install the requirements:
+   ```bash
+    pip3 install -r requirements.txt
+    ```
+   *If you install the requirements using a virtual environment, you'll need to specify the path to the `venv` folder in the uwsgi configuration file through the field `venv`.*
+4. Edit the configuration files to fit your needs.
+5. Add a `linguard` user and group to your computer:
     ```bash
     groupadd linguard
     useradd -g linguard linguard
     ```
-5. Add the following lines to the file `etc/sudoers` so that linguard may execute WireGuard commands.
+6. Add the following lines to the file `etc/sudoers` so that linguard may execute WireGuard commands.
     ```bash
     linguard ALL=(ALL) NOPASSWD: /usr/bin/wg
     linguard ALL=(ALL) NOPASSWD: /usr/bin/wg-quick
     ```
-6. Start linguard:
+7. Start linguard:
     ```bash
-    sudo -u linguard uwsgi --yaml /var/www/linguard/uwsgi.yaml
+    sudo -u linguard uwsgi --yaml /var/www/linguard/config/uwsgi.sample.yaml
     ```
 
 ### Debian package
@@ -64,7 +69,7 @@ Linguard aims to provide an easy way to manage your WireGuard server, and it's w
 The following table describes every argument accepted by Linguard:
 
 | Argument | Type | Explanation | Notes
-|-|-|-|-|
+|---|---|---|---|
 | *config* | Positional | Path to the Linguard's configuration file | Must be a YAML file
 | *-h* \| *--help* | Optional | Display Linguard's CLI help and exit |
 | *--debug* | Optional | Start the Flask backend in debug mode | Default value is `False`
@@ -85,7 +90,7 @@ all possible values.
 These options must be specified inside a `logger` node.
 
 | Option | Explanation | Values | Default |
-|-|-|-|-|
+|---|---|---|---|
 | _level_ | Set the minimum level of messages to be logged | `debug`, `info`, `warning`, `error`, `fatal` | `info`
 | _logfile_ | Path to the file used to write log messages | `null`, `path/to/logfile` | `null`
 | _overwrite_ | Whether to overwrite the log file when the application starts or not | `true`, `false` | `false`
@@ -95,7 +100,7 @@ These options must be specified inside a `logger` node.
 These options must be specified inside a `web` node.
 
 | Option | Explanation | Values | Default |
-|-|-|-|-|
+|---|---|---|---|
 | _bindport_ | Port to be used by Flask to deploy the application | `1-65535` | `8080`
 | _login_attempts_ | Maximum number of login attempts within 5 minutes | (almost) Any integer | `0` (unlimited attempts)
 
@@ -106,7 +111,7 @@ These options must be specified inside a `linguard` node.
 ##### Global options
 
 | Option | Explanation | Values | Notes |
-|-|-|-|-|
+|---|---|---|---|
 | _endpoint_ | Endpoint for all peers | Should be something like `vpn.example.com`, though it may also be an IP address | Default value is your computer's public IP (if it can be obtained)
 | _gw_iface_ | Default gateway for all WireGuard interfaces. | Should be something like `vpn.example.com`, though it may also be an IP address | Default value will be your computer's default gateway
 | _wg_bin_ | Path to the WireGuard binary file (`wg`) | `path/to/file` | If not specified, it will be retrieved using the `whereis` command
@@ -120,7 +125,7 @@ These options must be specified inside a `linguard` node.
 These options must be specified inside an `interface` node.
 
 | Option | Explanation | Values | Notes |
-|-|-|-|-|
+|---|---|---|---|
 | _auto_ | Whether the interface will be automatically brought up when the server starts or not | `true`, `false` | Default value is `true`
 | _description_ | A description of the interface | A character string |
 | _gw_iface_ | Gateway used by the interface | Should be something like `vpn.example.com`, though it may also be an IP address. | Default value will be your computer's default gateway
@@ -139,7 +144,7 @@ These options must be specified inside an `interface` node.
 These options must be specified inside a `peer` node.
 
 | Option | Explanation | Values | Notes |
-|-|-|-|-|
+|---|---|---|---|
 | _dns1_ | Main DNS used by the peer | A valid IPv4 address |
 | _dns2_ | Secondary DNS used by the peer | A valid IPv4 address |
 | _endpoint_ | URL/IPv4 and port used by the peer to communicate with the WireGuard server | A valid URL/IPv4 followed by a UDP port: `vpn.example.com:50000` | 

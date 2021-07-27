@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 
 from flask import Flask
 
@@ -20,10 +21,7 @@ def start():
     logging.basicConfig(format=Config.LOG_FORMAT, level=Config.DEFAULT_LEVEL)
     app = Flask(__name__, template_folder="templates")
     app.register_blueprint(router)
-    conf_dir = args.config
-    if not conf_dir:
-        conf_dir = APP_NAME.lower()
-    wg = Server(conf_dir)
+    wg = Server(os.path.abspath(args.config))
     router.server = wg
     wg.start()
     app.run(debug=args.debug, port=wg.config.web()["bindport"])
