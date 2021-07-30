@@ -290,6 +290,7 @@ class LinguardOptions(Options):
             iface.wg_quick_bin = self.wg_quick_bin
             was_up = iface.is_up
             iface.down()
+            os.remove(iface.conf_file)
             iface.conf_file = os.path.join(self.interfaces_folder, iface.name) + ".conf"
             if was_up:
                 iface.up()
