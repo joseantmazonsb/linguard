@@ -39,6 +39,10 @@ def run_os_command(command: str) -> CommandResult:
     return result
 
 
+def get_default_gateway() -> str:
+    return run_os_command("ip route | head -1 | xargs | cut -d ' ' -f 5").output
+
+
 def get_filename_without_extension(path: str) -> str:
     filename, extension = os.path.splitext(path)
     return os.path.basename(filename)

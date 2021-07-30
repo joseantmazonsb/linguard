@@ -1,21 +1,16 @@
-from http.client import BAD_REQUEST
-
-from faker import Faker
 from collections import OrderedDict
-from time import sleep
-import os
+from http.client import BAD_REQUEST
 from logging import fatal, info, warning
+from time import sleep
 from typing import Union, List, Dict
 
-from core.modules.config import Config
+from faker import Faker
+
+from core.exceptions import WireguardError
 from core.modules.interface_manager import InterfaceManager
 from core.modules.key_manager import KeyManager
 from core.modules.peer_manager import PeerManager
-from core.exceptions import WireguardError
-from core.utils import try_makedir
-from core.wireguard import Peer, Interface
-
-from web.static.assets.resources import APP_NAME
+from core.wireguard import config, Peer, Interface, Config
 
 CONFIG_FILE_NAME = "config.yaml"
 BACKUPS_FOLDER_NAME = "backups"
@@ -24,35 +19,43 @@ INTERFACES_FOLDER_NAME = "interfaces"
 fake = Faker()
 
 
-class Server:
+class AppManager:
+    config: Config
     pending_interfaces: Dict[str, Interface]
     pending_peers: Dict[str, Peer]
     interfaces: Dict[str, Interface]
-    config: Config
 
-    def __init__(self, config_filepath: str):
+    def __init__(self):
+        self.started = False
+        self.key_manager = None
+        self.peer_manager = None
+        self.interface_manager = None
+        self.config_filepath = None
+        self.config = None
+
+    def initialize(self, config_filepath: str):
         try:
             info(f"Using {config_filepath} as configuration file...")
-            self.started = False
-            self.config = Config(config_filepath)
-            self.config.load()
+            config.load(config_filepath)
+            self.config_filepath = config_filepath
+            self.config = config
             self.pending_interfaces = OrderedDict()
             self.pending_peers = OrderedDict()
-            linguard_config = self.config.linguard()
-            self.interfaces = linguard_config["interfaces"]
-            self.key_manager = KeyManager(linguard_config["wg_bin"])
-            self.interface_manager = InterfaceManager(linguard_config["interfaces"], self.key_manager,
-                                                      linguard_config["interfaces_folder"], linguard_config["iptables_bin"],
-                                                      linguard_config["wg_quick_bin"], linguard_config["gw_iface"], fake)
-            self.peer_manager = PeerManager(linguard_config["endpoint"], self.key_manager, fake)
+            linguard_config = self.config.linguard_options
+            self.interfaces = linguard_config.interfaces
+            self.key_manager = KeyManager(linguard_config.wg_bin)
+            self.interface_manager = InterfaceManager(linguard_config.interfaces, self.key_manager,
+                                                      linguard_config.interfaces_folder, linguard_config.iptables_bin,
+                                                      linguard_config.wg_quick_bin, fake)
+            self.peer_manager = PeerManager(linguard_config.endpoint, self.key_manager, fake)
 
         except Exception as e:
             fatal(f"Unable to initialize server: {e}")
             exit(1)
 
     def save_changes(self):
-        self.config.linguard()["interfaces"] = self.interfaces
-        self.config.save()
+        config.linguard_options.interfaces = self.interfaces
+        config.save(self.config_filepath)
 
     # Interfaces
 
@@ -131,9 +134,6 @@ class Server:
     def remove_peer(self, peer: Peer):
         self.peer_manager.remove_peer(peer)
 
-    def load_config(self):
-        self.config.load()
-
     def start(self):
         info("Starting VPN server...")
         if self.started:
@@ -168,9 +168,4 @@ class Server:
         self.start()
 
 
-if __name__ == '__main__':
-    server_folder = APP_NAME.lower()
-    wg = Server(server_folder)
-    wg.start()
-    sleep(10)
-    wg.stop()
+manager = AppManager()

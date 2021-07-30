@@ -26,13 +26,12 @@ class PeerManager:
         dns1 = "8.8.8.8"
         dns2 = "8.8.4.4"
         nat = False
-        peer = Peer(uuid, name, description, ipv4_address, private_key, public_key, nat, interface, self.endpoint,
-                    dns1, dns2)
+        peer = Peer(uuid, name, description, ipv4_address, private_key, public_key, nat, interface, dns1, dns2)
         return peer
 
     @staticmethod
     def sort_peers(iface: Interface):
-        sorted_peers = OrderedDict(sorted(iface.peers.items(),  key=lambda t: t[1].name))
+        sorted_peers = OrderedDict(sorted(iface.peers.items(), key=lambda t: t[1].name))
         iface.peers.clear()
         for uuid in sorted_peers:
             p = sorted_peers[uuid]

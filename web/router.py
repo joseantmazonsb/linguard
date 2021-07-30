@@ -3,8 +3,8 @@ from http.client import BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR, UNAUTHORI
 
 from flask import Blueprint, abort, request, Response
 
+from core.app_manager import manager
 from core.exceptions import WireguardError
-from core.server import Server
 from web.controllers.RestController import RestController
 from web.controllers.ViewController import ViewController
 from web.static.assets.resources import EMPTY_FIELD, APP_NAME
@@ -12,7 +12,6 @@ from web.utils import get_all_interfaces, get_routing_table, get_wg_interfaces_s
 
 
 class Router(Blueprint):
-    server: Server
 
     def __init__(self, name, import_name):
         super().__init__(name, import_name)
@@ -48,8 +47,8 @@ def signup():
 
 @router.route("/network")
 def network():
-    wg_ifaces = list(router.server.interfaces.values())
-    interfaces = get_all_interfaces(wg_bin=router.server.config.linguard()["wg_bin"], wg_interfaces=wg_ifaces)
+    wg_ifaces = list(manager.interfaces.values())
+    interfaces = get_all_interfaces(wg_bin=manager.config.linguard_options.wg_bin, wg_interfaces=wg_ifaces)
     routes = get_routing_table()
     context = {
         "title": "Network",
@@ -63,8 +62,8 @@ def network():
 
 @router.route("/wireguard")
 def wireguard():
-    wg_ifaces = list(router.server.interfaces.values())
-    interfaces = get_wg_interfaces_summary(wg_bin=router.server.config.linguard()["wg_bin"], interfaces=wg_ifaces)
+    wg_ifaces = list(manager.interfaces.values())
+    interfaces = get_wg_interfaces_summary(wg_bin=manager.config.linguard_options.wg_bin, interfaces=wg_ifaces)
     context = {
         "title": "Wireguard",
         "interfaces": interfaces,
@@ -76,7 +75,7 @@ def wireguard():
 
 @router.route("/wireguard/interfaces/add", methods=['GET'])
 def create_wireguard_iface():
-    iface = router.server.generate_interface()
+    iface = manager.generate_interface()
     context = {
         "title": "Add interface",
         "iface": iface,
@@ -89,15 +88,15 @@ def create_wireguard_iface():
 @router.route("/wireguard/interfaces/add/<uuid>", methods=['POST'])
 def add_wireguard_iface(uuid: str):
     data = request.json["data"]
-    return RestController(router.server, uuid).add_iface(data)
+    return RestController(manager, uuid).add_iface(data)
 
 
 @router.route("/wireguard/interfaces/<uuid>", methods=['GET'])
 def get_wireguard_iface(uuid: str):
-    if uuid not in router.server.interfaces:
+    if uuid not in manager.interfaces:
         abort(NOT_FOUND, f"Unknown interface '{uuid}'.")
-    iface = router.server.interfaces[uuid]
-    iface_status = get_wg_interface_status(router.server.config.linguard()["wg_bin"], iface.name)
+    iface = manager.interfaces[uuid]
+    iface_status = get_wg_interface_status(manager.config.linguard_options.wg_bin, iface.name)
     context = {
         "title": "Edit interface",
         "iface": iface,
@@ -111,22 +110,22 @@ def get_wireguard_iface(uuid: str):
 
 @router.route("/wireguard/interfaces/<uuid>/save", methods=['POST'])
 def save_wireguard_iface(uuid: str):
-    if uuid not in router.server.interfaces:
+    if uuid not in manager.interfaces:
         abort(NOT_FOUND, f"Interface {uuid} not found.")
     data = request.json["data"]
-    return RestController(router.server, uuid).apply_iface(data)
+    return RestController(manager, uuid).apply_iface(data)
 
 
 @router.route("/wireguard/interfaces/<uuid>/remove", methods=['DELETE'])
 def remove_wireguard_iface(uuid: str):
-    if uuid not in router.server.interfaces:
+    if uuid not in manager.interfaces:
         abort(NOT_FOUND, f"Interface {uuid} not found.")
-    return RestController(router.server, uuid).remove_iface()
+    return RestController(manager, uuid).remove_iface()
 
 
 @router.route("/wireguard/interfaces/<uuid>/regenerate-keys", methods=['POST'])
 def regenerate_iface_keys(uuid: str):
-    return RestController(router.server, uuid).regenerate_iface_keys()
+    return RestController(manager, uuid).regenerate_iface_keys()
 
 
 @router.route("/wireguard/interfaces/<uuid>", methods=['POST'])
@@ -134,13 +133,13 @@ def operate_wireguard_iface(uuid: str):
     action = request.json["action"].lower()
     try:
         if action == "start":
-            router.server.iface_up(uuid)
+            manager.iface_up(uuid)
             return Response(status=NO_CONTENT)
         if action == "restart":
-            router.server.restart_iface(uuid)
+            manager.restart_iface(uuid)
             return Response(status=NO_CONTENT)
         if action == "stop":
-            router.server.iface_down(uuid)
+            manager.iface_down(uuid)
             return Response(status=NO_CONTENT)
         raise WireguardError(f"Invalid operation: {action}", BAD_REQUEST)
     except WireguardError as e:
@@ -152,16 +151,16 @@ def operate_wireguard_ifaces():
     action = request.json["action"].lower()
     try:
         if action == "start":
-            for iface in router.server.interfaces.values():
-                router.server.iface_up(iface.uuid)
+            for iface in manager.interfaces.values():
+                manager.iface_up(iface.uuid)
             return Response(status=NO_CONTENT)
         if action == "restart":
-            for iface in router.server.interfaces.values():
-                router.server.restart_iface(iface.uuid)
+            for iface in manager.interfaces.values():
+                manager.restart_iface(iface.uuid)
             return Response(status=NO_CONTENT)
         if action == "stop":
-            for iface in router.server.interfaces.values():
-                router.server.iface_down(iface.uuid)
+            for iface in manager.interfaces.values():
+                manager.iface_down(iface.uuid)
             return Response(status=NO_CONTENT)
         raise WireguardError(f"invalid operation: {action}", BAD_REQUEST)
     except WireguardError as e:
@@ -173,12 +172,12 @@ def create_wireguard_peer():
     iface = None
     iface_uuid = request.args.get("interface")
     if iface_uuid:
-        if iface_uuid not in router.server.interfaces:
+        if iface_uuid not in manager.interfaces:
             abort(BAD_REQUEST, f"Unable to create peer for unknown interface '{iface_uuid}'.")
-        iface = router.server.interfaces[iface_uuid]
-    peer = router.server.generate_peer(iface)
-    interfaces = get_wg_interfaces_summary(wg_bin=router.server.config.linguard()["wg_bin"],
-                                           interfaces=list(router.server.interfaces.values())).values()
+        iface = manager.interfaces[iface_uuid]
+    peer = manager.generate_peer(iface)
+    interfaces = get_wg_interfaces_summary(wg_bin=manager.config.linguard_options.wg_bin,
+                                           interfaces=list(manager.interfaces.values())).values()
     context = {
         "title": "Add peer",
         "peer": peer,
@@ -192,18 +191,18 @@ def create_wireguard_peer():
 @router.route("/wireguard/peers/add", methods=['POST'])
 def add_wireguard_peer():
     data = request.json["data"]
-    return RestController(router.server).add_peer(data)
+    return RestController(manager).add_peer(data)
 
 
 @router.route("/wireguard/peers/<uuid>/remove", methods=['DELETE'])
 def remove_wireguard_peer(uuid: str):
-    return RestController(router.server).remove_peer(uuid)
+    return RestController(manager).remove_peer(uuid)
 
 
 @router.route("/wireguard/peers/<uuid>", methods=['GET'])
 def get_wireguard_peer(uuid: str):
     peer = None
-    for iface in router.server.interfaces.values():
+    for iface in manager.interfaces.values():
         if uuid in iface.peers:
             peer = iface.peers[uuid]
     if not peer:
@@ -221,12 +220,12 @@ def get_wireguard_peer(uuid: str):
 @router.route("/wireguard/peers/<uuid>/save", methods=['POST'])
 def save_wireguard_peers(uuid: str):
     data = request.json["data"]
-    return RestController(router.server, uuid).save_peer(data)
+    return RestController(manager, uuid).save_peer(data)
 
 
 @router.route("/wireguard/peers/<uuid>/download", methods=['GET'])
 def download_wireguard_peer(uuid: str):
-    return RestController(router.server, uuid).download_peer()
+    return RestController(manager, uuid).download_peer()
 
 
 @router.route("/themes")
@@ -235,6 +234,22 @@ def themes():
         "title": "Themes"
     }
     return ViewController("web/themes.html", **context).load()
+
+
+@router.route("/settings")
+def settings():
+    context = {
+        "title": "Settings",
+        "config": manager.config,
+        "config_filepath": manager.config_filepath
+    }
+    return ViewController("web/settings.html", **context).load()
+
+
+@router.route("/settings/save", methods=['POST'])
+def save_settings():
+    data = request.json["data"]
+    return RestController(manager).save_settings(data)
 
 
 @router.app_errorhandler(BAD_REQUEST)

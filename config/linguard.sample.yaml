@@ -9,7 +9,6 @@ web:
 
 linguard:
   endpoint: vpn.example.com
-  gw_iface: eth0
   wg_bin: /usr/bin/wg
   wg_quick_bin: /usr/bin/wg-quick
   iptables_bin: /usr/sbin/iptables
@@ -19,7 +18,6 @@ linguard:
       uuid: 9e11e7305c9b4878a1f2a17aab67828d
       name: scranton-vpn
       description: 'vpn for scranton branch'
-      gw_iface: eth0
       ipv4_address: 10.200.51.226/28
       listen_port: 60726
       private_key: OJ7La8nuZ1TuuhcZ+Xf5i2q1ZrFXQNmKmu/toYiPmlU=
@@ -41,7 +39,6 @@ linguard:
           ipv4_address: 10.200.51.227/28
           private_key: yCAiQuYDUxjyzrCP7BwbE2UgqV5L6d+YlaxretwtvlI=
           public_key: YmuZlDpuJed8uV9BkjHuzBKZTlAhdoqPKwgNtEWDdU4=
-          endpoint: vpn.example.com:60726
           nat: false
           dns1: 8.8.8.8
           dns2: 8.8.4.4
