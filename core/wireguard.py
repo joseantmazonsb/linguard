@@ -26,23 +26,23 @@ class BaseConfig(YamlAble):
     def save(self, filepath: str):
         """Write configuration to yaml file."""
 
-        debug(f"Saving configuration to {filepath}...")
+        info(f"Saving configuration to {filepath}...")
         with open(filepath, 'w') as file:
             yaml.safe_dump(self, file, sort_keys=False)
-        debug(f"Configuration saved!")
-        debug("Applying configuration...")
+        info(f"Configuration saved!")
+        info("Applying configuration...")
         self.__apply__()
-        debug("Configuration applied!")
+        info("Configuration applied!")
 
     def __apply__(self):
         pass
 
     def load(self, filepath: str):
-        debug(f"Restoring configuration from {filepath}...")
+        info(f"Restoring configuration from {filepath}...")
         if not os.path.exists(filepath):
             warning(f"Unable to restore configuration file {filepath}: not found.")
         self.__do_load__(filepath)
-        debug(f"Configuration restored!")
+        info(f"Configuration restored!")
 
     def __do_load__(self, filepath: str):
         if os.path.exists(filepath):

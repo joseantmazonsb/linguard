@@ -1,5 +1,6 @@
 import io
 import re
+import traceback
 from http.client import NOT_FOUND
 from logging import error
 from typing import Dict, Any, List
@@ -22,8 +23,10 @@ class RestController:
             self.app_manager.regenerate_keys(self.uuid)
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=e.http_code)
         except Exception as e:
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     def __init__(self, app_manager: AppManager, uuid: str = None):
@@ -42,8 +45,10 @@ class RestController:
             self.app_manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=e.http_code)
         except Exception as e:
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     @staticmethod
@@ -84,8 +89,10 @@ class RestController:
             self.app_manager.apply_iface(iface)
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=e.http_code)
         except Exception as e:
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     def add_iface(self, data: Dict[str, Any]) -> Response:
@@ -101,8 +108,10 @@ class RestController:
             self.app_manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=e.http_code)
         except Exception as e:
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     def remove_iface(self) -> Response:
@@ -111,8 +120,10 @@ class RestController:
             self.app_manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=e.http_code)
         except Exception as e:
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     def find_errors_in_save_peer(self, data: Dict[str, Any]):
@@ -148,10 +159,10 @@ class RestController:
             self.app_manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
-            error(str(e))
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=e.http_code)
         except Exception as e:
-            error(str(e))
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     def remove_peer(self, uuid: str) -> Response:
@@ -166,10 +177,10 @@ class RestController:
             self.app_manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
-            error(str(e))
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=e.http_code)
         except Exception as e:
-            error(str(e))
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     def save_peer(self, data: Dict[str, Any]) -> Response:
@@ -188,8 +199,10 @@ class RestController:
             self.app_manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=e.http_code)
         except Exception as e:
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     def download_peer(self) -> Response:
@@ -211,8 +224,10 @@ class RestController:
             proxy.close()
             return send_file(mem, as_attachment=True, attachment_filename=f"{peer.name}.conf", mimetype="text/plain")
         except WireguardError as e:
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=e.http_code)
         except Exception as e:
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     def save_settings(self, data: Dict[str, Any]) -> Response:
@@ -223,8 +238,10 @@ class RestController:
             self.app_manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=e.http_code)
         except Exception as e:
+            error(f"{traceback.format_exc()}")
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     @staticmethod
