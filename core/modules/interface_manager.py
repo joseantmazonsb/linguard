@@ -1,29 +1,27 @@
 import os
-from time import sleep
-
-from coolname import generate_slug
-
 from collections import OrderedDict
 from random import randint
+from time import sleep
 from typing import Dict, Union, List
 from uuid import uuid4 as gen_uuid
 
+from coolname import generate_slug
 from faker import Faker
 
 from core.modules.key_manager import KeyManager
+from core.utils import get_default_gateway
 from core.wireguard import Interface
 
 
 class InterfaceManager:
 
     def __init__(self, interfaces: Dict[str, Interface], key_manager: KeyManager, interfaces_folder: str,
-                 iptables_bin: str, wg_quick_bin: str, gw_iface: str, faker: Faker):
+                 iptables_bin: str, wg_quick_bin: str, faker: Faker):
         self.interfaces = interfaces
         self.key_manager = key_manager
         self.interfaces_folder = interfaces_folder
         self.iptables_bin = iptables_bin
         self.wg_quick_bin = wg_quick_bin
-        self.gw_iface = gw_iface
         self.faker = faker
 
     def is_port_in_use(self, port: int) -> bool:
@@ -33,7 +31,7 @@ class InterfaceManager:
         return False
 
     def sort_ifaces(self):
-        sorted_ifaces = OrderedDict(sorted(self.interfaces.items(), key=lambda t: t[1].name,))
+        sorted_ifaces = OrderedDict(sorted(self.interfaces.items(), key=lambda t: t[1].name, ))
         self.interfaces.clear()
         for uuid in sorted_ifaces:
             iface = sorted_ifaces[uuid]
@@ -55,7 +53,7 @@ class InterfaceManager:
         conf_file = os.path.join(self.interfaces_folder, name) + ".conf"
         private_key = self.key_manager.generate_privkey()
         public_key = self.key_manager.generate_pubkey(private_key)
-        gw_iface = self.gw_iface
+        gw_iface = get_default_gateway()
         auto = True
         iface = Interface(uuid, name, conf_file, description, gw_iface, ipv4_address,
                           port, private_key, public_key, self.wg_quick_bin, auto)

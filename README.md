@@ -26,6 +26,7 @@ Linguard aims to provide an easy way to manage your WireGuard server, and it's w
 ![Edit wireguard interface configuration (1)](images/wireguard-edit-1.png)
 ![Edit wireguard interface configuration (2)](images/wireguard-edit-2.png)
 ![Edit wireguard peer configuration](images/peer-edit-1.png)
+![Settings](images/settings.png)
 
 ## Installation
 
@@ -113,7 +114,6 @@ These options must be specified inside a `linguard` node.
 | Option | Explanation | Values | Notes |
 |---|---|---|---|
 | _endpoint_ | Endpoint for all peers | Should be something like `vpn.example.com`, though it may also be an IP address | Default value is your computer's public IP (if it can be obtained)
-| _gw_iface_ | Default gateway for all WireGuard interfaces. | Should be something like `vpn.example.com`, though it may also be an IP address | Default value will be your computer's default gateway
 | _wg_bin_ | Path to the WireGuard binary file (`wg`) | `path/to/file` | If not specified, it will be retrieved using the `whereis` command
 | _wg_quick_bin_ | Path to the WireGuard quick binary file (`wg-quick`) | `path/to/file` | If not specified, it will be retrieved using the `whereis` command
 | _interfaces_ | Dictionary containing all interfaces of the server | A number of `interface` nodes whose keys are their own UUIDs |
@@ -128,7 +128,7 @@ These options must be specified inside an `interface` node.
 |---|---|---|---|
 | _auto_ | Whether the interface will be automatically brought up when the server starts or not | `true`, `false` | Default value is `true`
 | _description_ | A description of the interface | A character string |
-| _gw_iface_ | Gateway used by the interface | Should be something like `vpn.example.com`, though it may also be an IP address. | Default value will be your computer's default gateway
+| _gw_iface_ | Gateway used by the interface | Physical interface used to connect the WireGuard interface to your network | Default value will be your computer's default gateway
 | _ipv4_address_ | IPv4 address assigned to the interface | A valid IPv4 address |
 | _listen_port_ | UDP port used by WireGuard to communicate with peers | `1-65535` |
 | _name_ | The interface's name | A character string | It may only contain alphanumeric characters, underscores and hyphens. It must also begin with a letter and cannot be more than 15 characters long
@@ -147,7 +147,6 @@ These options must be specified inside a `peer` node.
 |---|---|---|---|
 | _dns1_ | Main DNS used by the peer | A valid IPv4 address |
 | _dns2_ | Secondary DNS used by the peer | A valid IPv4 address |
-| _endpoint_ | URL/IPv4 and port used by the peer to communicate with the WireGuard server | A valid URL/IPv4 followed by a UDP port: `vpn.example.com:50000` | 
 | _ipv4_address_ | IPv4 address assigned to the peer | A valid IPv4 address |
 | _name_ | The peer's name. | A character string
 | _nat_ | Whether the peer is behind a NAT or not | `true`, `false` | Default value is `false`. If `true`, this option will enable the `PersistentKeepalive` WireGuard flag

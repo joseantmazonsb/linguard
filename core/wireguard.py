@@ -1,9 +1,298 @@
-from yamlable import YamlAble, yaml_info
+import logging
+import os
 from collections import OrderedDict
-from logging import info, warning, debug, error
+from logging import info, warning, error, debug
+from typing import Dict, Any
+from urllib import request
 from uuid import uuid4 as gen_uuid
-from core.utils import run_os_command, write_lines
+
+import yaml
+from yamlable import YamlAble, yaml_info
+
 from core.exceptions import WireguardError
+from core.utils import run_os_command, try_makedir, get_default_gateway, write_lines
+
+# Show no tags when serializing
+yaml.emitter.Emitter.process_tag = lambda self, *args, **kw: None
+
+
+@yaml_info(yaml_tag_ns='')
+class BaseConfig(YamlAble):
+    optional = False
+
+    def __init__(self):
+        self.config = {}
+
+    def save(self, filepath: str):
+        """Write configuration to yaml file."""
+
+        debug(f"Saving configuration to {filepath}...")
+        with open(filepath, 'w') as file:
+            yaml.safe_dump(self, file, sort_keys=False)
+        debug(f"Configuration saved!")
+        debug("Applying configuration...")
+        self.__apply__()
+        debug("Configuration applied!")
+
+    def __apply__(self):
+        pass
+
+    def load(self, filepath: str):
+        debug(f"Restoring configuration from {filepath}...")
+        if not os.path.exists(filepath):
+            warning(f"Unable to restore configuration file {filepath}: not found.")
+        self.__do_load__(filepath)
+        debug(f"Configuration restored!")
+
+    def __do_load__(self, filepath: str):
+        if os.path.exists(filepath):
+            with open(filepath, "r") as backup:
+                self.config = list(yaml.safe_load_all(backup))[0]
+        self.__set_properties__(filepath)
+
+    def __set_properties__(self, filepath: str):
+        pass
+
+    def __to_yaml_dict__(self) -> Dict[str, Any]:
+        return self.config.copy()
+
+
+@yaml_info(yaml_tag_ns='')
+class Config(BaseConfig):
+
+    def __set_properties__(self, filepath: str):
+        self.config["logger"] = self.config.get("logger", {})
+        self.logger_options = LoggerOptions(self.config["logger"])
+
+        self.config["web"] = self.config.get("web", {})
+        self.web_options = WebOptions(self.config["web"])
+
+        self.config["linguard"] = self.config.get("linguard", {})
+        self.linguard_options = LinguardOptions(self.config["linguard"], os.path.dirname(filepath))
+
+    def __to_yaml_dict__(self):
+        copy = super().__to_yaml_dict__()
+        copy["linguard"]["interfaces"] = dict(copy["linguard"]["interfaces"])
+        return copy
+
+    def __apply__(self):
+        super(Config, self).__apply__()
+        self.logger_options.apply()
+        self.web_options.apply()
+        self.linguard_options.apply()
+
+
+@yaml_info(yaml_tag_ns='')
+class VersionInfo(BaseConfig):
+    optional = True
+
+    def __set_properties__(self, filepath: str):
+        options = self.config.get("version", {})
+        self.version = options.get("version", "")
+        self.date = options.get("date", "")
+        self.commit = options.get("commit", "")
+
+    def save(self, filepath: str):
+        raise WireguardError("Unable to update version info.")
+
+
+class Options:
+
+    def __init__(self, config: Dict):
+        self._config = config
+
+    def apply(self):
+        debug(f"Applying {self.__class__.__name__}...")
+        pass
+
+
+class LoggerOptions(Options):
+    LEVELS = {
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "fatal": logging.FATAL
+    }
+    DEFAULT_LEVEL = logging.INFO
+    LOG_FORMAT = "%(asctime)s [%(levelname)s] %(module)s (%(funcName)s): %(message)s"
+
+    @property
+    def overwrite(self):
+        return self._config["overwrite"]
+
+    @overwrite.setter
+    def overwrite(self, value: bool):
+        self._config["overwrite"] = value
+
+    @property
+    def level(self):
+        return self._config["level"]
+
+    @level.setter
+    def level(self, value: str):
+        self._config["level"] = value
+
+    @property
+    def logfile(self):
+        return self._config["logfile"]
+
+    @logfile.setter
+    def logfile(self, value: str):
+        self._config["logfile"] = value
+
+    def __init__(self, config: Dict):
+        super().__init__(config)
+        self.logfile = self._config.get("logfile", None)
+        self.level = self._config.get("level", logging.getLevelName(self.DEFAULT_LEVEL)).lower()
+        if self.level not in self.LEVELS:
+            raise WireguardError(f"'{self.level}' is not a valid log level!")
+        self.overwrite = self._config.get("overwrite", False)
+        if self.logfile:
+            self.logfile = os.path.abspath(self.logfile)
+        self.apply()
+
+    def apply(self):
+        super(LoggerOptions, self).apply()
+        if self.overwrite:
+            filemode = "w"
+        else:
+            filemode = "a"
+        if self.logfile:
+            info(f"Logging to {self.logfile}...")
+            handlers = [logging.FileHandler(self.logfile, filemode, "utf-8")]
+        else:
+            warning("No logfile specified. Logging to stdout...")
+            handlers = None
+        logging.basicConfig(format=self.LOG_FORMAT, level=self.LEVELS[self.level], handlers=handlers, force=True)
+
+
+class WebOptions(Options):
+    DEFAULT_BINDPORT = 8080
+    DEFAULT_LOGIN_ATTEMPTS = 0
+
+    @property
+    def bindport(self):
+        return self._config["bindport"]
+
+    @bindport.setter
+    def bindport(self, value: int):
+        self._config["bindport"] = value
+
+    @property
+    def login_attempts(self):
+        return self._config["login_attempts"]
+
+    @login_attempts.setter
+    def login_attempts(self, value: int):
+        self._config["login_attempts"] = value
+
+    def __init__(self, config: Dict):
+        super().__init__(config)
+        self.bindport = self._config.get("bindport", self.DEFAULT_BINDPORT)
+        self.login_attempts = self._config.get("login_attempts", self.DEFAULT_LOGIN_ATTEMPTS)
+
+
+class LinguardOptions(Options):
+    IP_RETRIEVER_URL = "https://api.ipify.org"
+
+    @property
+    def endpoint(self):
+        return self._config["endpoint"]
+
+    @endpoint.setter
+    def endpoint(self, value: str):
+        self._config["endpoint"] = value
+
+    @property
+    def wg_bin(self):
+        return self._config["wg_bin"]
+
+    @wg_bin.setter
+    def wg_bin(self, value: str):
+        self._config["wg_bin"] = value
+
+    @property
+    def wg_quick_bin(self):
+        return self._config["wg_quick_bin"]
+
+    @wg_quick_bin.setter
+    def wg_quick_bin(self, value: str):
+        self._config["wg_quick_bin"] = value
+
+    @property
+    def iptables_bin(self):
+        return self._config["iptables_bin"]
+
+    @iptables_bin.setter
+    def iptables_bin(self, value: str):
+        self._config["iptables_bin"] = value
+
+    @property
+    def interfaces(self):
+        return self._config["interfaces"]
+
+    @interfaces.setter
+    def interfaces(self, value: Dict):
+        self._config["interfaces"] = value
+
+    @property
+    def interfaces_folder(self):
+        return self._config["interfaces_folder"]
+
+    @interfaces_folder.setter
+    def interfaces_folder(self, value: str):
+        try_makedir(value)
+        self._config["interfaces_folder"] = value
+
+    def __init__(self, config: Dict, config_dir: str):
+        super().__init__(config)
+        self.endpoint = self._config.get("endpoint", None)
+        if not self.endpoint:
+            try:
+                warning("No endpoint specified. Retrieving public IP address...")
+                self.endpoint = request.urlopen(self.IP_RETRIEVER_URL).read().decode("utf-8")
+                debug(f"Public IP address is {self.endpoint}. This will be used as default endpoint.")
+            except Exception as e:
+                error(f"Unable to obtain server's public IP address: {e}")
+                ip = run_os_command(
+                    f"ip a show {get_default_gateway()} | grep inet | head -n1 | xargs | cut -d ' ' -f2") \
+                    .output
+                self.endpoint = ip.split("/")[0]
+                if not self.endpoint:
+                    raise WireguardError("unable to automatically set endpoint.")
+                warning(f"Server endpoint set to {self.endpoint}: this might not be a public IP address!")
+        self.wg_bin = os.path.abspath(self._config.get("wg_bin", run_os_command("whereis wg | tr ' ' '\n' | grep bin")
+                                                       .output))
+        self.wg_quick_bin = os.path.abspath(self._config.get("wg_quick_bin",
+                                                             run_os_command(
+                                                                 "whereis wg-quick | tr ' ' '\n' | grep bin")
+                                                             .output))
+        self.iptables_bin = os.path.abspath(self._config.get("iptables_bin",
+                                                             run_os_command(
+                                                                 "whereis iptables | tr ' ' '\n' | grep bin")
+                                                             .output))
+        self.interfaces_folder = os.path.abspath(self._config.get("interfaces_folder",
+                                                                  os.path.join(config_dir,
+                                                                               "interfaces")))
+        interfaces = self._config.get("interfaces", OrderedDict())
+        for iface in interfaces.values():
+            iface = Interface.from_dict(iface)
+            iface.wg_quick_bin = self.wg_quick_bin
+            iface.conf_file = os.path.join(self.interfaces_folder, iface.name) + ".conf"
+            interfaces[iface.uuid] = iface
+            iface.save()
+        self._config["interfaces"] = interfaces
+
+    def apply(self):
+        super(LinguardOptions, self).apply()
+        for iface in self.interfaces.values():
+            iface.wg_quick_bin = self.wg_quick_bin
+            was_up = iface.is_up
+            iface.down()
+            iface.conf_file = os.path.join(self.interfaces_folder, iface.name) + ".conf"
+            if was_up:
+                iface.up()
 
 
 @yaml_info(yaml_tag_ns='')
@@ -107,10 +396,17 @@ class Interface(YamlAble):
         debug(f"Configuration saved!")
         return conf
 
+    @property
+    def is_up(self):
+        return run_os_command(f"ip a | grep -w {self.name}").successful
+
+    @property
+    def is_down(self):
+        return not self.is_up
+
     def up(self):
         info(f"Starting interface {self.name}...")
-        is_up = run_os_command(f"ip a | grep -w {self.name}").successful
-        if is_up:
+        if self.is_up:
             warning(f"Unable to bring {self.name} up: already up.")
             return
         self.save()
@@ -123,8 +419,7 @@ class Interface(YamlAble):
 
     def down(self):
         info(f"Stopping interface {self.name}...")
-        is_down = not run_os_command(f"ip a | grep -w {self.name}").successful
-        if is_down:
+        if self.is_down:
             warning(f"Unable to bring {self.name} down: already down.")
             return
         result = run_os_command(f"sudo {self.wg_quick_bin} down {self.conf_file}")
@@ -143,7 +438,7 @@ class Peer(YamlAble):
     REGEX_NAME = f"^[a-zA-Z][\w\-. ]{{{MIN_NAME_LENGTH-1},{MAX_NAME_LENGTH-1}}}$"
 
     def __init__(self, uuid: str, name: str, description: str, ipv4_address: str, private_key: str, public_key: str,
-                 nat: bool, interface: Interface, endpoint: str, dns1: str, dns2: str = None):
+                 nat: bool, interface: Interface, dns1: str, dns2: str = None):
         self.uuid = uuid
         self.name = name
         self.description = description
@@ -152,13 +447,13 @@ class Peer(YamlAble):
         self.public_key = public_key
         self.nat = nat
         self.interface = interface
-        if interface is None:
-            self.endpoint = f"{endpoint}"
-        else:
-            self.endpoint = f"{endpoint}:{interface.listen_port}"
         self.dns1 = dns1
         self.dns2 = dns2
         self.confirmed = False
+
+    @property
+    def endpoint(self):
+        return f"{config.linguard_options.endpoint}:{self.interface.listen_port}"
 
     def __to_yaml_dict__(self):
         """ Called when you call yaml.dump()"""
@@ -169,7 +464,6 @@ class Peer(YamlAble):
             "ipv4_address": self.ipv4_address,
             "private_key": self.private_key,
             "public_key": self.public_key,
-            "endpoint": self.endpoint,
             "nat": self.nat,
             "dns1": self.dns1,
             "dns2": self.dns2
@@ -179,7 +473,7 @@ class Peer(YamlAble):
     def from_dict(dct):
         """ This optional method is called when you call yaml.load()"""
         return Peer(dct["uuid"], dct["name"], dct["description"], dct["ipv4_address"], dct["private_key"],
-                    dct["public_key"], dct["nat"], None, None, dct["dns1"], dct["dns2"])
+                    dct["public_key"], dct["nat"], None, dct["dns1"], dct["dns2"])
 
     def generate_conf(self) -> str:
         """Generate a wireguard configuration file suitable for this client."""
@@ -200,3 +494,6 @@ class Peer(YamlAble):
             peer += "PersistentKeepalive = 25\n"
 
         return iface + peer
+
+
+config = Config()

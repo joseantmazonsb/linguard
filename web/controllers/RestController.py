@@ -6,9 +6,9 @@ from typing import Dict, Any, List
 
 from flask import Response, send_file
 
+from core.app_manager import AppManager
 from core.exceptions import WireguardError
-from core.server import Server
-from core.wireguard import Interface, Peer
+from core.wireguard import Interface, Peer, config
 from web.utils import get_system_interfaces
 
 HTTP_NO_CONTENT = 204
@@ -19,15 +19,15 @@ HTTP_INTERNAL_ERROR = 500
 class RestController:
     def regenerate_iface_keys(self) -> Response:
         try:
-            self.server.regenerate_keys(self.uuid)
+            self.app_manager.regenerate_keys(self.uuid)
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
             return Response(str(e), status=e.http_code)
         except Exception as e:
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
-    def __init__(self, server: Server, uuid: str = None):
-        self.server = server
+    def __init__(self, app_manager: AppManager, uuid: str = None):
+        self.app_manager = app_manager
         self.uuid = uuid
 
     def save_iface(self, data: Dict[str, Any]) -> Response:
@@ -35,11 +35,11 @@ class RestController:
             self.find_errors_in_save_iface(data)
             on_down = self.get_list_from_str(data["on_down"])
             on_up = self.get_list_from_str(data["on_up"])
-            iface = self.server.interfaces[self.uuid]
-            self.server.edit_interface(iface, data["name"], data["description"],
-                                       data["ipv4_address"], data["listen_port"], data["gw_iface"],
-                                       data["auto"], on_up, on_down)
-            self.server.save_changes()
+            iface = self.app_manager.interfaces[self.uuid]
+            self.app_manager.edit_interface(iface, data["name"], data["description"],
+                                            data["ipv4_address"], data["listen_port"], data["gw_iface"],
+                                            data["auto"], on_up, on_down)
+            self.app_manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
             return Response(str(e), status=e.http_code)
@@ -80,8 +80,8 @@ class RestController:
     def apply_iface(self, data: Dict[str, Any]) -> Response:
         try:
             self.save_iface(data)
-            iface = self.server.interfaces[self.uuid]
-            self.server.apply_iface(iface)
+            iface = self.app_manager.interfaces[self.uuid]
+            self.app_manager.apply_iface(iface)
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
             return Response(str(e), status=e.http_code)
@@ -91,14 +91,14 @@ class RestController:
     def add_iface(self, data: Dict[str, Any]) -> Response:
         try:
             self.find_errors_in_save_iface(data)
-            iface = self.server.pending_interfaces[self.uuid]
+            iface = self.app_manager.pending_interfaces[self.uuid]
             on_up = self.get_list_from_str(data["on_up"])
             on_down = self.get_list_from_str(data["on_down"])
-            self.server.edit_interface(iface, data["name"], data["description"],
-                                       data["ipv4_address"], data["listen_port"], data["gw_iface"],
-                                       data["auto"], on_up, on_down)
-            self.server.add_iface(iface)
-            self.server.save_changes()
+            self.app_manager.edit_interface(iface, data["name"], data["description"],
+                                            data["ipv4_address"], data["listen_port"], data["gw_iface"],
+                                            data["auto"], on_up, on_down)
+            self.app_manager.add_iface(iface)
+            self.app_manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
             return Response(str(e), status=e.http_code)
@@ -107,8 +107,8 @@ class RestController:
 
     def remove_iface(self) -> Response:
         try:
-            self.server.remove_interface(self.uuid)
-            self.server.save_changes()
+            self.app_manager.remove_interface(self.uuid)
+            self.app_manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
             return Response(str(e), status=e.http_code)
@@ -120,7 +120,7 @@ class RestController:
         if not wg_iface:
             raise WireguardError(f"a valid wireguard interface must be provided,.", HTTP_BAD_REQUEST)
         try:
-            self.server.interfaces[wg_iface]
+            self.app_manager.interfaces[wg_iface]
         except WireguardError:
             raise WireguardError(f"'{wg_iface}' is not a valid wireguard interface.", HTTP_BAD_REQUEST)
         if not re.match(Peer.REGEX_NAME, data["name"]):
@@ -140,12 +140,12 @@ class RestController:
     def add_peer(self, data: Dict[str, Any]) -> Response:
         try:
             self.find_errors_in_save_peer(data)
-            iface = self.server.interfaces[data["interface"]]
-            peer = self.server.get_pending_peer_by_name(data["name"])
-            self.server.edit_peer(peer, data["name"], data["description"], data["ipv4_address"], iface, data["dns1"],
-                                  data["nat"])
-            self.server.add_peer(peer)
-            self.server.save_changes()
+            iface = self.app_manager.interfaces[data["interface"]]
+            peer = self.app_manager.get_pending_peer_by_name(data["name"])
+            self.app_manager.edit_peer(peer, data["name"], data["description"], data["ipv4_address"], iface,
+                                       data["dns1"], data["nat"], data.get("dns2", ""))
+            self.app_manager.add_peer(peer)
+            self.app_manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
             error(str(e))
@@ -157,13 +157,13 @@ class RestController:
     def remove_peer(self, uuid: str) -> Response:
         try:
             peer = None
-            for iface in self.server.interfaces.values():
+            for iface in self.app_manager.interfaces.values():
                 if uuid in iface.peers:
                     peer = iface.peers[uuid]
             if peer is None:
                 raise WireguardError("unable to remove interface.", HTTP_BAD_REQUEST)
-            self.server.remove_peer(peer)
-            self.server.save_changes()
+            self.app_manager.remove_peer(peer)
+            self.app_manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
             error(str(e))
@@ -175,17 +175,17 @@ class RestController:
     def save_peer(self, data: Dict[str, Any]) -> Response:
         try:
             peer = None
-            for iface in self.server.interfaces.values():
+            for iface in self.app_manager.interfaces.values():
                 if self.uuid in iface.peers:
                     peer = iface.peers[self.uuid]
             if not peer:
                 raise WireguardError(f"Unknown peer '{self.uuid}'.", NOT_FOUND)
             self.find_errors_in_save_peer(data)
-            iface = self.server.interfaces[data["interface"]]
-            self.server.edit_peer(peer, data["name"], data["description"],
-                                  data["ipv4_address"], iface, data["dns1"],
-                                  data["nat"], data["dns2"])
-            self.server.save_changes()
+            iface = self.app_manager.interfaces[data["interface"]]
+            self.app_manager.edit_peer(peer, data["name"], data["description"],
+                                       data["ipv4_address"], iface, data["dns1"],
+                                       data["nat"], data["dns2"])
+            self.app_manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
             return Response(str(e), status=e.http_code)
@@ -195,7 +195,7 @@ class RestController:
     def download_peer(self) -> Response:
         try:
             peer = None
-            for iface in self.server.interfaces.values():
+            for iface in self.app_manager.interfaces.values():
                 if self.uuid in iface.peers:
                     peer = iface.peers[self.uuid]
             if not peer:
@@ -214,3 +214,37 @@ class RestController:
             return Response(str(e), status=e.http_code)
         except Exception as e:
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
+
+    def save_settings(self, data: Dict[str, Any]) -> Response:
+        try:
+            self.__save_logger_settings(data["logger"])
+            self.__save_web_settings(data["web"])
+            self.__save_linguard_settings(data["linguard"])
+            self.app_manager.save_changes()
+            return Response(status=HTTP_NO_CONTENT)
+        except WireguardError as e:
+            return Response(str(e), status=e.http_code)
+        except Exception as e:
+            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+
+    @staticmethod
+    def __save_logger_settings(data: Dict[str, Any]):
+        logger = config.logger_options
+        logger.logfile = data["logfile"]
+        logger.overwrite = data["overwrite"]
+        logger.level = data["level"]
+
+    @staticmethod
+    def __save_web_settings(data: Dict[str, Any]):
+        web = config.web_options
+        web.bindport = data["bindport"]
+        web.login_attempts = data["login_attempts"]
+
+    @staticmethod
+    def __save_linguard_settings(data: Dict[str, Any]):
+        linguard = config.linguard_options
+        linguard.endpoint = data["endpoint"]
+        linguard.wg_bin = data["wg_bin"]
+        linguard.wg_quick_bin = data["wg_quick_bin"]
+        linguard.iptables_bin = data["iptables_bin"]
+        linguard.interfaces_folder = data["interfaces_folder"]
