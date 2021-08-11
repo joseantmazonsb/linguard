@@ -1,12 +1,15 @@
+import json
 from datetime import datetime
 from typing import Dict, Any, List
-import json
 
+import faker
 from flask import templating
 
+from core.models import Interface
 from core.utils import run_os_command
-from core.wireguard import Interface
 from web.static.assets.resources import APP_NAME, EMPTY_FIELD
+
+fake = faker.Faker()
 
 
 def render_template(template_path: str, **variables: Any):

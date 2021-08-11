@@ -2,25 +2,22 @@ from collections import OrderedDict
 from random import randint
 from uuid import uuid4 as gen_uuid
 
-from faker import Faker
-
+from core.models import Peer, Interface
 from core.modules.key_manager import KeyManager
-from core.wireguard import Peer, Interface
+from web.utils import fake
 
 
 class PeerManager:
 
-    def __init__(self, endpoint: str, key_manager: KeyManager, faker: Faker):
-        self.endpoint = endpoint
+    def __init__(self, key_manager: KeyManager):
         self.key_manager = key_manager
-        self.faker = faker
 
     def generate_peer(self, interface: Interface = None) -> Peer:
         uuid = gen_uuid().hex
-        name = self.faker.name()
+        name = fake.name()
         description = ""
         mask = f"/{randint(8, 30)}"
-        ipv4_address = self.faker.ipv4_private() + mask
+        ipv4_address = fake.ipv4_private() + mask
         private_key = self.key_manager.generate_privkey()
         public_key = self.key_manager.generate_pubkey(private_key)
         dns1 = "8.8.8.8"

@@ -1,29 +1,27 @@
+import os
+import traceback
 from collections import OrderedDict
 from http.client import BAD_REQUEST
 from logging import fatal, info, warning
 from time import sleep
 from typing import Union, List, Dict
 
-from faker import Faker
+import yaml
 
+from core.config.linguard_config import config as linguard_config
+from core.config.logger_config import config as logger_config
+from core.config.web_config import config as web_config
 from core.exceptions import WireguardError
+from core.models import Interface, Peer
 from core.modules.interface_manager import InterfaceManager
 from core.modules.key_manager import KeyManager
 from core.modules.peer_manager import PeerManager
-from core.wireguard import config, Peer, Interface, Config
-
-CONFIG_FILE_NAME = "config.yaml"
-BACKUPS_FOLDER_NAME = "backups"
-INTERFACES_FOLDER_NAME = "interfaces"
-
-fake = Faker()
+from web.models import UserDict, users
 
 
 class AppManager:
-    config: Config
     pending_interfaces: Dict[str, Interface]
     pending_peers: Dict[str, Peer]
-    interfaces: Dict[str, Interface]
 
     def __init__(self):
         self.started = False
@@ -31,31 +29,55 @@ class AppManager:
         self.peer_manager = None
         self.interface_manager = None
         self.config_filepath = None
-        self.config = None
 
     def initialize(self, config_filepath: str):
         try:
-            info(f"Using {config_filepath} as configuration file...")
-            config.load(config_filepath)
             self.config_filepath = config_filepath
-            self.config = config
+            self.__load_config__()
+            self.save_changes()
             self.pending_interfaces = OrderedDict()
             self.pending_peers = OrderedDict()
-            linguard_config = self.config.linguard_options
-            self.interfaces = linguard_config.interfaces
             self.key_manager = KeyManager(linguard_config.wg_bin)
-            self.interface_manager = InterfaceManager(linguard_config.interfaces, self.key_manager,
-                                                      linguard_config.interfaces_folder, linguard_config.iptables_bin,
-                                                      linguard_config.wg_quick_bin, fake)
-            self.peer_manager = PeerManager(linguard_config.endpoint, self.key_manager, fake)
-
-        except Exception as e:
-            fatal(f"Unable to initialize server: {e}")
+            self.interface_manager = InterfaceManager(self.key_manager)
+            self.peer_manager = PeerManager(self.key_manager)
+        except Exception:
+            fatal(f"Unable to initialize server: {traceback.format_exc()}")
             exit(1)
 
+    def __load_config__(self):
+        info(f"Restoring configuration from {self.config_filepath}...")
+        if not os.path.exists(self.config_filepath):
+            warning(f"Unable to restore configuration file {self.config_filepath}: not found.")
+            info("Using default configuration...")
+            return
+        with open(self.config_filepath, "r") as file:
+            config = list(yaml.safe_load_all(file))[0]
+        if "logger" in config:
+            logger_config.load(config["logger"])
+            logger_config.apply()
+        if "web" in config:
+            web_config.load(config["web"])
+            web_config.apply()
+        if os.path.exists(web_config.credentials_file):
+            users.set_contents(UserDict.load(web_config.credentials_file, web_config.secret_key))
+        if "linguard" in config:
+            linguard_config.load(config["linguard"])
+            linguard_config.apply()
+        info(f"Configuration restored!")
+
     def save_changes(self):
-        config.linguard_options.interfaces = self.interfaces
-        config.save(self.config_filepath)
+        info("Saving configuration...")
+        config = {
+            "logger": logger_config,
+            "web": web_config,
+            "linguard": linguard_config
+        }
+        with open(self.config_filepath, "w") as file:
+            yaml.safe_dump(config, file)
+        info("Configuration saved!")
+        logger_config.apply()
+        linguard_config.apply()
+        web_config.apply()
 
     # Interfaces
 
@@ -104,8 +126,9 @@ class AppManager:
 
     # peers
 
-    def get_iface_by_name(self, name: str) -> Interface:
-        for iface in self.interfaces.values():
+    @staticmethod
+    def get_iface_by_name(name: str) -> Interface:
+        for iface in linguard_config.interfaces.values():
             if iface.name == name:
                 return iface
         raise WireguardError(f"unable to retrieve interface '{name}'!", BAD_REQUEST)
@@ -139,7 +162,7 @@ class AppManager:
         if self.started:
             warning("Unable to start VPN server: already started.")
             return
-        for iface in self.interfaces.values():
+        for iface in linguard_config.interfaces.values():
             if not iface.auto:
                 continue
             try:
@@ -154,7 +177,7 @@ class AppManager:
         if not self.started:
             warning("Unable to stop VPN server: already stopped.")
             return
-        for iface in self.interfaces.values():
+        for iface in linguard_config.interfaces.values():
             try:
                 iface.down()
             except WireguardError:

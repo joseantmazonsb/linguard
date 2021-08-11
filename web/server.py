@@ -4,10 +4,19 @@ import os
 
 import flask
 from flask import Flask
+from flask_login import LoginManager
 
 from core.app_manager import AppManager, manager
-from core.wireguard import LoggerOptions, config
+from core.config.web_config import config as web_config
+from web.models import users
 from web.router import router
+
+login_manager = LoginManager()
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return users.get(user_id, None)
 
 
 class Server:
@@ -16,7 +25,7 @@ class Server:
 
     @property
     def bindport(self):
-        return config.web_options.bindport
+        return web_config.bindport
 
     def __init__(self):
         self.parser = argparse.ArgumentParser(description="Welcome to Linguard, the best WireGuard's web GUI :)")
@@ -25,11 +34,12 @@ class Server:
 
         self.args = self.parser.parse_args()
 
-        logging.basicConfig(format=LoggerOptions.LOG_FORMAT, level=LoggerOptions.DEFAULT_LEVEL)
         self.app_manager = manager
         self.app_manager.initialize(os.path.abspath(self.args.config))
         self.app = Flask(__name__, template_folder="templates")
+        self.app.config['SECRET_KEY'] = web_config.secret_key
         self.app.register_blueprint(router)
+        login_manager.init_app(self.app)
 
     def run(self):
         logging.info(f"Running backend...")
