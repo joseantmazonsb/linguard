@@ -19,6 +19,8 @@ Linguard aims to provide an easy way to manage your WireGuard server, and it's w
 
 ## Screenshots
 
+![Signup](images/signup.png)
+![Login](images/login.png)
 ![Network interfaces](images/network-section-1.png)
 ![Routing information](images/network-section-2.png)
 ![Wireguard interfaces section (1)](images/wireguard-section-1.png)
@@ -32,29 +34,27 @@ Linguard aims to provide an easy way to manage your WireGuard server, and it's w
 
 ### Git
 
-1. Install dependencies:
+
+1. Download any [release](https://github.com/joseantmazonsb/linguard/releases) (or clone the repository) and put the files somewhere you will remember later, such as `/var/www/linguard`.
+2. Install dependencies:
     ```bash
     sudo apt update
-    sudo apt install wireguard iptables uwsgi uwsgi-plugin-python3 libpcre3 libpcre3-dev
+    sudo apt install python3 python3-pip wireguard iptables uwsgi uwsgi-plugin-python3 libpcre3 libpcre3-dev
+    pip3 install -r /var/www/linguard/requirements.txt
     ```
-2. Download any [release](https://github.com/joseantmazonsb/linguard/releases) (or clone the repository) and put the files somewhere you will remember later, such as `/var/www/linguard`.
-3. Install the requirements:
-   ```bash
-    pip3 install -r requirements.txt
-    ```
-   *If you install the requirements using a virtual environment, you'll need to specify the path to the `venv` folder in the uwsgi configuration file through the field `venv`.*
-4. Edit the configuration files to fit your needs.
-5. Add a `linguard` user and group to your computer:
+   *If you install the python requirements using a virtual environment, you'll need to specify the path to the `venv` folder in the uwsgi configuration file through the field `venv`.*
+3. Edit the configuration files to fit your needs.
+4. Add a `linguard` user and group to your computer:
     ```bash
     groupadd linguard
     useradd -g linguard linguard
     ```
-6. Add the following lines to the file `etc/sudoers` so that linguard may execute WireGuard commands.
+5. Add the following lines to the file `etc/sudoers` so that linguard may execute WireGuard commands.
     ```bash
     linguard ALL=(ALL) NOPASSWD: /usr/bin/wg
     linguard ALL=(ALL) NOPASSWD: /usr/bin/wg-quick
     ```
-7. Start linguard:
+6. Start linguard:
     ```bash
     sudo -u linguard uwsgi --yaml /var/www/linguard/config/uwsgi.sample.yaml
     ```
@@ -103,7 +103,9 @@ These options must be specified inside a `web` node.
 | Option | Explanation | Values | Default |
 |---|---|---|---|
 | _bindport_ | Port to be used by Flask to deploy the application | `1-65535` | `8080`
-| _login_attempts_ | Maximum number of login attempts within 5 minutes | (almost) Any integer | `0` (unlimited attempts)
+| _login_attempts_ | Maximum number of login attempts within 2 minutes | (almost) Any integer | `0` (unlimited attempts)
+| _secret_key_ | Key used to secure the authentication process | A 32 characters long string | A random 32 characters long string
+| _credentials_file_ | Encrypted file containing the administrator's credentials | `path/to/file` | A `credentials.yaml` file located in the directory from which Linguard was launched
 
 #### Linguard configuration
 
@@ -164,4 +166,4 @@ These options must be specified inside a `peer` node.
 
 ## Contributing
 
-You may contribute by opening new issues, commenting on existent ones and creating pull requests with new features and bugfixes. All help is welcome :)
+You may contribute by opening new issues, commenting on existent ones and creating pull requests with new features and bugfixes. Any help is welcome :)

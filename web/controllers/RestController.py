@@ -1,15 +1,22 @@
+import http
 import io
 import re
-import traceback
 from http.client import NOT_FOUND
-from logging import error
+from logging import debug
 from typing import Dict, Any, List
 
-from flask import Response, send_file
+from flask import Response, send_file, url_for, redirect, abort
+from flask_login import login_user
 
-from core.app_manager import AppManager
+from core.app_manager import manager
+from core.config.linguard_config import config as linguard_config, LinguardConfig
+from core.config.logger_config import config as logger_config, LoggerConfig
+from core.config.web_config import config as web_config, WebConfig
 from core.exceptions import WireguardError
-from core.wireguard import Interface, Peer, config
+from core.models import Interface, Peer, interfaces
+from core.utils import log_exception
+from web.controllers.ViewController import ViewController
+from web.models import users, User
 from web.utils import get_system_interfaces
 
 HTTP_NO_CONTENT = 204
@@ -20,17 +27,16 @@ HTTP_INTERNAL_ERROR = 500
 class RestController:
     def regenerate_iface_keys(self) -> Response:
         try:
-            self.app_manager.regenerate_keys(self.uuid)
+            manager.regenerate_keys(self.uuid)
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=e.http_code)
         except Exception as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
-    def __init__(self, app_manager: AppManager, uuid: str = None):
-        self.app_manager = app_manager
+    def __init__(self, uuid: str = None):
         self.uuid = uuid
 
     def save_iface(self, data: Dict[str, Any]) -> Response:
@@ -38,17 +44,17 @@ class RestController:
             self.find_errors_in_save_iface(data)
             on_down = self.get_list_from_str(data["on_down"])
             on_up = self.get_list_from_str(data["on_up"])
-            iface = self.app_manager.interfaces[self.uuid]
-            self.app_manager.edit_interface(iface, data["name"], data["description"],
-                                            data["ipv4_address"], data["listen_port"], data["gw_iface"],
-                                            data["auto"], on_up, on_down)
-            self.app_manager.save_changes()
+            iface = interfaces[self.uuid]
+            manager.edit_interface(iface, data["name"], data["description"],
+                                   data["ipv4_address"], data["listen_port"], data["gw_iface"],
+                                   data["auto"], on_up, on_down)
+            manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=e.http_code)
         except Exception as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     @staticmethod
@@ -85,53 +91,54 @@ class RestController:
     def apply_iface(self, data: Dict[str, Any]) -> Response:
         try:
             self.save_iface(data)
-            iface = self.app_manager.interfaces[self.uuid]
-            self.app_manager.apply_iface(iface)
+            iface = interfaces[self.uuid]
+            manager.apply_iface(iface)
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=e.http_code)
         except Exception as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     def add_iface(self, data: Dict[str, Any]) -> Response:
         try:
             self.find_errors_in_save_iface(data)
-            iface = self.app_manager.pending_interfaces[self.uuid]
+            iface = manager.pending_interfaces[self.uuid]
             on_up = self.get_list_from_str(data["on_up"])
             on_down = self.get_list_from_str(data["on_down"])
-            self.app_manager.edit_interface(iface, data["name"], data["description"],
-                                            data["ipv4_address"], data["listen_port"], data["gw_iface"],
-                                            data["auto"], on_up, on_down)
-            self.app_manager.add_iface(iface)
-            self.app_manager.save_changes()
+            manager.edit_interface(iface, data["name"], data["description"],
+                                   data["ipv4_address"], data["listen_port"], data["gw_iface"],
+                                   data["auto"], on_up, on_down)
+            manager.add_iface(iface)
+            manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=e.http_code)
         except Exception as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     def remove_iface(self) -> Response:
         try:
-            self.app_manager.remove_interface(self.uuid)
-            self.app_manager.save_changes()
+            manager.remove_interface(self.uuid)
+            manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=e.http_code)
         except Exception as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
-    def find_errors_in_save_peer(self, data: Dict[str, Any]):
+    @staticmethod
+    def find_errors_in_save_peer(data: Dict[str, Any]):
         wg_iface = data["interface"]
         if not wg_iface:
             raise WireguardError(f"a valid wireguard interface must be provided,.", HTTP_BAD_REQUEST)
         try:
-            self.app_manager.interfaces[wg_iface]
+            interfaces[wg_iface]
         except WireguardError:
             raise WireguardError(f"'{wg_iface}' is not a valid wireguard interface.", HTTP_BAD_REQUEST)
         if not re.match(Peer.REGEX_NAME, data["name"]):
@@ -151,64 +158,65 @@ class RestController:
     def add_peer(self, data: Dict[str, Any]) -> Response:
         try:
             self.find_errors_in_save_peer(data)
-            iface = self.app_manager.interfaces[data["interface"]]
-            peer = self.app_manager.get_pending_peer_by_name(data["name"])
-            self.app_manager.edit_peer(peer, data["name"], data["description"], data["ipv4_address"], iface,
-                                       data["dns1"], data["nat"], data.get("dns2", ""))
-            self.app_manager.add_peer(peer)
-            self.app_manager.save_changes()
+            iface = interfaces[data["interface"]]
+            peer = manager.get_pending_peer_by_name(data["name"])
+            manager.edit_peer(peer, data["name"], data["description"], data["ipv4_address"], iface,
+                              data["dns1"], data["nat"], data.get("dns2", ""))
+            manager.add_peer(peer)
+            manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=e.http_code)
         except Exception as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
-    def remove_peer(self, uuid: str) -> Response:
+    @staticmethod
+    def remove_peer(uuid: str) -> Response:
         try:
             peer = None
-            for iface in self.app_manager.interfaces.values():
+            for iface in interfaces.values():
                 if uuid in iface.peers:
                     peer = iface.peers[uuid]
             if peer is None:
                 raise WireguardError("unable to remove interface.", HTTP_BAD_REQUEST)
-            self.app_manager.remove_peer(peer)
-            self.app_manager.save_changes()
+            manager.remove_peer(peer)
+            manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=e.http_code)
         except Exception as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     def save_peer(self, data: Dict[str, Any]) -> Response:
         try:
             peer = None
-            for iface in self.app_manager.interfaces.values():
+            for iface in interfaces.values():
                 if self.uuid in iface.peers:
                     peer = iface.peers[self.uuid]
             if not peer:
                 raise WireguardError(f"Unknown peer '{self.uuid}'.", NOT_FOUND)
             self.find_errors_in_save_peer(data)
-            iface = self.app_manager.interfaces[data["interface"]]
-            self.app_manager.edit_peer(peer, data["name"], data["description"],
-                                       data["ipv4_address"], iface, data["dns1"],
-                                       data["nat"], data["dns2"])
-            self.app_manager.save_changes()
+            iface = interfaces[data["interface"]]
+            manager.edit_peer(peer, data["name"], data["description"],
+                              data["ipv4_address"], iface, data["dns1"],
+                              data["nat"], data["dns2"])
+            manager.save_changes()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=e.http_code)
         except Exception as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     def download_peer(self) -> Response:
         try:
             peer = None
-            for iface in self.app_manager.interfaces.values():
+            for iface in interfaces.values():
                 if self.uuid in iface.peers:
                     peer = iface.peers[self.uuid]
             if not peer:
@@ -224,44 +232,52 @@ class RestController:
             proxy.close()
             return send_file(mem, as_attachment=True, attachment_filename=f"{peer.name}.conf", mimetype="text/plain")
         except WireguardError as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=e.http_code)
         except Exception as e:
-            error(f"{traceback.format_exc()}")
-            return Response(str(e), status=HTTP_INTERNAL_ERROR)
-
-    def save_settings(self, data: Dict[str, Any]) -> Response:
-        try:
-            self.__save_logger_settings(data["logger"])
-            self.__save_web_settings(data["web"])
-            self.__save_linguard_settings(data["linguard"])
-            self.app_manager.save_changes()
-            return Response(status=HTTP_NO_CONTENT)
-        except WireguardError as e:
-            error(f"{traceback.format_exc()}")
-            return Response(str(e), status=e.http_code)
-        except Exception as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
     @staticmethod
-    def __save_logger_settings(data: Dict[str, Any]):
-        logger = config.logger_options
-        logger.logfile = data["logfile"]
-        logger.overwrite = data["overwrite"]
-        logger.level = data["level"]
+    def save_settings(form):
+        sample_logger = LoggerConfig()
+
+        logger_config.logfile = form.log_file.data or sample_logger.logfile
+        logger_config.overwrite = form.log_overwrite.data == "Yes" or sample_logger.overwrite
+        logger_config.level = form.log_level.data or sample_logger.level
+
+        sample_web = WebConfig()
+
+        web_config.bindport = form.web_port.data or sample_web.bindport
+        web_config.login_attempts = form.web_login_attempts.data or sample_web.login_attempts
+        web_config.secret_key = form.web_secret_key.data or sample_web.secret_key
+        web_config.credentials_file = form.web_credentials_file.data or sample_web.credentials_file
+
+        sample_linguard = LinguardConfig()
+
+        linguard_config.endpoint = form.app_endpoint.data or sample_linguard.endpoint
+        linguard_config.wg_bin = form.app_wg_bin.data or sample_linguard.wg_bin
+        linguard_config.wg_quick_bin = form.app_wg_quick_bin.data or sample_linguard.wg_quick_bin
+        linguard_config.iptables_bin = form.app_iptables_bin.data or sample_linguard.iptables_bin
+        linguard_config.interfaces_folder = form.app_interfaces_folder.data or sample_linguard.interfaces_folder
+
+        manager.save_changes()
 
     @staticmethod
-    def __save_web_settings(data: Dict[str, Any]):
-        web = config.web_options
-        web.bindport = data["bindport"]
-        web.login_attempts = data["login_attempts"]
+    def signup(form):
+        if not form.validate():
+            context = {
+                "title": "Create admin account",
+                "form": form
+            }
+            return ViewController("web/signup.html", **context).load()
+        debug(f"Signing up user '{form.username.data}'...")
+        u = User(form.username.data)
+        u.password = form.password.data
+        users[u.id] = u
+        users.save(web_config.credentials_file, web_config.secret_key)
+        debug(f"Logging in user '{u.id}'...")
 
-    @staticmethod
-    def __save_linguard_settings(data: Dict[str, Any]):
-        linguard = config.linguard_options
-        linguard.endpoint = data["endpoint"]
-        linguard.wg_bin = data["wg_bin"]
-        linguard.wg_quick_bin = data["wg_quick_bin"]
-        linguard.iptables_bin = data["iptables_bin"]
-        linguard.interfaces_folder = data["interfaces_folder"]
+        if u.login(form.password.data) and login_user(u):
+            return redirect(form.next.data or url_for("router.index"))
+        abort(http.HTTPStatus.INTERNAL_SERVER_ERROR)
