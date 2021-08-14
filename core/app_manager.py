@@ -1,8 +1,7 @@
 import os
-import traceback
 from collections import OrderedDict
 from http.client import BAD_REQUEST
-from logging import fatal, info, warning
+from logging import info, warning, error
 from time import sleep
 from typing import Union, List, Dict
 
@@ -16,6 +15,7 @@ from core.models import Interface, Peer
 from core.modules.interface_manager import InterfaceManager
 from core.modules.key_manager import KeyManager
 from core.modules.peer_manager import PeerManager
+from core.utils import log_exception
 from web.models import UserDict, users
 
 
@@ -40,8 +40,8 @@ class AppManager:
             self.key_manager = KeyManager(linguard_config.wg_bin)
             self.interface_manager = InterfaceManager(self.key_manager)
             self.peer_manager = PeerManager(self.key_manager)
-        except Exception:
-            fatal(f"Unable to initialize server: {traceback.format_exc()}")
+        except Exception as e:
+            log_exception(e, is_fatal=True)
             exit(1)
 
     def __load_config__(self):
@@ -58,8 +58,13 @@ class AppManager:
         if "web" in config:
             web_config.load(config["web"])
             web_config.apply()
-        if os.path.exists(web_config.credentials_file):
-            users.set_contents(UserDict.load(web_config.credentials_file, web_config.secret_key))
+        if os.path.exists(web_config.credentials_file) and os.path.getsize(web_config.credentials_file) > 0:
+            try:
+                credentials = UserDict.load(web_config.credentials_file, web_config.secret_key)
+                users.set_contents(credentials)
+            except Exception:
+                error(f"Invalid credentials file detected: {web_config.credentials_file}")
+                raise
         if "linguard" in config:
             linguard_config.load(config["linguard"])
             linguard_config.apply()
