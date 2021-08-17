@@ -1,44 +1,35 @@
-logger:
-  level: info
-  logfile: /var/www/linguard/linguard.log
-  overwrite: no
-
-web:
-  bindport: 8000
-  login_attempts: 10
-
-linguard:
+linguard: !yamlable/linguard
   endpoint: vpn.example.com
+  interfaces: !yamlable/interfaces
+    39a855187c4c4ca694d8c3f215e76cdc: !yamlable/interface
+      auto: false
+      description: 'vpn for scranton branch'
+      gw_iface: enp0s31f6
+      ipv4_address: 192.168.92.234/21
+      listen_port: '52123'
+      name: scranton-vpn
+      on_down:
+      - /usr/sbin/iptables -D FORWARD -i tough-moth -j ACCEPT
+      - /usr/sbin/iptables -D FORWARD -o tough-moth -j ACCEPT
+      - /usr/sbin/iptables -t nat -D POSTROUTING -o enp0s31f6 -j MASQUERADE
+      on_up:
+      - /usr/sbin/iptables -I FORWARD -i tough-moth -j ACCEPT
+      - /usr/sbin/iptables -I FORWARD -o tough-moth -j ACCEPT
+      - /usr/sbin/iptables -t nat -I POSTROUTING -o enp0s31f6 -j MASQUERADE
+      peers: {}
+      private_key: 4Ob32NhyhwIXbj7od6L5ASWle3vbOjn9g80at/dxPm0=
+      public_key: 7NTAVIucHQJsS9Z8eT3lUV8VUoTSFrB6J272F9ox5RQ=
+      uuid: 39a855187c4c4ca694d8c3f215e76cdc
+  interfaces_folder: /var/www/linguard/interfaces
+  iptables_bin: /usr/sbin/iptables
   wg_bin: /usr/bin/wg
   wg_quick_bin: /usr/bin/wg-quick
-  iptables_bin: /usr/sbin/iptables
-  interfaces_folder: /var/www/linguard/interfaces
-  interfaces:
-    9e11e7305c9b4878a1f2a17aab67828d:
-      uuid: 9e11e7305c9b4878a1f2a17aab67828d
-      name: scranton-vpn
-      description: 'vpn for scranton branch'
-      ipv4_address: 10.200.51.226/28
-      listen_port: 60726
-      private_key: OJ7La8nuZ1TuuhcZ+Xf5i2q1ZrFXQNmKmu/toYiPmlU=
-      public_key: 9kBWGjY8XHDHjbxhJmwBhR+uJ2Alxl/SI1gUXoRGOCM=
-      auto: false
-      on_up:
-        - /usr/sbin/iptables -I FORWARD -i scranton-vpn -j ACCEPT
-        - /usr/sbin/iptables -I FORWARD -o scranton-vpn -j ACCEPT
-        - /usr/sbin/iptables -t nat -I POSTROUTING -o eth0 -j MASQUERADE
-      on_down:
-        - /usr/sbin/iptables -D FORWARD -i scranton-vpn -j ACCEPT
-        - /usr/sbin/iptables -D FORWARD -o scranton-vpn -j ACCEPT
-        - /usr/sbin/iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
-      peers:
-        35c026b40a8a4c8d92f8668006905c5a:
-          uuid: 35c026b40a8a4c8d92f8668006905c5a
-          name: Jim Halpert
-          description: ''
-          ipv4_address: 10.200.51.227/28
-          private_key: yCAiQuYDUxjyzrCP7BwbE2UgqV5L6d+YlaxretwtvlI=
-          public_key: YmuZlDpuJed8uV9BkjHuzBKZTlAhdoqPKwgNtEWDdU4=
-          nat: false
-          dns1: 8.8.8.8
-          dns2: 8.8.4.4
+logger: !yamlable/logger
+  level: debug
+  logfile: /var/www/linguard/linguard.log
+  overwrite: false
+web: !yamlable/web
+  bindport: 8080
+  credentials_file: /var/www/linguard/credentials.yaml
+  login_attempts: 0
+  secret_key: G,XhSEIu{>TFu$y?4-kMy+<MN%T*J@/[
