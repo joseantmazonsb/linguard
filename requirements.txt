@@ -1,6 +1,8 @@
 WTForms~=2.3.3
 Faker~=8.1.4
 Flask~=1.1.4
+Flask-Login~=0.5.0
+Flask-WTF~=0.15.1
 Werkzeug~=1.0.1
 yamlable~=1.0.4
 coolname~=1.1.0

@@ -62,7 +62,7 @@ class LinguardConfig(BaseConfig):
             interfaces.set_contents(config.interfaces)
         self.interfaces = interfaces
         for iface in self.interfaces.values():
-            iface.app_wg_quick_bin = self.wg_quick_bin
+            iface.wg_quick_bin = self.wg_quick_bin
             iface.conf_file = os.path.join(self.interfaces_folder, iface.name) + ".conf"
             iface.save()
 
@@ -79,7 +79,7 @@ class LinguardConfig(BaseConfig):
         config.interfaces_folder = dct.get("interfaces_folder", None) or config.interfaces_folder
         config.interfaces = dct.get("interfaces", None) or config.interfaces
         for iface in config.interfaces.values():
-            iface.app_wg_quick_bin = config.wg_quick_bin
+            iface.wg_quick_bin = config.wg_quick_bin
             iface.conf_file = os.path.join(config.interfaces_folder, iface.name) + ".conf"
             iface.save()
         return config
@@ -97,7 +97,7 @@ class LinguardConfig(BaseConfig):
     def apply(self):
         super(LinguardConfig, self).apply()
         for iface in self.interfaces.values():
-            iface.app_wg_quick_bin = self.wg_quick_bin
+            iface.wg_quick_bin = self.wg_quick_bin
             was_up = iface.is_up
             iface.down()
             if os.path.exists(iface.conf_file):
