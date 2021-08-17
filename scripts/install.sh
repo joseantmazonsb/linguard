@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [[ $EUID -ne 0 ]]; then
+   fatal "This script must be run as superuser! Try using sudo."
+   exit 1
+fi
+
 bold=$(tput bold)
 default=$(tput sgr0)
 cyan=$(tput setaf 6)
@@ -46,11 +51,19 @@ function fatal() {
   log FATAL "$@"
 }
 
-
-if [[ $EUID -ne 0 ]]; then
-   fatal "This script must be run as superuser! Try using sudo."
-   exit 1
+if [[ $# -gt 2 ]] || [[ $# -lt 1 ]]; then
+  fatal "Invalid arguments."
+  info "Usage: $0 <install_folder> [git_branch]\n\t <install_folder>\t| Path where Linguard will be checked out and installed.\n\t [git_branch]\t\t| Tag to download. Default: main."
+  exit 2
 fi
+
+INSTALLATION_PATH=$1
+GIT_TAG=$2
+if [[ $GIT_TAG == "" ]]; then
+  GIT_TAG="main"
+fi
+debug "Installation path set to '$INSTALLATION_PATH'."
+debug "Git tag set to '$GIT_TAG'."
 
 info "Installing dependencies..."
 debug "Updating packages list..."
@@ -59,7 +72,6 @@ dependencies="git python3 python3-pip python3-virtualenv wireguard iptables libp
 debug "The following packages will be installed: $dependencies"
 apt-get -qq install $dependencies
 
-INSTALLATION_PATH=/var/www/linguard
 clone=true
 info "Cloning repository in $INSTALLATION_PATH..."
 if [[ -d "$INSTALLATION_PATH" ]]; then
@@ -67,7 +79,7 @@ if [[ -d "$INSTALLATION_PATH" ]]; then
   warn -n "$INSTALLATION_PATH already exists. Shall I overwrite it? [y/n] "
     read yn
     case $yn in
-        [Yy]* ) rm -rf $INSTALLATION_PATH; break;;
+        [Yy]* ) rm -rf "$INSTALLATION_PATH"; break;;
         [Nn]* ) clone=false; break;;
         * ) echo "Please answer yes or no.";;
     esac
@@ -75,19 +87,20 @@ if [[ -d "$INSTALLATION_PATH" ]]; then
 fi
 
 if [ "$clone" = true ]; then
-  git clone https://github.com/joseantmazonsb/linguard.git $INSTALLATION_PATH
+  git clone --branch "$GIT_TAG" https://github.com/joseantmazonsb/linguard.git "$INSTALLATION_PATH"
 fi
 info "Setting up virtual environment..."
-virtualenv ${INSTALLATION_PATH}/venv
-source ${INSTALLATION_PATH}/venv/bin/activate
+rm -rf "${INSTALLATION_PATH}"/venv
+virtualenv "${INSTALLATION_PATH}"/venv
+source "${INSTALLATION_PATH}"/venv/bin/activate
 debug "Installing python requirements..."
-pip3 install -r ${INSTALLATION_PATH}/requirements.txt
+pip3 install -r "${INSTALLATION_PATH}"/requirements.txt
 deactivate
 
 info "Settings permissions..."
 groupadd linguard
 useradd -g linguard linguard
-chown -R linguard:linguard $INSTALLATION_PATH
+chown -R linguard:linguard "$INSTALLATION_PATH"
 echo "linguard ALL=(ALL) NOPASSWD: /usr/bin/wg" > /etc/sudoers.d/linguard
 echo "linguard ALL=(ALL) NOPASSWD: /usr/bin/wg-quick" >> /etc/sudoers.d/linguard
 

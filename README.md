@@ -35,29 +35,20 @@ Linguard aims to provide an easy way to manage your WireGuard server, and it's w
 ### Git
 
 
-1. Download any [release](https://github.com/joseantmazonsb/linguard/releases) (or clone the repository) and put the files somewhere you will remember later, such as `/var/www/linguard`.
-2. Install dependencies:
+1. Download the installation script and run it. You must supply the installation directory and (optionally) the tag to check out.
     ```bash
-    sudo apt update
-    sudo apt install python3 python3-pip wireguard iptables uwsgi uwsgi-plugin-python3 libpcre3 libpcre3-dev
-    pip3 install -r /var/www/linguard/requirements.txt
+    curl -s https://raw.githubusercontent.com/joseantmazonsb/linguard/%2320/scripts/install.sh | sudo bash /dev/stdin <install_folder> [git_branch]
     ```
-   *If you install the python requirements using a virtual environment, you'll need to specify the path to the `venv` folder in the uwsgi configuration file through the field `venv`.*
-3. Edit the configuration files to fit your needs.
-4. Add a `linguard` user and group to your computer:
+2. Edit the configuration files located in `/var/www/linguard/config` to fit your needs.
+3. Start linguard:
     ```bash
-    groupadd linguard
-    useradd -g linguard linguard
+    sudo -u linguard /var/www/linguard/scripts/run.sh
     ```
-5. Add the following lines to the file `etc/sudoers` so that linguard may execute WireGuard commands.
+    or, if you renamed the uwsgi configuration file: 
     ```bash
-    linguard ALL=(ALL) NOPASSWD: /usr/bin/wg
-    linguard ALL=(ALL) NOPASSWD: /usr/bin/wg-quick
+    sudo -u linguard uwsgi --yaml /path/to/uwsgi/config/file
     ```
-6. Start linguard:
-    ```bash
-    sudo -u linguard uwsgi --yaml /var/www/linguard/config/uwsgi.sample.yaml
-    ```
+   
 
 ### Debian package
 
