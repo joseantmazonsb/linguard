@@ -35,7 +35,7 @@ Linguard aims to provide an easy way to manage your WireGuard server, and it's w
 ### Git
 
 
-1. Download the installation script and run it. You must supply the installation directory and (optionally) the tag to check out.
+1. Download the installation script and run it. You must supply the installation directory (for instance, `/var/www/linguard`) and (optionally) the tag to check out.
     ```bash
     wget -q https://raw.githubusercontent.com/joseantmazonsb/linguard/main/scripts/install.sh .
     chmod +x install.sh
