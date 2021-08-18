@@ -1,10 +1,5 @@
 #!/bin/bash
 
-if [[ $EUID -ne 0 ]]; then
-   fatal "This script must be run as superuser! Try using sudo."
-   exit 1
-fi
-
 bold=$(tput bold)
 default=$(tput sgr0)
 cyan=$(tput setaf 6)
@@ -51,6 +46,11 @@ function fatal() {
   log FATAL "$@"
 }
 
+if [[ $EUID -ne 0 ]]; then
+   fatal "This script must be run as superuser! Try using sudo."
+   exit 1
+fi
+
 if [[ $# -gt 2 ]] || [[ $# -lt 1 ]]; then
   fatal "Invalid arguments."
   info "Usage: $0 <install_folder> [git_branch]\n\t <install_folder>\t| Path where Linguard will be checked out and installed.\n\t [git_branch]\t\t| Tag to download. Default: main."
@@ -72,8 +72,8 @@ dependencies="git python3 python3-pip python3-virtualenv wireguard iptables libp
 debug "The following packages will be installed: $dependencies"
 apt-get -qq install $dependencies
 
-clone=true
 info "Cloning repository in $INSTALLATION_PATH..."
+clone=true
 if [[ -d "$INSTALLATION_PATH" ]]; then
   while true; do
   warn -n "$INSTALLATION_PATH already exists. Shall I overwrite it? [y/n] "
@@ -89,12 +89,13 @@ fi
 if [ "$clone" = true ]; then
   git clone --branch "$GIT_TAG" https://github.com/joseantmazonsb/linguard.git "$INSTALLATION_PATH"
 fi
+
 info "Setting up virtual environment..."
 rm -rf "${INSTALLATION_PATH}"/venv
 virtualenv "${INSTALLATION_PATH}"/venv
 source "${INSTALLATION_PATH}"/venv/bin/activate
 debug "Installing python requirements..."
-pip3 install -r "${INSTALLATION_PATH}"/requirements.txt
+pip3 install -r "${INSTALLATION_PATH}"/requirements.txts
 deactivate
 
 info "Settings permissions..."
@@ -103,5 +104,6 @@ useradd -g linguard linguard
 chown -R linguard:linguard "$INSTALLATION_PATH"
 echo "linguard ALL=(ALL) NOPASSWD: /usr/bin/wg" > /etc/sudoers.d/linguard
 echo "linguard ALL=(ALL) NOPASSWD: /usr/bin/wg-quick" >> /etc/sudoers.d/linguard
+chmod +x "${INSTALLATION_PATH}"/scripts/run.sh
 
 info "DONE!"

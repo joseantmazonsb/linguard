@@ -155,6 +155,22 @@ These options must be specified inside a `peer` node.
 
 ### Known issues
 
+#### UWSGI does not load python plugin
+
+If you encounter something like this when attempting to run Linguard:
+
+```bash
+!!! UNABLE to load uWSGI plugin: ./python3_plugin.so: cannot open shared object file: No such file or directory !!!
+```
+
+Don't worry, it has a simple solution. Sometimes uWSGI won't find your plugins if you don't specify the folder in whih they are located.
+So, to fix this issue you will need to tell uWSGI where is the python plugin (usually `/usr/lib/uwsgi/plugins`, `/usr/lib64/uwsgi` or `/usr/local/lib/uwsgi`)
+using the `plugins-dir` field in the uWSGI YAML file:
+
+```yaml
+plugins-dir: /path/to/plugins/folder
+```
+
 ## Contributing
 
 You may contribute by opening new issues, commenting on existent ones and creating pull requests with new features and bugfixes. Any help is welcome :)

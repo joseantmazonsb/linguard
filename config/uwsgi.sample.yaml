@@ -4,8 +4,6 @@ uwsgi:
   venv: venv
   wsgi-file: web/server.py
   pyargv: config/linguard.sample.yaml
-  plugins-dir: /usr/lib/uwsgi/plugins
-  callable: app
   need-plugin: python3
   die-on-term: true
   socket: linguard.sock
