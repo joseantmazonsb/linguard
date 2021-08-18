@@ -54,7 +54,7 @@ fi
 if [[ $# -gt 2 ]] || [[ $# -lt 1 ]]; then
   fatal "Invalid arguments."
   info "Usage: $0 <install_folder> [git_branch]\n\t <install_folder>\t| Path where Linguard will be checked out and installed.\n\t [git_branch]\t\t| Tag to download. Default: main."
-  exit 2
+  exit 1
 fi
 
 INSTALLATION_PATH=$1
@@ -71,6 +71,10 @@ apt-get -qq update
 dependencies="git python3 python3-pip python3-virtualenv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3"
 debug "The following packages will be installed: $dependencies"
 apt-get -qq install $dependencies
+if [ $? -ne 0 ]; then
+    fatal "Unable to install dependencies."
+    exit 1
+fi
 
 info "Cloning repository in $INSTALLATION_PATH..."
 clone=true
@@ -88,14 +92,21 @@ fi
 
 if [ "$clone" = true ]; then
   git clone --branch "$GIT_TAG" https://github.com/joseantmazonsb/linguard.git "$INSTALLATION_PATH"
+  if [ $? -ne 0 ]; then
+    fatal "Unable to clone repository."
+    exit 1
+  fi
 fi
 
 info "Setting up virtual environment..."
-rm -rf "${INSTALLATION_PATH}"/venv
 virtualenv "${INSTALLATION_PATH}"/venv
 source "${INSTALLATION_PATH}"/venv/bin/activate
 debug "Installing python requirements..."
 pip3 install -r "${INSTALLATION_PATH}"/requirements.txts
+if [ $? -ne 0 ]; then
+    fatal "Unable to install requirements."
+    exit 1
+fi
 deactivate
 
 info "Settings permissions..."
