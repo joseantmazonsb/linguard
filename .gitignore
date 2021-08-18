@@ -125,3 +125,7 @@ dmypy.yaml
 
 # Pycharm
 .idea/
+
+config/uwsgi.yaml
+config/linguard.yaml
+config/credentials.yaml
