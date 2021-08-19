@@ -102,7 +102,7 @@ info "Setting up virtual environment..."
 virtualenv "${INSTALLATION_PATH}"/venv
 source "${INSTALLATION_PATH}"/venv/bin/activate
 debug "Installing python requirements..."
-pip3 install -r "${INSTALLATION_PATH}"/requirements.txts
+pip3 install -r "${INSTALLATION_PATH}"/requirements.txt
 if [ $? -ne 0 ]; then
     fatal "Unable to install requirements."
     exit 1
