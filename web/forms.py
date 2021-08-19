@@ -1,3 +1,5 @@
+from logging import debug
+
 from flask_wtf import FlaskForm
 from wtforms import StringField, BooleanField, PasswordField, SubmitField, RadioField, SelectField, IntegerField
 from wtforms.validators import DataRequired
@@ -7,6 +9,7 @@ from core.config.linguard_config import config as linguard_config
 from core.config.logger_config import config as logger_config
 from core.config.web_config import config as web_config
 from core.crypto_utils import CryptoUtils
+from web.utils import get_network_adapters
 from web.validators import LoginUsernameValidator, LoginPasswordValidator, SignupPasswordValidator, \
     SignupUsernameValidator, SettingsSecretKeyValidator, SettingsPortValidator, SettingsLoginAttemptsValidator
 
@@ -32,15 +35,18 @@ class SignupForm(FlaskForm):
 
 
 class SettingsForm(FlaskForm):
-
-    web_port = IntegerField("Port", validators=[SettingsPortValidator()],
+    ifaces = {}
+    for k, v in get_network_adapters().items():
+        ifaces[k] = (k, v)
+    web_adapter = SelectField("Listen interface", choices=ifaces.values(), default=web_config.host)
+    web_port = IntegerField("Listen port", validators=[SettingsPortValidator()],
                             render_kw={"placeholder": f"{web_config.DEFAULT_BINDPORT}", "type": "number"},
                             default=web_config.bindport)
     web_login_attempts = IntegerField("Maximum login attempts", validators=[SettingsLoginAttemptsValidator()],
                                       render_kw={"placeholder": f"{web_config.DEFAULT_LOGIN_ATTEMPTS}",
                                                  "type": "number"},
                                       default=web_config.login_attempts)
-    web_secret_key = StringField("Secret key", validators=[SettingsSecretKeyValidator()],
+    web_secret_key = StringField("Secret key", validators=[SettingsSecretKeyValidator()], id="secretKey",
                                  render_kw={"placeholder": f'A {CryptoUtils.KEY_LEN} characters long secret key'},
                                  default=web_config.secret_key)
     web_credentials_file = StringField("Credentials file", render_kw={"placeholder": "path/to/file"},

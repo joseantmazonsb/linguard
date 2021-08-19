@@ -17,7 +17,8 @@ from web.controllers.RestController import RestController
 from web.controllers.ViewController import ViewController
 from web.models import users
 from web.static.assets.resources import EMPTY_FIELD, APP_NAME
-from web.utils import get_all_interfaces, get_routing_table, get_wg_interfaces_summary, get_wg_interface_status
+from web.utils import get_all_interfaces, get_routing_table, get_wg_interfaces_summary, get_wg_interface_status, \
+    get_network_adapters
 
 
 class Router(Blueprint):
@@ -347,6 +348,10 @@ def save_settings():
             # Fill fields with default values if they were left unfilled
             form.log_file.data = form.log_file.data or logger_config.logfile
 
+            ifaces = []
+            for k, v in get_network_adapters().items():
+                ifaces.append((k, v))
+            form.web_adapter.data = form.web_adapter.data or ifaces[web_config.host]
             form.web_secret_key.data = form.web_secret_key.data or web_config.secret_key
             form.web_credentials_file.data = form.web_credentials_file.data or web_config.credentials_file
 

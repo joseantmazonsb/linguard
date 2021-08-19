@@ -27,6 +27,10 @@ class Server:
     def bindport(self):
         return web_config.bindport
 
+    @property
+    def host(self):
+        return web_config.host
+
     def __init__(self):
         self.parser = argparse.ArgumentParser(description="Welcome to Linguard, the best WireGuard's web GUI :)")
         self.parser.add_argument("config", type=str, help="Path to the configuration file.")
@@ -42,8 +46,8 @@ class Server:
         login_manager.init_app(self.app)
 
     def run(self):
-        logging.info(f"Running backend...")
-        self.app.run(debug=self.args.debug, port=self.bindport)
+        logging.info("Running backend...")
+        self.app.run(debug=self.args.debug, port=self.bindport, host=self.host)
 
 
 server = Server()

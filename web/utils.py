@@ -111,6 +111,19 @@ def get_system_interfaces() -> Dict[str, Dict[str, Any]]:
     return interfaces
 
 
+def get_network_adapters() -> Dict[str, str]:
+    adapters = {"0.0.0.0": "All"}
+    out = json.loads(run_os_command("ip -json address").output)
+    for item in out:
+        addr_info = item.get("addr_info", None)
+        if not addr_info:
+            continue
+        name = item["ifname"]
+        ipv4 = addr_info[0]["local"]
+        adapters[ipv4] = name
+    return adapters
+
+
 def get_routing_table() -> List[Dict[str, Any]]:
     table = json.loads(run_os_command("ip -json route").output)
     for entry in table:
