@@ -12,14 +12,20 @@ from core.utils import try_makedir
 
 @yaml_info(yaml_tag='user')
 class User(UserMixin, YamlAble):
-    __hash_method = "pbkdf2:sha256"
+    HASHING_METHOD = "pbkdf2:sha256"
 
     def __init__(self, name: str):
         self.id = gen_uuid().hex
         self.name = name
         self.__password = None
         self.__authenticated = False
-        self.__hash_method = "pbkdf2:sha256"
+
+    def __str__(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "authenticated": self.__authenticated
+        }.__str__()
 
     @property
     def password(self):
@@ -27,7 +33,7 @@ class User(UserMixin, YamlAble):
 
     @password.setter
     def password(self, value: str):
-        self.__password = generate_password_hash(str(value), self.__hash_method)
+        self.__password = generate_password_hash(str(value), self.HASHING_METHOD)
 
     def __to_yaml_dict__(self):
         """ Called when you call yaml.dump()"""

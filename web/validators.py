@@ -1,3 +1,5 @@
+from logging import error
+
 from wtforms.validators import StopValidation
 
 from core.config.web_config import config
@@ -5,31 +7,44 @@ from core.crypto_utils import CryptoUtils
 from web.models import users
 
 
+def stop_validation(field, error_msg):
+    error(f"Unable to validate field '{field.label.text}': {error_msg}")
+    raise StopValidation(error_msg)
+
+
 class LoginUsernameValidator:
     def __call__(self, form, field):
         u = users.get_by_name(field.data)
         if not u:
-            raise StopValidation("User not found")
+            msg = "User not found"
+            error(f"Unable to log in: {msg}")
+            raise StopValidation(msg)
 
 
 class LoginPasswordValidator:
     def __call__(self, form, field):
-        u = users.get_by_name(field.data)
+        u = users.get_by_name(form.username.data)
         if u and not u.login(field.data):
-            raise StopValidation("Invalid credentials")
+            msg = "Invalid credentials"
+            error(f"Unable to log in: {msg}")
+            raise StopValidation(msg)
 
 
 class SignupUsernameValidator:
     def __call__(self, form, field):
         u = users.get_by_name(field.data)
         if u:
-            raise StopValidation("Username already in use")
+            msg = "Username already in use"
+            error(f"Unable to sign up: {msg}")
+            raise StopValidation(msg)
 
 
 class SignupPasswordValidator:
     def __call__(self, form, field):
         if field.data != form.password.data:
-            raise StopValidation("Passwords do not match")
+            msg = "Passwords do not match"
+            error(f"Unable to sign up: {msg}")
+            raise StopValidation(msg)
 
 
 class SettingsSecretKeyValidator:
@@ -37,7 +52,8 @@ class SettingsSecretKeyValidator:
         if not field.data:
             return
         if len(field.data) != CryptoUtils.KEY_LEN:
-            raise StopValidation(f"Must be a {CryptoUtils.KEY_LEN} characters long string.")
+            msg = f"Must be a {CryptoUtils.KEY_LEN} characters long string."
+            stop_validation(field, msg)
 
 
 class SettingsPortValidator:
@@ -45,7 +61,8 @@ class SettingsPortValidator:
         if type(field.data) is not int:
             return
         if field.data and field.data < config.MIN_PORT or field.data > config.MAX_PORT:
-            raise StopValidation(f"Must be an integer value between {config.MIN_PORT} and {config.MAX_PORT}")
+            msg = f"Must be an integer value between {config.MIN_PORT} and {config.MAX_PORT}."
+            stop_validation(field, msg)
 
 
 class SettingsLoginAttemptsValidator:
@@ -53,4 +70,5 @@ class SettingsLoginAttemptsValidator:
         if type(field.data) is not int:
             return
         if field.data and field.data < 0:
-            raise StopValidation(f"Must be an integer value equal to or greater than 0.")
+            msg = "Must be an integer value equal to or greater than 0."
+            stop_validation(field, msg)
