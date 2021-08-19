@@ -2,7 +2,7 @@ import http
 import traceback
 from datetime import datetime, timedelta
 from http.client import BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR, UNAUTHORIZED, NO_CONTENT
-from logging import warning, debug, error
+from logging import warning, debug, error, info
 
 from flask import Blueprint, abort, request, Response, redirect, url_for
 from flask_login import current_user, login_required, login_user
@@ -94,6 +94,7 @@ def login():
 def login_post():
     from web.forms import LoginForm
     form = LoginForm(request.form)
+    info(f"Logging in user '{form.username.data}'...")
     max_attempts = int(web_config.login_attempts)
     if max_attempts and router.login_attempts > max_attempts:
         router.banned_until = datetime.now() + timedelta(minutes=2)
@@ -106,9 +107,10 @@ def login_post():
         }
         return ViewController("web/login.html", **context).load()
     u = users.get_by_name(form.username.data)
-    debug(f"Logging in user '{u.id}'...")
     if not login_user(u, form.remember_me.data):
+        error(f"Unable to log user in.")
         abort(http.HTTPStatus.INTERNAL_SERVER_ERROR)
+    info(f"Successfully logged user '{u.name}' in!")
     router.web_login_attempts = 1
     return redirect(form.next.data or url_for("router.index"))
 
