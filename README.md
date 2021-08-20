@@ -95,7 +95,8 @@ These options must be specified inside a `web` node.
 
 | Option | Explanation | Values | Default |
 |---|---|---|---|
-| _bindport_ | Port to be used by Flask to deploy the application | `1-65535` | `8080`
+| _host_ | Host used by Flask to serve the application | A valid IPv4 address | `0.0.0.0` (all available interfaces)
+| _bindport_ | Port to be used by Flask to serve the application | `1-65535` | `8080`
 | _login_attempts_ | Maximum number of login attempts within 2 minutes | (almost) Any integer | `0` (unlimited attempts)
 | _secret_key_ | Key used to secure the authentication process | A 32 characters long string | A random 32 characters long string
 | _credentials_file_ | Encrypted file containing the administrator's credentials | `path/to/file` | A `credentials.yaml` file located in the directory from which Linguard was launched

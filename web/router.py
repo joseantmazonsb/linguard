@@ -2,7 +2,7 @@ import http
 import traceback
 from datetime import datetime, timedelta
 from http.client import BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR, UNAUTHORIZED, NO_CONTENT
-from logging import warning, debug, error
+from logging import warning, debug, error, info
 
 from flask import Blueprint, abort, request, Response, redirect, url_for
 from flask_login import current_user, login_required, login_user
@@ -17,7 +17,8 @@ from web.controllers.RestController import RestController
 from web.controllers.ViewController import ViewController
 from web.models import users
 from web.static.assets.resources import EMPTY_FIELD, APP_NAME
-from web.utils import get_all_interfaces, get_routing_table, get_wg_interfaces_summary, get_wg_interface_status
+from web.utils import get_all_interfaces, get_routing_table, get_wg_interfaces_summary, get_wg_interface_status, \
+    get_network_adapters
 
 
 class Router(Blueprint):
@@ -93,6 +94,7 @@ def login():
 def login_post():
     from web.forms import LoginForm
     form = LoginForm(request.form)
+    info(f"Logging in user '{form.username.data}'...")
     max_attempts = int(web_config.login_attempts)
     if max_attempts and router.login_attempts > max_attempts:
         router.banned_until = datetime.now() + timedelta(minutes=2)
@@ -105,9 +107,10 @@ def login_post():
         }
         return ViewController("web/login.html", **context).load()
     u = users.get_by_name(form.username.data)
-    debug(f"Logging in user '{u.id}'...")
     if not login_user(u, form.remember_me.data):
+        error(f"Unable to log user in.")
         abort(http.HTTPStatus.INTERNAL_SERVER_ERROR)
+    info(f"Successfully logged user '{u.name}' in!")
     router.web_login_attempts = 1
     return redirect(form.next.data or url_for("router.index"))
 
@@ -347,6 +350,10 @@ def save_settings():
             # Fill fields with default values if they were left unfilled
             form.log_file.data = form.log_file.data or logger_config.logfile
 
+            ifaces = []
+            for k, v in get_network_adapters().items():
+                ifaces.append((k, v))
+            form.web_adapter.data = form.web_adapter.data or ifaces[web_config.host]
             form.web_secret_key.data = form.web_secret_key.data or web_config.secret_key
             form.web_credentials_file.data = form.web_credentials_file.data or web_config.credentials_file
 

@@ -32,20 +32,6 @@ class LinguardConfig(BaseConfig):
 
     def __init__(self):
         self.endpoint = ""
-        if not self.endpoint:
-            try:
-                warning("No endpoint specified. Retrieving public IP address...")
-                self.endpoint = request.urlopen(self.__IP_RETRIEVER_URL).read().decode("utf-8")
-                debug(f"Public IP address is {self.endpoint}. This will be used as default endpoint.")
-            except Exception as e:
-                error(f"Unable to obtain server's public IP address: {e}")
-                ip = run_os_command(
-                    f"ip a show {get_default_gateway()} | grep inet | head -n1 | xargs | cut -d ' ' -f2") \
-                    .output
-                self.endpoint = ip.split("/")[0]
-                if not self.endpoint:
-                    raise WireguardError("unable to automatically set endpoint.")
-                warning(f"Server endpoint set to {self.endpoint}: this might not be a public IP address!")
         self.wg_bin = run_os_command("whereis wg | tr ' ' '\n' | grep bin").output
         self.wg_quick_bin = run_os_command("whereis wg-quick | tr ' ' '\n' | grep bin").output
         self.iptables_bin = run_os_command("whereis iptables | tr ' ' '\n' | grep bin").output
@@ -54,6 +40,9 @@ class LinguardConfig(BaseConfig):
 
     def load(self, config: "LinguardConfig"):
         self.endpoint = config.endpoint or self.endpoint
+        if not self.endpoint:
+            warning("No endpoint specified. Retrieving public IP address...")
+            self.__set_endpoint__()
         self.wg_bin = config.wg_bin or self.wg_bin
         self.wg_quick_bin = config.wg_quick_bin or self.wg_quick_bin
         self.iptables_bin = config.iptables_bin or self.iptables_bin
@@ -65,6 +54,20 @@ class LinguardConfig(BaseConfig):
             iface.wg_quick_bin = self.wg_quick_bin
             iface.conf_file = os.path.join(self.interfaces_folder, iface.name) + ".conf"
             iface.save()
+
+    def __set_endpoint__(self):
+        try:
+            self.endpoint = request.urlopen(self.__IP_RETRIEVER_URL).read().decode("utf-8")
+            debug(f"Public IP address is {self.endpoint}. This will be used as default endpoint.")
+        except Exception as e:
+            error(f"Unable to obtain server's public IP address: {e}")
+            ip = run_os_command(
+                f"ip a show {get_default_gateway()} | grep inet | head -n1 | xargs | cut -d ' ' -f2") \
+                .output
+            self.endpoint = ip.split("/")[0]
+            if not self.endpoint:
+                raise WireguardError("unable to automatically set endpoint.")
+            warning(f"Server endpoint set to {self.endpoint}: this might not be a public IP address!")
 
     @classmethod
     def __from_yaml_dict__(cls,  # type: Type[Y]

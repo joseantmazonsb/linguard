@@ -34,7 +34,7 @@ class AppManager:
         try:
             self.config_filepath = config_filepath
             self.__load_config__()
-            self.save_changes()
+            self.save_changes(apply=False)
             self.pending_interfaces = OrderedDict()
             self.pending_peers = OrderedDict()
             self.key_manager = KeyManager(linguard_config.wg_bin)
@@ -70,7 +70,7 @@ class AppManager:
             linguard_config.apply()
         info(f"Configuration restored!")
 
-    def save_changes(self):
+    def save_changes(self, apply: bool = True):
         info("Saving configuration...")
         config = {
             "logger": logger_config,
@@ -80,6 +80,8 @@ class AppManager:
         with open(self.config_filepath, "w") as file:
             yaml.safe_dump(config, file)
         info("Configuration saved!")
+        if not apply:
+            return
         logger_config.apply()
         linguard_config.apply()
         web_config.apply()
