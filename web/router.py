@@ -387,7 +387,12 @@ def unauthorized(err):
     warning(f"Unauthorized request from {request.remote_addr}!")
     if request.method == "GET":
         debug(f"Redirecting to login...")
-        return redirect(url_for("router.login", next=url_for(request.endpoint)))
+        try:
+            next = url_for(request.endpoint)
+        except Exception:
+            uuid = request.path.rsplit("/", 1)[-1]
+            next = url_for(request.endpoint, uuid=uuid)
+        return redirect(url_for("router.login", next=next))
     error_code = int(http.HTTPStatus.UNAUTHORIZED)
     context = {
         "title": error_code,
