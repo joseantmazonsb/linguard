@@ -1,24 +1,25 @@
 import http
-import traceback
 from datetime import datetime, timedelta
 from http.client import BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR, UNAUTHORIZED, NO_CONTENT
 from logging import warning, debug, error, info
+from typing import List, Dict, Any
 
 from flask import Blueprint, abort, request, Response, redirect, url_for
 from flask_login import current_user, login_required, login_user
 
-from core.app_manager import manager
 from core.config.linguard_config import config as linguard_config
 from core.config.logger_config import config as logger_config
 from core.config.web_config import config as web_config
 from core.exceptions import WireguardError
-from core.models import interfaces
+from core.models import interfaces, Interface
+from core.modules import peer_manager, interface_manager
+from core.utils import is_wg_iface_up, get_wg_interfaces_summary
+from system_utils import get_routing_table, get_wg_interface_status, \
+    get_network_adapters, list_to_str, get_system_interfaces, log_exception
 from web.controllers.RestController import RestController
 from web.controllers.ViewController import ViewController
 from web.models import users
 from web.static.assets.resources import EMPTY_FIELD, APP_NAME
-from web.utils import get_all_interfaces, get_routing_table, get_wg_interfaces_summary, get_wg_interface_status, \
-    get_network_adapters
 
 
 class Router(Blueprint):
@@ -106,7 +107,7 @@ def login_post():
             "form": form
         }
         return ViewController("web/login.html", **context).load()
-    u = users.get_by_name(form.username.data)
+    u = users.get_value_by_attr("name", form.username.data)
     if not login_user(u, form.remember_me.data):
         error(f"Unable to log user in.")
         abort(http.HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -119,7 +120,7 @@ def login_post():
 @login_required
 def network():
     wg_ifaces = list(interfaces.values())
-    ifaces = get_all_interfaces(wg_bin=linguard_config.wg_bin, wg_interfaces=wg_ifaces)
+    ifaces = get_network_ifaces(wg_ifaces)
     routes = get_routing_table()
     context = {
         "title": "Network",
@@ -129,6 +130,64 @@ def network():
         "EMPTY_FIELD": EMPTY_FIELD
     }
     return ViewController("web/network.html", **context).load()
+
+
+def get_network_ifaces(wg_interfaces: List[Interface]) -> Dict[str, Dict[str, Any]]:
+    interfaces = get_system_interfaces_summary()
+    for iface in wg_interfaces:
+        if iface.name not in interfaces:
+            interfaces[iface.name] = {
+                "uuid": iface.uuid,
+                "name": iface.name,
+                "status": "down",
+                "ipv4": iface.ipv4_address,
+                "ipv6": EMPTY_FIELD,
+                "mac": EMPTY_FIELD,
+                "flags": EMPTY_FIELD
+            }
+        else:
+            if iface in wg_interfaces:
+                interfaces[iface.name]["uuid"] = iface.uuid
+            if interfaces[iface.name]["status"] == "unknown":
+                if is_wg_iface_up(iface.name):
+                    interfaces[iface.name]["status"] = "up"
+                else:
+                    interfaces[iface.name]["status"] = "down"
+        interfaces[iface.name]["editable"] = True
+
+    return interfaces
+
+
+def get_system_interfaces_summary() -> Dict[str, Dict[str, Any]]:
+    interfaces = {}
+    for item in get_system_interfaces().values():
+        flag_list = list(filter(lambda flag: "UP" not in flag, item["flags"]))
+        flags = list_to_str(flag_list)
+        iface = {
+            "name": item["ifname"],
+            "flags": flags,
+            "status": item["operstate"].lower()
+        }
+        if "LOOPBACK" in iface["flags"]:
+            iface["status"] = "up"
+        if "address" in item:
+            iface["mac"] = item["address"]
+        else:
+            iface["mac"] = EMPTY_FIELD
+        addr_info = item["addr_info"]
+        if addr_info:
+            ipv4_info = addr_info[0]
+            iface["ipv4"] = f"{ipv4_info['local']}/{ipv4_info['prefixlen']}"
+            if len(addr_info) > 1:
+                ipv6_info = addr_info[1]
+                iface["ipv6"] = f"{ipv6_info['local']}/{ipv6_info['prefixlen']}"
+            else:
+                iface["ipv6"] = EMPTY_FIELD
+        else:
+            iface["ipv4"] = EMPTY_FIELD
+            iface["ipv6"] = EMPTY_FIELD
+        interfaces[iface["name"]] = iface
+    return interfaces
 
 
 @router.route("/wireguard")
@@ -148,48 +207,71 @@ def wireguard():
 @router.route("/wireguard/interfaces/add", methods=['GET'])
 @login_required
 def create_wireguard_iface():
-    iface = manager.generate_interface()
+    from web.forms import InterfaceForm
+    form = InterfaceForm.populate(InterfaceForm())
     context = {
         "title": "Add interface",
-        "iface": iface,
-        "EMPTY_FIELD": EMPTY_FIELD,
-        "APP_NAME": APP_NAME
+        "form": form,
+        "app_name": APP_NAME
     }
     return ViewController("web/wireguard-add-iface.html", **context).load()
 
 
-@router.route("/wireguard/interfaces/add/<uuid>", methods=['POST'])
+@router.route("/wireguard/interfaces/add", methods=['POST'])
 @login_required
-def add_wireguard_iface(uuid: str):
-    data = request.json["data"]
-    return RestController(uuid).add_iface(data)
+def add_wireguard_iface():
+    from web.forms import InterfaceForm
+    form = InterfaceForm.from_form(InterfaceForm(request.form))
+    context = {
+        "title": "Add interface",
+        "form": form,
+        "app_name": APP_NAME
+    }
+    if form.validate():
+        try:
+            RestController().add_iface(form)
+            return redirect(url_for("router.wireguard"))
+        except Exception as e:
+            log_exception(e)
+            context["error"] = True
+            context["error_details"] = e
+    return ViewController("web/wireguard-add-iface.html", **context).load()
 
 
-@router.route("/wireguard/interfaces/<uuid>", methods=['GET'])
+@router.route("/wireguard/interfaces/<uuid>", methods=['GET', "POST"])
 @login_required
 def get_wireguard_iface(uuid: str):
     if uuid not in interfaces:
         abort(NOT_FOUND, f"Unknown interface '{uuid}'.")
     iface = interfaces[uuid]
-    iface_status = get_wg_interface_status(linguard_config.wg_bin, iface.name)
     context = {
         "title": "Edit interface",
         "iface": iface,
-        "iface_status": iface_status,
+        "iface_status": get_wg_interface_status(linguard_config.wg_bin, iface.name),
         "last_update": datetime.now().strftime("%H:%M"),
         "EMPTY_FIELD": EMPTY_FIELD,
-        "APP_NAME": APP_NAME
+        "app_name": APP_NAME
     }
+    from web.forms import InterfaceEditForm
+    if request.method == 'GET':
+        form = InterfaceEditForm.from_interface(iface)
+        context["form"] = form
+        return ViewController("web/wireguard-iface.html", **context).load()
+    form = InterfaceEditForm.from_form(InterfaceEditForm(request.form), iface)
+    context["form"] = form
+    if not form.validate():
+        return ViewController("web/wireguard-iface.html", **context).load()
+    try:
+        RestController().apply_iface(iface, form)
+        context["iface_status"] = get_wg_interface_status(linguard_config.wg_bin, iface.name)
+        context["last_update"] = datetime.now().strftime("%H:%M")
+        context["success"] = True
+        context["success_details"] = "Interface updated successfully."
+    except Exception as e:
+        log_exception(e)
+        context["error"] = True
+        context["error_details"] = e
     return ViewController("web/wireguard-iface.html", **context).load()
-
-
-@router.route("/wireguard/interfaces/<uuid>/save", methods=['POST'])
-@login_required
-def save_wireguard_iface(uuid: str):
-    if uuid not in interfaces:
-        abort(NOT_FOUND, f"Interface {uuid} not found.")
-    data = request.json["data"]
-    return RestController(uuid).apply_iface(data)
 
 
 @router.route("/wireguard/interfaces/<uuid>/remove", methods=['DELETE'])
@@ -200,47 +282,41 @@ def remove_wireguard_iface(uuid: str):
     return RestController(uuid).remove_iface()
 
 
-@router.route("/wireguard/interfaces/<uuid>/regenerate-keys", methods=['POST'])
+@router.route("/wireguard/interfaces/<uuid>/<action>", methods=['POST'])
 @login_required
-def regenerate_iface_keys(uuid: str):
-    return RestController(uuid).regenerate_iface_keys()
-
-
-@router.route("/wireguard/interfaces/<uuid>", methods=['POST'])
-@login_required
-def operate_wireguard_iface(uuid: str):
-    action = request.json["action"].lower()
+def operate_wireguard_iface(uuid: str, action: str):
+    action = action.lower()
     try:
         if action == "start":
-            manager.iface_up(uuid)
+            interface_manager.iface_up(uuid)
             return Response(status=NO_CONTENT)
         if action == "restart":
-            manager.restart_iface(uuid)
+            interface_manager.restart_iface(uuid)
             return Response(status=NO_CONTENT)
         if action == "stop":
-            manager.iface_down(uuid)
+            interface_manager.iface_down(uuid)
             return Response(status=NO_CONTENT)
         raise WireguardError(f"Invalid operation: {action}", BAD_REQUEST)
     except WireguardError as e:
         return Response(e.cause, status=e.http_code)
 
 
-@router.route("/wireguard/interfaces", methods=['POST'])
+@router.route("/wireguard/<action>", methods=['POST'])
 @login_required
-def operate_wireguard_ifaces():
-    action = request.json["action"].lower()
+def operate_wireguard_ifaces(action: str):
+    action = action.lower()
     try:
         if action == "start":
             for iface in interfaces.values():
-                manager.iface_up(iface.uuid)
+                interface_manager.iface_up(iface.uuid)
             return Response(status=NO_CONTENT)
         if action == "restart":
             for iface in interfaces.values():
-                manager.restart_iface(iface.uuid)
+                interface_manager.restart_iface(iface.uuid)
             return Response(status=NO_CONTENT)
         if action == "stop":
             for iface in interfaces.values():
-                manager.iface_down(iface.uuid)
+                interface_manager.iface_down(iface.uuid)
             return Response(status=NO_CONTENT)
         raise WireguardError(f"invalid operation: {action}", BAD_REQUEST)
     except WireguardError as e:
@@ -256,9 +332,9 @@ def create_wireguard_peer():
         if iface_uuid not in interfaces:
             abort(BAD_REQUEST, f"Unable to create peer for unknown interface '{iface_uuid}'.")
         iface = interfaces[iface_uuid]
-    peer = manager.generate_peer(iface)
+    peer = peer_manager.generate_peer(iface)
     ifaces = get_wg_interfaces_summary(wg_bin=linguard_config.wg_bin,
-                                           interfaces=list(interfaces.values())).values()
+                                       interfaces=list(interfaces.values())).values()
     context = {
         "title": "Add peer",
         "peer": peer,
@@ -330,7 +406,8 @@ def settings():
     form = SettingsForm()
     context = {
         "title": "Settings",
-        "form": form
+        "form": form,
+        "app_name": APP_NAME
     }
     return ViewController("web/settings.html", **context).load()
 
@@ -364,8 +441,11 @@ def save_settings():
             form.app_interfaces_folder.data = form.app_interfaces_folder.data or linguard_config.interfaces_folder
 
             context["success"] = True
+            context["success_details"] = "Settings updated!"
+            context["warning"] = True
+            context["warning_details"] = f"You may need to restart {APP_NAME} to apply some changes."
         except Exception as e:
-            error(f"{traceback.format_exc()}")
+            log_exception(e)
             context["error"] = True
             context["error_details"] = e
     return ViewController("web/settings.html", **context).load()

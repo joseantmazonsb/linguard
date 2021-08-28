@@ -7,7 +7,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from yamlable import YamlAble, yaml_info, Y
 
 from core.crypto_utils import CryptoUtils
-from core.utils import try_makedir
+from core.models import EnhancedDict
+from system_utils import try_makedir
 
 
 @yaml_info(yaml_tag='user')
@@ -99,23 +100,7 @@ class EncryptedYamlAble(YamlAble):
 
 
 @yaml_info(yaml_tag='users')
-class UserDict(Dict[str, User], EncryptedYamlAble):
-
-    def get_by_name(self, name: str):
-        for k, v in self.items():
-            if v.name == name:
-                return v
-        return None
-
-    def set_contents(self, dct: "UserDict"):
-        """
-        Clear the dictionary and fill it with the values of the given one.
-
-        :param dct:
-        :return:
-        """
-        self.clear()
-        self.update(dct)
+class UserDict(EnhancedDict[str, User], EncryptedYamlAble):
 
     def __to_yaml_dict__(self):  # type: (...) -> Dict[str, Any]
         return self
@@ -128,6 +113,9 @@ class UserDict(Dict[str, User], EncryptedYamlAble):
         u = UserDict()
         u.update(dct)
         return u
+
+    def sort(self, order_by=lambda pair: pair[1].name):
+        super(UserDict, self).sort(order_by)
 
 
 users = UserDict()

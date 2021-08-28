@@ -1,84 +1,52 @@
-import os
-import traceback
-from logging import debug, error, fatal
-from subprocess import run, PIPE
+from http.client import BAD_REQUEST
+from typing import List, Dict, Any
+
+from core.config.linguard_config import config as linguard_config
+from core.exceptions import WireguardError
+from core.models import Interface
+from system_utils import run_os_command
 
 
-###########
-# Storage #
-###########
+def is_wg_iface_up(iface_name: str) -> bool:
+    return run_os_command(f"sudo {linguard_config.wg_bin} show {iface_name}").successful
 
 
-def write_lines(content: str, path: str):
-    with open(path, "w") as file:
-        file.writelines(content)
+def generate_privkey() -> str:
+    result = run_os_command(f"sudo {linguard_config.wg_bin} genkey")
+    if not result.successful:
+        raise WireguardError(result.err)
+    return result.output
 
 
-#####################
-# System Operations #
-#####################
-
-class CommandResult:
-    """Represents the result of an OS command's execution."""
-
-    def __init__(self, code: int, output: str, err: str):
-        self.code = code
-        self.output = output
-        self.err = err
-        self.successful = (code < 1)
+def generate_pubkey(privkey: str) -> str:
+    result = run_os_command(f"echo {privkey} | sudo {linguard_config.wg_bin} pubkey")
+    if not result.successful:
+        raise WireguardError(result.err)
+    return result.output
 
 
-def run_os_command(command: str) -> CommandResult:
-    """
-    Execute a command on the operating system.
-    Returns an object containing the output
-    [Data Types] object
-    Args:
-        :param command:
-    """
-    proc = run(command, shell=True, check=False, stdout=PIPE, stderr=PIPE)
-    debug(f"Running command '{command}'...")
-    result = CommandResult(proc.returncode, proc.stdout.decode('utf-8').strip(), proc.stderr.decode('utf-8').strip())
-    return result
+def get_wg_interfaces_summary(wg_bin: str, interfaces: List[Interface]) -> Dict[str, Dict[str, Any]]:
+    dct = {}
+    for iface in interfaces:
+        if run_os_command(f"sudo {wg_bin} show {iface.name}").successful:
+            status = "up"
+        else:
+            status = "down"
+        dct[iface.name] = {
+            "uuid": iface.uuid,
+            "auto": iface.auto,
+            "name": iface.name,
+            "description": iface.description,
+            "ipv4": iface.ipv4_address,
+            "port": iface.listen_port,
+            "status": status,
+            "peers": iface.peers,
+        }
+    return dct
 
 
-def get_default_gateway() -> str:
-    return run_os_command("ip route | head -1 | xargs | cut -d ' ' -f 5").output
-
-
-def get_filename_without_extension(path: str) -> str:
-    filename, extension = os.path.splitext(path)
-    return os.path.basename(filename)
-
-
-def try_makedir(path: str):
-    try:
-        os.makedirs(path)
-        debug(f"Created folder ({path})...")
-    except FileExistsError:
-        pass
-    except Exception as e:
-        error(f"Unable to create folder: {e}.")
-        raise
-
-
-def log_exception(e: Exception, is_fatal: bool = False):
-    error_msg = str(e) or f"{e.__class__.__name__} exception thrown by {e.__class__.__module__}"
-    if is_fatal:
-        fatal(error_msg)
-    else:
-        error(error_msg)
-    debug(f"{traceback.format_exc()}")
-
-
-#############
-# Wireguard #
-#############
-
-
-def generate_privkey(wg_bin: str) -> CommandResult:
-    return run_os_command(f"sudo {wg_bin} genkey")
-
-
-def generate_pubkey(wg_bin: str, privkey: str) -> CommandResult:
-    return run_os_command(f"echo {privkey} | sudo {wg_bin} pubkey")
+def get_iface_by_name(name: str) -> Interface:
+    for iface in linguard_config.interfaces.values():
+        if iface.name == name:
+            return iface
+    raise WireguardError(f"unable to retrieve interface '{name}'!", BAD_REQUEST)

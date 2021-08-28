@@ -1,17 +1,23 @@
 from logging import debug
+from random import randint
 
 from flask_wtf import FlaskForm
-from wtforms import StringField, BooleanField, PasswordField, SubmitField, RadioField, SelectField, IntegerField
+from wtforms import StringField, BooleanField, PasswordField, SubmitField, RadioField, SelectField, IntegerField, \
+    TextAreaField
 from wtforms.validators import DataRequired
 
-from core.app_manager import manager
 from core.config.linguard_config import config as linguard_config
 from core.config.logger_config import config as logger_config
 from core.config.web_config import config as web_config
+from core.config_manager import config_manager
 from core.crypto_utils import CryptoUtils
-from web.utils import get_network_adapters
+from core.models import Interface
+from core.modules.interface_manager import get_unused_port
+from system_utils import get_network_adapters, get_system_interfaces, get_default_gateway, list_to_str
+from web.utils import fake
 from web.validators import LoginUsernameValidator, LoginPasswordValidator, SignupPasswordValidator, \
-    SignupUsernameValidator, SettingsSecretKeyValidator, SettingsPortValidator, SettingsLoginAttemptsValidator
+    SignupUsernameValidator, SettingsSecretKeyValidator, SettingsPortValidator, SettingsLoginAttemptsValidator, \
+    InterfaceIpValidator, InterfaceNameValidator, InterfacePortValidator
 
 
 class LoginForm(FlaskForm):
@@ -46,14 +52,14 @@ class SettingsForm(FlaskForm):
                                       render_kw={"placeholder": f"{web_config.DEFAULT_LOGIN_ATTEMPTS}",
                                                  "type": "number"},
                                       default=web_config.login_attempts)
-    web_secret_key = StringField("Secret key", validators=[SettingsSecretKeyValidator()], id="secretKey",
+    web_secret_key = StringField("Secret key", validators=[SettingsSecretKeyValidator()],
                                  render_kw={"placeholder": f'A {CryptoUtils.KEY_LEN} characters long secret key'},
                                  default=web_config.secret_key)
     web_credentials_file = StringField("Credentials file", render_kw={"placeholder": "path/to/file"},
                                        default=web_config.credentials_file)
 
     app_config_file = StringField("Configuration file", render_kw={"disabled": "disabled"},
-                                  default=manager.config_filepath)
+                                  default=config_manager.config_filepath)
     app_endpoint = StringField("Endpoint", render_kw={"placeholder": "vpn.example.com"},
                                default=linguard_config.endpoint)
     app_interfaces_folder = StringField("Interfaces' directory", render_kw={"placeholder": "path/to/folder"},
@@ -69,3 +75,87 @@ class SettingsForm(FlaskForm):
     log_level = SelectField(choices=logger_config.LEVELS.keys(), default=logger_config.level)
 
     submit = SubmitField('Save')
+
+
+class InterfaceForm(FlaskForm):
+    name = StringField("Name", validators=[DataRequired(), InterfaceNameValidator()])
+    auto = BooleanField("Auto", default=True)
+    description = TextAreaField("Description", render_kw={"placeholder": "Some details..."})
+    __gateways = filter(lambda i: i != "lo", get_system_interfaces().keys())
+    __choices = []
+    for choice in __gateways:
+        __choices.append((choice, choice))
+    gateway = SelectField("Gateway", choices=__choices)
+    ipv4 = StringField("IPv4", validators=[DataRequired(), InterfaceIpValidator()], render_kw={"placeholder": "0.0.0.0/32"})
+    port = IntegerField("Listen port", validators=[InterfacePortValidator()], render_kw={"placeholder": "25000", "type": "number"})
+    on_up = TextAreaField("On up")
+    on_down = TextAreaField("On up")
+    iface = None
+    submit = SubmitField('Add')
+
+    @classmethod
+    def from_form(cls, form: "InterfaceForm") -> "InterfaceForm":
+        new_form = InterfaceForm()
+        new_form.name.data = form.name.data
+        new_form.gateway.data = form.gateway.data
+        new_form.ipv4.data = form.ipv4.data
+        new_form.port.data = form.port.data
+        new_form.on_up.data = form.on_up.data
+        new_form.on_down.data = form.on_down.data
+        return new_form
+
+    @classmethod
+    def populate(cls, form: "InterfaceForm") -> "InterfaceForm":
+        name = Interface.generate_valid_name()
+        form.name.data = name
+        gw = get_default_gateway()
+        form.gateway.data = gw
+        form.ipv4.data = f"{fake.ipv4_private()}/{randint(8, 30)}"
+        form.port.data = get_unused_port()
+        form.on_up.data = list_to_str([
+            f"{linguard_config.iptables_bin} -I FORWARD -i {name} -j ACCEPT\n" +
+            f"{linguard_config.iptables_bin} -I FORWARD -o {name} -j ACCEPT\n" +
+            f"{linguard_config.iptables_bin} -t nat -I POSTROUTING -o {gw} -j MASQUERADE\n"
+        ])
+        form.on_down.data = list_to_str([
+            f"{linguard_config.iptables_bin} -D FORWARD -i {name} -j ACCEPT\n" +
+            f"{linguard_config.iptables_bin} -D FORWARD -o {name} -j ACCEPT\n" +
+            f"{linguard_config.iptables_bin} -t nat -D POSTROUTING -o {gw} -j MASQUERADE\n"
+        ])
+        return form
+
+
+class InterfaceEditForm(InterfaceForm):
+    public_key = StringField("Public key", render_kw={"disabled": "disabled"})
+    private_key = StringField("Private key", render_kw={"disabled": "disabled"})
+    submit = SubmitField('Save')
+
+    @classmethod
+    def from_form(cls, form: "InterfaceEditForm", iface: Interface) -> "InterfaceEditForm":
+        new_form = InterfaceEditForm()
+        new_form.iface = iface
+        new_form.name.data = form.name.data
+        new_form.gateway.data = form.gateway.data
+        new_form.ipv4.data = form.ipv4.data
+        new_form.port.data = form.port.data
+        new_form.on_up.data = form.on_up.data
+        new_form.on_down.data = form.on_down.data
+        new_form.public_key.data = iface.public_key
+        new_form.private_key.data = iface.private_key
+        return new_form
+
+    @classmethod
+    def from_interface(cls, iface: Interface) -> "InterfaceEditForm":
+        form = InterfaceEditForm()
+        form.iface = iface
+        form.name.data = iface.name
+        form.description.data = iface.description
+        form.ipv4.data = iface.ipv4_address
+        form.port.data = iface.listen_port
+        form.gateway.data = iface.gw_iface
+        form.on_up.data = list_to_str(iface.on_up, separator="\n")
+        form.on_down.data = list_to_str(iface.on_down, separator="\n")
+        form.auto.data = iface.auto
+        form.public_key.data = iface.public_key
+        form.private_key.data = iface.private_key
+        return form

@@ -4,96 +4,133 @@
     <main>
         <div class="container-fluid">
             <div class="my-4">
-                <i class="fas fa-pen mb-1 mr-2"></i>
-                <input readonly style="display: inline;"
-                       class="h1 border-0 col-8 col-lg-5 col-xl-3 ifaceInputName" id="name" value="{{ iface.name }}">
-                <span id="uuid" hidden>{{ iface.uuid }}</span>
                 <a href="#" onclick="location.replace(document.referrer)" style="display: inline" class="float-right mt-3">
                     <i class="fas fa-arrow-left mr-2"></i>Back
                 </a>
+                <h1 class="my-4">{{ title }}</h1>
             </div>
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-cog"></i>
-                    Configuration
+            {% if error %}
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                  <strong>Unexpected error:</strong> {{ error_details }}
+                  <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                  </button>
                 </div>
-                <div class="card-body">
-                    <div id="wgIfaceConfig">
+            {% endif %}
+            <form action="{{ url_for(request.endpoint) }}" method="post" novalidate>
+                {{ form.hidden_tag() }}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="fas fa-cog"></i>
+                        Configuration
+                    </div>
+                    <div class="card-body">
+                        <div id="alerts">
+                            {% for error in form.name.errors %}
+                                <div class="alert alert-danger" role="alert">
+                                  Error in field <strong>{{ form.name.label.text }}</strong>: {{ error }}
+                                </div>
+                            {% endfor %}
+                            {% for error in form.auto.errors %}
+                                <div class="alert alert-danger" role="alert">
+                                  Error in field <strong>{{ form.auto.label.text }}</strong>: {{ error }}
+                                </div>
+                            {% endfor %}
+                            {% for error in form.description.errors %}
+                                <div class="alert alert-danger" role="alert">
+                                  Error in field <strong>{{ form.description.label.text }}</strong>: {{ error }}
+                                </div>
+                            {% endfor %}
+                            {% for error in form.gateway.errors %}
+                                <div class="alert alert-danger" role="alert">
+                                  Error in field <strong>{{ form.gateway.label.text }}</strong>: {{ error }}
+                                </div>
+                            {% endfor %}
+                            {% for error in form.ipv4.errors %}
+                                <div class="alert alert-danger" role="alert">
+                                  Error in field <strong>{{ form.ipv4.label.text }}</strong>: {{ error }}
+                                </div>
+                            {% endfor %}
+                            {% for error in form.port.errors %}
+                                <div class="alert alert-danger" role="alert">
+                                  Error in field <strong>{{ form.port.label.text }}</strong>: {{ error }}
+                                </div>
+                            {% endfor %}
+                            {% for error in form.on_up.errors %}
+                                <div class="alert alert-danger" role="alert">
+                                  Error in field <strong>{{ form.on_up.label.text }}</strong>: {{ error }}
+                                </div>
+                            {% endfor %}
+                            {% for error in form.on_down.errors %}
+                                <div class="alert alert-danger" role="alert">
+                                  Error in field <strong>{{ form.on_down.label.text }}</strong>: {{ error }}
+                                </div>
+                            {% endfor %}
+                        </div>
                         <div class="form-row">
                             <div class="form-group col-md-4">
-                                <span>Auto</span>
-                                <span type="button" class="ml-1" data-toggle="popover"
+                                {{ form.name.label() }}
+                                {{ form.name(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                {{ form.description.label() }}
+                                {{ form.description(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                {{ form.gateway.label() }}
+                                {{ form.gateway(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                {{ form.ipv4.label() }}
+                                {{ form.ipv4(class="form-control") }}
+                            </div>
+                            <div class="form-group col-md-4">
+                                {{ form.port.label() }}
+                                {{ form.port(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                {{ form.on_up.label() }}
+                                {{ form.on_up(class="form-control", rows='5') }}
+                            </div>
+                            <div class="form-group col-md-4">
+                                {{ form.on_down.label() }}
+                                {{ form.on_down(class="form-control", rows='5') }}
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                <div class="custom-control custom-checkbox">
+                                    {{ form.auto(class="custom-control-input") }}
+                                    {{ form.auto.label(class="custom-control-label") }}
+                                    <span type="button" class="ml-1" data-toggle="popover"
                                         data-placement="top"
                                         data-content="Automatically start the interface after
-                                         {{ APP_NAME }} starts up.">
+                                         {{ app_name }} starts up.">
                                         <i class="fas fa-question-circle"></i>
-                                </span>
-                                <br>
-                                <div class="btn-group btn-group-toggle mt-2" data-toggle="buttons" id="autoStart">
-                                  <label class="btn btn-primary active">
-                                    <input type="radio" name="options" id="option1" autocomplete="on" checked> On
-                                  </label>
-                                  <label class="btn btn-primary">
-                                    <input type="radio" name="options" id="option2" autocomplete="off"> Off
-                                  </label>
+                                    </span>
                                 </div>
                             </div>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group col-md-4">
-                              <label for="description">Description</label>
-                              <textarea type="text" class="form-control"
-                                        id="description"
-                                        placeholder="Some details..."
-                                        >{{ iface.description }}</textarea>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group col-md-4">
-                              <label for="gw">Gateway interface</label>
-                              <input type="text" class="form-control" id="gw" value="{{ iface.gw_iface }}">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group col-md-4">
-                              <label for="ipv4">IPv4</label>
-                              <input type="text" class="form-control" id="ipv4" value="{{ iface.ipv4_address }}">
-                            </div>
-                            <div class="form-group col-md-4">
-                              <label for="port">Listen port</label>
-                              <input type="text" class="form-control" id="port" value="{{ iface.listen_port }}">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group col-md-4">
-                              <label for="onUp">On up</label>
-                              <textarea type="text"
-                                        class="form-control"
-                                        id="onUp"
-                              >{% for cmd in iface.on_up %}{{ cmd }}&#13;&#10;{% endfor %}
-                              </textarea>
-                            </div>
-                            <div class="form-group col-md-4">
-                              <label for="onDown">On down</label>
-                              <textarea type="text"
-                                        class="form-control"
-                                        id="onDown"
-                              >{% for cmd in iface.on_down %}{{ cmd }}&#13;&#10;{% endfor %}
-                              </textarea>
-                            </div>
-                        </div>
-                        <div class="mt-3">
-                            <button id="addBtn" class="btn btn-warning">Add</button>
-                            <button id="resetBtn" class="btn btn-outline-info float-right" title="Generate a new random interface">Reload</button>
-                            <i id="wgLoading" class="mt-2 ml-4 fas fa-circle-notch fa-spin" style="display: none"></i>
-                        </div>
                     </div>
                 </div>
-            </div>
+
+                <div class="form-group mt-4 mb-0">
+                {{ form.submit(class="btn btn-warning") }}
+                </div>
+                <br>
+            </form>
         </div>
     </main>
 {% endblock %}
 
 {% block additional_scripts %}
-    <script type="module" src="/static/js/modules/wireguard-iface.mjs"></script>
+    <script type="module" src="../../static/js/modules/wireguard-iface.mjs"></script>
 {% endblock %}

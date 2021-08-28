@@ -7,8 +7,7 @@ from yamlable import yaml_info, Y
 
 from core.config.base_config import BaseConfig
 from core.exceptions import WireguardError
-from core.models import interfaces
-from core.utils import try_makedir, run_os_command, get_default_gateway
+from system_utils import run_os_command, get_default_gateway
 
 
 @yaml_info(yaml_tag='linguard')
@@ -27,7 +26,6 @@ class LinguardConfig(BaseConfig):
 
     @interfaces_folder.setter
     def interfaces_folder(self, value: str):
-        try_makedir(value)
         self.__interfaces_folder = value
 
     def __init__(self):
@@ -36,6 +34,7 @@ class LinguardConfig(BaseConfig):
         self.wg_quick_bin = run_os_command("whereis wg-quick | tr ' ' '\n' | grep bin").output
         self.iptables_bin = run_os_command("whereis iptables | tr ' ' '\n' | grep bin").output
         self.__interfaces_folder = os.path.join(os.path.abspath(os.getcwd()), "interfaces")
+        from core.models import interfaces
         self.interfaces = interfaces
 
     def load(self, config: "LinguardConfig"):
@@ -48,10 +47,8 @@ class LinguardConfig(BaseConfig):
         self.iptables_bin = config.iptables_bin or self.iptables_bin
         self.interfaces_folder = config.interfaces_folder or self.interfaces_folder
         if config.interfaces:
-            interfaces.set_contents(config.interfaces)
-        self.interfaces = interfaces
+            self.interfaces.set_contents(config.interfaces)
         for iface in self.interfaces.values():
-            iface.wg_quick_bin = self.wg_quick_bin
             iface.conf_file = os.path.join(self.interfaces_folder, iface.name) + ".conf"
             iface.save()
 
@@ -82,7 +79,6 @@ class LinguardConfig(BaseConfig):
         config.interfaces_folder = dct.get("interfaces_folder", None) or config.interfaces_folder
         config.interfaces = dct.get("interfaces", None) or config.interfaces
         for iface in config.interfaces.values():
-            iface.wg_quick_bin = config.wg_quick_bin
             iface.conf_file = os.path.join(config.interfaces_folder, iface.name) + ".conf"
             iface.save()
         return config
@@ -100,7 +96,6 @@ class LinguardConfig(BaseConfig):
     def apply(self):
         super(LinguardConfig, self).apply()
         for iface in self.interfaces.values():
-            iface.wg_quick_bin = self.wg_quick_bin
             was_up = iface.is_up
             iface.down()
             if os.path.exists(iface.conf_file):

@@ -8,7 +8,7 @@ from core.config.base_config import BaseConfig
 from core.crypto_utils import CryptoUtils
 from core.exceptions import WireguardError
 from web.models import users
-from web.utils import get_network_adapters
+from system_utils import get_network_adapters
 
 
 @yaml_info(yaml_tag='web')

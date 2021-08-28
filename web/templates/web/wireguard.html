@@ -14,7 +14,7 @@
                     <div class="row row-cols-1 row-cols-lg-2 row-cols-xl-3">
                         {% if interfaces | length < 1 %}
                             <div class="col">
-                                There are no interfaces available, why don't you <a href="/wireguard/interfaces/add">add one</a>?
+                                There are no interfaces available yet, why don't you <a href="/wireguard/interfaces/add">add one</a>?
                             </div>
                         {% else %}
                             {% for iface in interfaces.values() %}

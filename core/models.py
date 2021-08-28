@@ -1,12 +1,55 @@
+import os
+import re
 from collections import OrderedDict
 from logging import info, warning, error, debug
-from typing import Dict, Any, Type
+from typing import Dict, Any, Type, List, Mapping, TypeVar
 from uuid import uuid4 as gen_uuid
 
+from coolname import generate_slug
 from yamlable import YamlAble, yaml_info, Y
 
 from core.exceptions import WireguardError
-from core.utils import run_os_command, write_lines
+from system_utils import run_os_command, write_lines, try_makedir
+
+
+T = TypeVar('T')
+K = TypeVar('K')
+
+
+class EnhancedDict(Dict, Mapping[T, K]):
+
+    def set_contents(self, dct: "EnhancedDict"):
+        """
+        Clear the dictionary and fill it with the values of the given one.
+
+        :param dct:
+        :return:
+        """
+        self.clear()
+        self.update(dct)
+
+    def sort(self, order_by):
+        self.set_contents(OrderedDict(sorted(self.items(), key=order_by)))
+
+    def get_key_by_attr(self, attr: str, attr_value: str) -> T:
+        """
+        Get the first key (or None) of the dictionary which contains an attribute whose value is equal to attr_value.
+
+        :param attr: Attribute to compare.
+        :param attr_value: Value to compare.
+        :return: The first matching key or None.
+        """
+        return next(iter(filter(lambda k: k.__getattribute__(attr) == attr_value, self.keys())), None)
+
+    def get_value_by_attr(self, attr: str, attr_value: str) -> K:
+        """
+        Get the first value (or None) of the dictionary which contains an attribute whose value is equal to attr_value.
+
+        :param attr: Attribute to compare.
+        :param attr_value: Value to compare.
+        :return: The first matching value or None.
+        """
+        return next(iter(filter(lambda v: v.__getattribute__(attr) == attr_value, self.values())), None)
 
 
 @yaml_info(yaml_tag='interface')
@@ -21,22 +64,35 @@ class Interface(YamlAble):
     REGEX_IPV4 = f"^{REGEX_IPV4_PARTIAL}$"
     REGEX_IPV4_CIDR = f"^{REGEX_IPV4_PARTIAL}\/(3[0-2]|[1-2]\d|\d)$"
 
-    def __init__(self, uuid: str, name: str, conf_file: str, description: str, gw_iface: str, ipv4_address,
-                 listen_port: int, private_key: str, public_key: str, wg_quick_bin: str, auto: bool):
-        self.uuid = uuid
+    @property
+    def wg_quick_bin(self):
+        from core.config.linguard_config import config
+        return config.wg_quick_bin
+
+    def __init__(self, name: str, description: str, gw_iface: str, ipv4_address: str, listen_port: int, auto: bool,
+                 on_up: List[str], on_down: List[str], uuid: str = "", private_key: str = "",
+                 public_key: str = "", peers: Dict[str, "Peer"] = None):
         self.name = name
-        self.conf_file = conf_file
         self.gw_iface = gw_iface
         self.description = description
         self.ipv4_address = ipv4_address
         self.listen_port = listen_port
-        self.wg_quick_bin = wg_quick_bin
-        self.private_key = private_key
-        self.public_key = public_key
         self.auto = auto
-        self.on_up = []
-        self.on_down = []
-        self.peers = OrderedDict()
+        self.on_up = on_up
+        self.on_down = on_down
+        self.uuid = uuid or gen_uuid().hex
+        self.peers = peers or OrderedDict()
+        for peer in self.peers.values():
+            peer.interface = self
+        from core.utils import generate_privkey, generate_pubkey
+        from core.config.linguard_config import config
+        self.conf_file = f"{os.path.join(config.interfaces_folder, self.name)}.conf"
+        self.private_key = private_key or generate_privkey()
+        if not private_key:
+            warning("Generating new public key because no private key was provided.")
+            self.public_key = generate_pubkey(self.private_key)
+        else:
+            self.public_key = public_key or generate_pubkey(self.private_key)
 
     def __to_yaml_dict__(self):  # type: (...) -> Dict[str, Any]
         """ Called when you call yaml.dump()"""
@@ -56,15 +112,12 @@ class Interface(YamlAble):
         }
 
     @classmethod
-    def __from_yaml_dict__(cls,      # type: Type[Y]
-                           dct,      # type: Dict[str, Any]
+    def __from_yaml_dict__(cls,  # type: Type[Y]
+                           dct,  # type: Dict[str, Any]
                            yaml_tag  # type: str
                            ):  # type: (...) -> Y
         """ This optional method is called when you call yaml.load()"""
-        if "uuid" in dct:
-            uuid = dct["uuid"]
-        else:
-            uuid = gen_uuid().hex
+        uuid = dct["uuid"]
         name = dct["name"]
         description = dct["description"]
         gw_iface = dct["gw_iface"]
@@ -73,22 +126,17 @@ class Interface(YamlAble):
         private_key = dct["private_key"]
         public_key = dct["public_key"]
         auto = dct["auto"]
-        wg_quick_bin = None
-        if "wg_quick_bin" in dct:
-            wg_quick_bin = dct["wg_quick_bin"]
-        iface = Interface(uuid, name, None, description, gw_iface,
-                          ipv4_address, listen_port, private_key,
-                          public_key, wg_quick_bin, auto)
-        iface.on_up = dct["on_up"]
-        iface.on_down = dct["on_down"]
-        iface.peers = dct["peers"]
-        for peer in iface.peers.values():
-            peer.interface = iface
+        on_up = dct.get("on_up", [])
+        on_down = dct.get("on_down", [])
+        peers = dct.get("peers", None)
+        iface = Interface(name=name, description=description, gw_iface=gw_iface, ipv4_address=ipv4_address,
+                          listen_port=listen_port, auto=auto, uuid=uuid, private_key=private_key,
+                          public_key=public_key, on_up=on_up, on_down=on_down, peers=peers)
         return iface
 
     def save(self) -> str:
         """Generate a wireguard configuration file suitable for this interface and store it."""
-
+        try_makedir(os.path.dirname(self.conf_file))
         iface = f"[Interface]\n" \
                 f"PrivateKey = {self.private_key}\n" \
                 f"Address = {self.ipv4_address}\n" \
@@ -141,6 +189,40 @@ class Interface(YamlAble):
         else:
             error(f"Failed to stop interface {self.name}: code={result.code} | err={result.err} | out={result.output}")
             raise WireguardError(result.err)
+
+    @classmethod
+    def generate_valid_name(cls) -> str:
+        name = generate_slug(2)[:cls.MAX_NAME_LENGTH]
+        for iface in interfaces.values():
+            if iface.name == name:
+                return cls.generate_valid_name()
+        return name
+
+    @classmethod
+    def is_name_valid(cls, name: str) -> bool:
+        return re.match(cls.REGEX_NAME, name) is not None
+
+    @classmethod
+    def is_name_in_use(cls, name: str, interface: "Interface") -> bool:
+        iface = interfaces.get_value_by_attr("name", name)
+        if iface:
+            if iface == interface:
+                return False
+            return True
+
+    @classmethod
+    def is_ip_in_use(cls, ip: str, interface_to_exclude: "Interface" = None) -> bool:
+        for iface in filter(lambda i: i != interface_to_exclude, interfaces.values()):
+            if iface.ipv4_address == ip:
+                return True
+        return False
+
+    @classmethod
+    def is_port_in_use(cls, port: int, interface_to_exclude: "Interface" = None) -> bool:
+        for iface in filter(lambda i: i != interface_to_exclude, interfaces.values()):
+            if iface.listen_port == port:
+                return True
+        return False
 
 
 @yaml_info(yaml_tag='peer')
@@ -212,27 +294,10 @@ class Peer(YamlAble):
 
 
 @yaml_info(yaml_tag='interfaces')
-class InterfaceDict(Dict[str, Interface], YamlAble):
-
-    def get_by_name(self, name: str):
-        for k, v in self.items():
-            if v.name == name:
-                return v
-        return None
-
-    def set_contents(self, dct: "InterfaceDict"):
-        """
-        Clear the dictionary and fill it with the values of the given one.
-
-        :param dct:
-        :return:
-        """
-        self.clear()
-        self.update(dct)
-
+class InterfaceDict(EnhancedDict[str, Interface], YamlAble):
     @classmethod
-    def __from_yaml_dict__(cls,      # type: Type[Y]
-                           dct,      # type: Dict[str, Any]
+    def __from_yaml_dict__(cls,  # type: Type[Y]
+                           dct,  # type: Dict[str, Any]
                            yaml_tag  # type: str
                            ):  # type: (...) -> Y
         i = InterfaceDict()
@@ -241,6 +306,9 @@ class InterfaceDict(Dict[str, Interface], YamlAble):
 
     def __to_yaml_dict__(self):  # type: (...) -> Dict[str, Any]
         return self
+
+    def sort(self, order_by=lambda pair: pair[1].name):
+        super(InterfaceDict, self).sort(order_by)
 
 
 interfaces = InterfaceDict()
