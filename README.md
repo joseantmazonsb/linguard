@@ -11,6 +11,7 @@ Linguard aims to provide an easy way to manage your WireGuard server, and it's w
 - [Docs](#docs)
     - [Arguments](#arguments)
     - [Configuration](#configuration)
+    - [Security](#security)
     - [Classes](#classes)
 - [Notes](#notes)
     - [Changelog](#changelog)
@@ -149,6 +150,51 @@ These options must be specified inside a `peer` node.
 | _private_key_ | Private key used to authenticate the peer | A valid private key generated via `wg` | 
 | _public_key_ | Public key used to authenticate the peer | A valid private key generated via `wg` |
 | _uuid_ | Unique identifier. | A valid Version 4 UUID |
+
+### Security
+
+Although Linguard stores users' credentials encrypted, it does not implement end-to-end encryption and instead, it relays on TLS to secure the communication between the user and the server.
+This means you should definitely use a reverse proxy to access Linguard. 
+To do so, I provide a simple template for Apache and Nginx, two of the most popular web servers around.
+
+#### Apache reverse proxy
+
+```apache
+<VirtualHost *:443>
+    ServerName vpn.example.com
+    
+    ErrorLog ${APACHE_LOG_DIR}/error.log
+    CustomLog ${APACHE_LOG_DIR}/access.log combined
+    
+    SSLEngine on
+    SSLCertificateFile /path/to/crt
+    SSLCertificateKeyFile /path/to/key
+    SSLProtocol -all +TLSv1.2 +TLSv1.3
+    
+    ProxyPreserveHost On
+    ProxyPass / http://10.0.0.1:8080/
+    ProxyPassReverse / http://10.0.0.1:8080/
+</VirtualHost>
+```
+
+#### Nginx reverse proxy
+
+```nginx
+server {
+    listen 443;
+    server_name         vpn.example.com;
+
+    ssl_certificate     /path/to/crt;
+    ssl_certificate_key /path/to/key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    location / {
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_pass http://10.0.0.1:8080;
+    }
+}
+```
 
 ### Classes
 
