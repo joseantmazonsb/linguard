@@ -12,7 +12,7 @@ from coolname import generate_slug
 from yamlable import YamlAble, yaml_info, Y
 
 from core.exceptions import WireguardError
-from system_utils import run_os_command, write_lines, try_makedir
+from system_utils import run_os_command, write_lines, try_makedir, get_wg_interface_status
 
 K = TypeVar('K')
 V = TypeVar('V')
@@ -166,6 +166,11 @@ class Interface(YamlAble):
     @property
     def is_down(self):
         return not self.is_up
+
+    @property
+    def status(self):
+        from core.config.linguard_config import config
+        return get_wg_interface_status(config.wg_bin, self.name)
 
     def up(self):
         info(f"Starting interface {self.name}...")

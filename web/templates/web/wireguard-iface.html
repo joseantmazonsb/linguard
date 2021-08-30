@@ -162,13 +162,7 @@
                         </div>
                         <div class="form-group mt-4 mb-0">
                             {{ form.submit(class="btn btn-warning") }}
-                            {% if iface_status == "up" %}
-                                {% set button_action = "Stop" %}
-                                {% set btn_class = "danger" %}
-                            {% elif iface_status == "down" %}
-                                {% set button_action = "Start" %}
-                                {% set btn_class = "success" %}
-                            {% endif %}
+                            <a href="{{ request.path }}/download" type="button" class="btn btn-outline-info">Download</a>
                             <button type="button" id="removeIfaceBtn" class="btn btn-danger float-right"
                                     data-toggle="modal" data-target="#removeModal-{{ iface.uuid }}">Delete</button>
                             <!-- Modal -->
@@ -294,8 +288,14 @@
                       <small class="text-muted">Information provided at {{ last_update }}.</small>
                     </div>
                 </div>
+                {% if iface_status == "up" %}
+                    {% set button_action = "Stop" %}
+                    {% set btn_class = "danger" %}
+                {% elif iface_status == "down" %}
+                    {% set button_action = "Start" %}
+                    {% set btn_class = "success" %}
+                {% endif %}
                 <button value="{{ iface.uuid }}" class="btn btn-{{ btn_class }} startOrStopIfaceBtn mb-3">{{ button_action }}</button>
-
             </div>
         </div>
 

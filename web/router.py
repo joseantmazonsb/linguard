@@ -14,8 +14,7 @@ from core.exceptions import WireguardError
 from core.models import interfaces, Interface
 from core.modules import peer_manager
 from core.utils import is_wg_iface_up, get_wg_interfaces_summary
-from system_utils import get_routing_table, get_wg_interface_status, \
-    get_network_adapters, list_to_str, get_system_interfaces, log_exception
+from system_utils import get_routing_table, get_network_adapters, list_to_str, get_system_interfaces, log_exception
 from web.controllers.RestController import RestController
 from web.controllers.ViewController import ViewController
 from web.models import users
@@ -252,7 +251,7 @@ def get_wireguard_iface(uuid: str):
     context = {
         "title": "Edit interface",
         "iface": iface,
-        "iface_status": get_wg_interface_status(linguard_config.wg_bin, iface.name),
+        "iface_status": iface.status,
         "last_update": datetime.now().strftime("%H:%M"),
         "EMPTY_FIELD": EMPTY_FIELD,
         "app_name": APP_NAME
@@ -269,7 +268,7 @@ def get_wireguard_iface(uuid: str):
         return ViewController(view, **context).load()
     try:
         RestController().apply_iface(iface, form)
-        context["iface_status"] = get_wg_interface_status(linguard_config.wg_bin, iface.name)
+        context["iface_status"] = iface.status
         context["last_update"] = datetime.now().strftime("%H:%M")
         context["success"] = True
         context["success_details"] = "Interface updated successfully."
@@ -327,6 +326,15 @@ def operate_wireguard_ifaces(action: str):
         raise WireguardError(f"invalid operation: {action}", BAD_REQUEST)
     except WireguardError as e:
         return Response(e.cause, status=e.http_code)
+
+
+@router.route("/wireguard/interfaces/<uuid>/download", methods=['GET'])
+@login_required
+def download_wireguard_iface(uuid: str):
+    if uuid not in interfaces.keys():
+        error(f"Unknown interface {uuid}")
+        abort(NOT_FOUND)
+    return RestController().download_iface(interfaces[uuid])
 
 
 @router.route("/wireguard/peers/add", methods=['GET'])

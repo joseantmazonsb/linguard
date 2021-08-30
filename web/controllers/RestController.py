@@ -154,21 +154,34 @@ class RestController:
             if not peer:
                 raise WireguardError(f"Unknown peer '{self.uuid}'.", NOT_FOUND)
             conf = peer.generate_conf()
-            proxy = io.StringIO()
-            proxy.writelines(conf)
-            # Creating the byteIO object from the StringIO Object
-            mem = io.BytesIO()
-            mem.write(proxy.getvalue().encode())
-            # seeking was necessary. Python 3.5.2, Flask 0.12.2
-            mem.seek(0)
-            proxy.close()
-            return send_file(mem, as_attachment=True, attachment_filename=f"{peer.name}.conf", mimetype="text/plain")
+            self.send_text_as_file(filename=f"{peer.name}.conf", text=conf)
         except WireguardError as e:
             log_exception(e)
             return Response(str(e), status=e.http_code)
         except Exception as e:
             log_exception(e)
             return Response(str(e), status=HTTP_INTERNAL_ERROR)
+
+    def download_iface(self, iface: Interface) -> Response:
+        try:
+            with open(iface.conf_file, "r") as f:
+                conf = f.read()
+                return self.send_text_as_file(filename=f"{iface.name}.conf", text=conf)
+        except Exception as e:
+            log_exception(e)
+            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+
+    @staticmethod
+    def send_text_as_file(filename: str, text: str):
+        proxy = io.StringIO()
+        proxy.writelines(text)
+        # Creating the byteIO object from the StringIO Object
+        mem = io.BytesIO()
+        mem.write(proxy.getvalue().encode())
+        # seeking was necessary. Python 3.5.2, Flask 0.12.2
+        mem.seek(0)
+        proxy.close()
+        return send_file(mem, as_attachment=True, attachment_filename=filename, mimetype="text/plain")
 
     @staticmethod
     def save_settings(form):
