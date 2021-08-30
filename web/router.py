@@ -102,6 +102,7 @@ def login_post():
         return redirect(form.next.data or url_for("router.index"))
     router.login_attempts += 1
     if not form.validate():
+        error("Unable to validate form.")
         context = {
             "title": "Login",
             "form": form
@@ -222,20 +223,23 @@ def create_wireguard_iface():
 def add_wireguard_iface():
     from web.forms import InterfaceForm
     form = InterfaceForm.from_form(InterfaceForm(request.form))
+    view = "web/wireguard-add-iface.html"
     context = {
         "title": "Add interface",
         "form": form,
         "app_name": APP_NAME
     }
-    if form.validate():
-        try:
-            RestController().add_iface(form)
-            return redirect(url_for("router.wireguard"))
-        except Exception as e:
-            log_exception(e)
-            context["error"] = True
-            context["error_details"] = e
-    return ViewController("web/wireguard-add-iface.html", **context).load()
+    if not form.validate():
+        error("Unable to validate form")
+        return ViewController(view, **context).load()
+    try:
+        RestController().add_iface(form)
+        return redirect(url_for("router.wireguard"))
+    except Exception as e:
+        log_exception(e)
+        context["error"] = True
+        context["error_details"] = e
+    return ViewController(view, **context).load()
 
 
 @router.route("/wireguard/interfaces/<uuid>", methods=['GET', "POST"])
@@ -244,6 +248,7 @@ def get_wireguard_iface(uuid: str):
     if uuid not in interfaces:
         abort(NOT_FOUND, f"Unknown interface '{uuid}'.")
     iface = interfaces[uuid]
+    view = "web/wireguard-iface.html"
     context = {
         "title": "Edit interface",
         "iface": iface,
@@ -260,7 +265,8 @@ def get_wireguard_iface(uuid: str):
     form = InterfaceEditForm.from_form(InterfaceEditForm(request.form), iface)
     context["form"] = form
     if not form.validate():
-        return ViewController("web/wireguard-iface.html", **context).load()
+        error("Unable to validate form.")
+        return ViewController(view, **context).load()
     try:
         RestController().apply_iface(iface, form)
         context["iface_status"] = get_wg_interface_status(linguard_config.wg_bin, iface.name)
@@ -271,7 +277,7 @@ def get_wireguard_iface(uuid: str):
         log_exception(e)
         context["error"] = True
         context["error_details"] = e
-    return ViewController("web/wireguard-iface.html", **context).load()
+    return ViewController(view, **context).load()
 
 
 @router.route("/wireguard/interfaces/<uuid>/remove", methods=['DELETE'])
@@ -417,38 +423,41 @@ def settings():
 def save_settings():
     from web.forms import SettingsForm
     form = SettingsForm(request.form)
+    view = "web/settings.html"
     context = {
         "title": "Settings",
         "form": form
     }
-    if form.validate():
-        try:
-            RestController().save_settings(form)
-            # Fill fields with default values if they were left unfilled
-            form.log_file.data = form.log_file.data or logger_config.logfile
+    if not form.validate():
+        error("Unable to validate form")
+        return ViewController(view, **context).load()
+    try:
+        RestController().save_settings(form)
+        # Fill fields with default values if they were left unfilled
+        form.log_file.data = form.log_file.data or logger_config.logfile
 
-            ifaces = []
-            for k, v in get_network_adapters().items():
-                ifaces.append((k, v))
-            form.web_adapter.data = form.web_adapter.data or ifaces[web_config.host]
-            form.web_secret_key.data = form.web_secret_key.data or web_config.secret_key
-            form.web_credentials_file.data = form.web_credentials_file.data or web_config.credentials_file
+        ifaces = []
+        for k, v in get_network_adapters().items():
+            ifaces.append((k, v))
+        form.web_adapter.data = form.web_adapter.data or ifaces[web_config.host]
+        form.web_secret_key.data = form.web_secret_key.data or web_config.secret_key
+        form.web_credentials_file.data = form.web_credentials_file.data or web_config.credentials_file
 
-            form.app_endpoint.data = form.app_endpoint.data or linguard_config.endpoint
-            form.app_wg_bin.data = form.app_wg_bin.data or linguard_config.wg_bin
-            form.app_wg_quick_bin.data = form.app_wg_quick_bin.data or linguard_config.wg_quick_bin
-            form.app_iptables_bin.data = form.app_iptables_bin.data or linguard_config.iptables_bin
-            form.app_interfaces_folder.data = form.app_interfaces_folder.data or linguard_config.interfaces_folder
+        form.app_endpoint.data = form.app_endpoint.data or linguard_config.endpoint
+        form.app_wg_bin.data = form.app_wg_bin.data or linguard_config.wg_bin
+        form.app_wg_quick_bin.data = form.app_wg_quick_bin.data or linguard_config.wg_quick_bin
+        form.app_iptables_bin.data = form.app_iptables_bin.data or linguard_config.iptables_bin
+        form.app_interfaces_folder.data = form.app_interfaces_folder.data or linguard_config.interfaces_folder
 
-            context["success"] = True
-            context["success_details"] = "Settings updated!"
-            context["warning"] = True
-            context["warning_details"] = f"You may need to restart {APP_NAME} to apply some changes."
-        except Exception as e:
-            log_exception(e)
-            context["error"] = True
-            context["error_details"] = e
-    return ViewController("web/settings.html", **context).load()
+        context["success"] = True
+        context["success_details"] = "Settings updated!"
+        context["warning"] = True
+        context["warning_details"] = f"You may need to restart {APP_NAME} to apply some changes."
+    except Exception as e:
+        log_exception(e)
+        context["error"] = True
+        context["error_details"] = e
+    return ViewController(view, **context).load()
 
 
 @router.app_errorhandler(BAD_REQUEST)
