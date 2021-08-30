@@ -14,7 +14,7 @@ from core.config.web_config import config as web_config, WebConfig
 from core.config_manager import config_manager
 from core.exceptions import WireguardError
 from core.models import Interface, Peer, interfaces
-from core.modules import peer_manager, interface_manager
+from core.modules import peer_manager
 from system_utils import log_exception, str_to_list
 from web.controllers.ViewController import ViewController
 from web.models import users, User
@@ -31,15 +31,15 @@ class RestController:
 
     @staticmethod
     def __save_iface__(iface: Interface, form):
-        interface_manager.edit_interface(iface=iface, name=form.name.data, description=form.description.data,
-                                         gw_iface=form.gateway.data, ipv4_address=form.ipv4.data, port=form.port.data,
-                                         auto=form.auto.data, on_up=str_to_list(form.on_up.data),
-                                         on_down=str_to_list(form.on_down.data))
+        iface.edit(name=form.name.data, description=form.description.data,
+                   gw_iface=form.gateway.data, ipv4_address=form.ipv4.data, port=form.port.data,
+                   auto=form.auto.data, on_up=str_to_list(form.on_up.data),
+                   on_down=str_to_list(form.on_down.data))
         config_manager.save()
 
     def apply_iface(self, iface: Interface, form):
         self.__save_iface__(iface, form)
-        interface_manager.apply_iface(iface)
+        iface.apply()
 
     @staticmethod
     def add_iface(form):
@@ -48,12 +48,13 @@ class RestController:
         iface = Interface(name=form.name.data, description=form.description.data, gw_iface=form.gateway.data,
                           ipv4_address=form.ipv4.data, listen_port=form.port.data, auto=form.auto.data, on_up=on_up,
                           on_down=on_down)
-        interface_manager.add_iface(iface)
+        interfaces[iface.uuid] = iface
+        interfaces.sort()
         config_manager.save()
 
     def remove_iface(self) -> Response:
         try:
-            interface_manager.remove_interface(self.uuid)
+            interfaces[self.uuid].remove()
             config_manager.save()
             return Response(status=HTTP_NO_CONTENT)
         except WireguardError as e:

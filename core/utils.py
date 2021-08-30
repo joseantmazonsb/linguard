@@ -1,4 +1,3 @@
-from http.client import BAD_REQUEST
 from typing import List, Dict, Any
 
 from core.config.linguard_config import config as linguard_config
@@ -43,10 +42,3 @@ def get_wg_interfaces_summary(wg_bin: str, interfaces: List[Interface]) -> Dict[
             "peers": iface.peers,
         }
     return dct
-
-
-def get_iface_by_name(name: str) -> Interface:
-    for iface in linguard_config.interfaces.values():
-        if iface.name == name:
-            return iface
-    raise WireguardError(f"unable to retrieve interface '{name}'!", BAD_REQUEST)

@@ -1,5 +1,5 @@
-from logging import debug
 from random import randint
+from typing import List, Tuple
 
 from flask_wtf import FlaskForm
 from wtforms import StringField, BooleanField, PasswordField, SubmitField, RadioField, SelectField, IntegerField, \
@@ -12,7 +12,6 @@ from core.config.web_config import config as web_config
 from core.config_manager import config_manager
 from core.crypto_utils import CryptoUtils
 from core.models import Interface
-from core.modules.interface_manager import get_unused_port
 from system_utils import get_network_adapters, get_system_interfaces, get_default_gateway, list_to_str
 from web.utils import fake
 from web.validators import LoginUsernameValidator, LoginPasswordValidator, SignupPasswordValidator, \
@@ -81,22 +80,29 @@ class InterfaceForm(FlaskForm):
     name = StringField("Name", validators=[DataRequired(), InterfaceNameValidator()])
     auto = BooleanField("Auto", default=True)
     description = TextAreaField("Description", render_kw={"placeholder": "Some details..."})
-    __gateways = filter(lambda i: i != "lo", get_system_interfaces().keys())
-    __choices = []
-    for choice in __gateways:
-        __choices.append((choice, choice))
-    gateway = SelectField("Gateway", choices=__choices)
-    ipv4 = StringField("IPv4", validators=[DataRequired(), InterfaceIpValidator()], render_kw={"placeholder": "0.0.0.0/32"})
-    port = IntegerField("Listen port", validators=[InterfacePortValidator()], render_kw={"placeholder": "25000", "type": "number"})
+    gateway = SelectField("Gateway", validate_choice=False)
+    ipv4 = StringField("IPv4", validators=[DataRequired(), InterfaceIpValidator()],
+                       render_kw={"placeholder": "0.0.0.0/32"})
+    port = IntegerField("Listen port", validators=[InterfacePortValidator()],
+                        render_kw={"placeholder": "25000", "type": "number"})
     on_up = TextAreaField("On up")
     on_down = TextAreaField("On up")
     iface = None
     submit = SubmitField('Add')
 
     @classmethod
+    def get_choices(cls, exclusions: List[str]) -> List[Tuple[str, str]]:
+        gateways = list(set(get_system_interfaces().keys()) - set(exclusions))
+        choices = []
+        for choice in gateways:
+            choices.append((choice, choice))
+        return choices
+
+    @classmethod
     def from_form(cls, form: "InterfaceForm") -> "InterfaceForm":
         new_form = InterfaceForm()
         new_form.name.data = form.name.data
+        new_form.gateway.choices = cls.get_choices(exclusions=["lo"])
         new_form.gateway.data = form.gateway.data
         new_form.ipv4.data = form.ipv4.data
         new_form.port.data = form.port.data
@@ -108,10 +114,11 @@ class InterfaceForm(FlaskForm):
     def populate(cls, form: "InterfaceForm") -> "InterfaceForm":
         name = Interface.generate_valid_name()
         form.name.data = name
+        form.gateway.choices = cls.get_choices(exclusions=["lo"])
         gw = get_default_gateway()
         form.gateway.data = gw
         form.ipv4.data = f"{fake.ipv4_private()}/{randint(8, 30)}"
-        form.port.data = get_unused_port()
+        form.port.data = Interface.get_unused_port()
         form.on_up.data = list_to_str([
             f"{linguard_config.iptables_bin} -I FORWARD -i {name} -j ACCEPT\n" +
             f"{linguard_config.iptables_bin} -I FORWARD -o {name} -j ACCEPT\n" +
@@ -135,6 +142,7 @@ class InterfaceEditForm(InterfaceForm):
         new_form = InterfaceEditForm()
         new_form.iface = iface
         new_form.name.data = form.name.data
+        new_form.gateway.choices = cls.get_choices(exclusions=["lo", form.name])
         new_form.gateway.data = form.gateway.data
         new_form.ipv4.data = form.ipv4.data
         new_form.port.data = form.port.data
@@ -152,6 +160,7 @@ class InterfaceEditForm(InterfaceForm):
         form.description.data = iface.description
         form.ipv4.data = iface.ipv4_address
         form.port.data = iface.listen_port
+        form.gateway.choices = cls.get_choices(exclusions=["lo", form.name])
         form.gateway.data = iface.gw_iface
         form.on_up.data = list_to_str(iface.on_up, separator="\n")
         form.on_down.data = list_to_str(iface.on_down, separator="\n")

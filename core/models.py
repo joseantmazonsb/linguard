@@ -1,7 +1,10 @@
+import http
 import os
 import re
 from collections import OrderedDict
 from logging import info, warning, error, debug
+from random import randint
+from time import sleep
 from typing import Dict, Any, Type, List, Mapping, TypeVar
 from uuid import uuid4 as gen_uuid
 
@@ -11,12 +14,11 @@ from yamlable import YamlAble, yaml_info, Y
 from core.exceptions import WireguardError
 from system_utils import run_os_command, write_lines, try_makedir
 
-
-T = TypeVar('T')
 K = TypeVar('K')
+V = TypeVar('V')
 
 
-class EnhancedDict(Dict, Mapping[T, K]):
+class EnhancedDict(Dict, Mapping[K, V]):
 
     def set_contents(self, dct: "EnhancedDict"):
         """
@@ -31,7 +33,7 @@ class EnhancedDict(Dict, Mapping[T, K]):
     def sort(self, order_by):
         self.set_contents(OrderedDict(sorted(self.items(), key=order_by)))
 
-    def get_key_by_attr(self, attr: str, attr_value: str) -> T:
+    def get_key_by_attr(self, attr: str, attr_value: str) -> K:
         """
         Get the first key (or None) of the dictionary which contains an attribute whose value is equal to attr_value.
 
@@ -41,7 +43,7 @@ class EnhancedDict(Dict, Mapping[T, K]):
         """
         return next(iter(filter(lambda k: k.__getattribute__(attr) == attr_value, self.keys())), None)
 
-    def get_value_by_attr(self, attr: str, attr_value: str) -> K:
+    def get_value_by_attr(self, attr: str, attr_value: str) -> V:
         """
         Get the first value (or None) of the dictionary which contains an attribute whose value is equal to attr_value.
 
@@ -190,6 +192,39 @@ class Interface(YamlAble):
             error(f"Failed to stop interface {self.name}: code={result.code} | err={result.err} | out={result.output}")
             raise WireguardError(result.err)
 
+    def apply(self):
+        self.down()
+        self.save()
+        self.up()
+
+    def restart(self):
+        self.down()
+        sleep(1)
+        self.up()
+
+    def remove(self):
+        self.down()
+        if os.path.exists(self.conf_file):
+            os.remove(self.conf_file)
+        del interfaces[self.uuid]
+        interfaces.sort()
+        for peer in self.peers:
+            from core.modules import peer_manager
+            peer_manager.remove_peer(peer)
+
+    def edit(self, name: str, description: str, ipv4_address: str,
+                       port: int, gw_iface: str, auto: bool, on_up: List[str], on_down: List[str]):
+        self.name = name
+        self.gw_iface = gw_iface
+        self.description = description
+        self.ipv4_address = ipv4_address
+        self.listen_port = port
+        self.auto = auto
+        self.on_up = on_up
+        self.on_down = on_down
+        from core.config.linguard_config import config
+        self.conf_file = f"{os.path.join(config.interfaces_folder, self.name)}.conf"
+
     @classmethod
     def generate_valid_name(cls) -> str:
         name = generate_slug(2)[:cls.MAX_NAME_LENGTH]
@@ -223,6 +258,15 @@ class Interface(YamlAble):
             if iface.listen_port == port:
                 return True
         return False
+
+    @classmethod
+    def get_unused_port(cls) -> int:
+        tries = 100
+        for i in range(0, tries):
+            port = randint(Interface.MIN_PORT_NUMBER, Interface.MAX_PORT_NUMBER)
+            if not Interface.is_port_in_use(port):
+                return port
+        raise WireguardError(f"Unable to obtain a free port (tried {tries} times)", http.HTTPStatus.BAD_REQUEST)
 
 
 @yaml_info(yaml_tag='peer')
@@ -294,7 +338,7 @@ class Peer(YamlAble):
 
 
 @yaml_info(yaml_tag='interfaces')
-class InterfaceDict(EnhancedDict[str, Interface], YamlAble):
+class InterfaceDict(EnhancedDict, YamlAble, Mapping[K, V]):
     @classmethod
     def __from_yaml_dict__(cls,  # type: Type[Y]
                            dct,  # type: Dict[str, Any]
@@ -311,4 +355,5 @@ class InterfaceDict(EnhancedDict[str, Interface], YamlAble):
         super(InterfaceDict, self).sort(order_by)
 
 
+interfaces: InterfaceDict[str, Interface]
 interfaces = InterfaceDict()

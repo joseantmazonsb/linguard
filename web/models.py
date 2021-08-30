@@ -1,5 +1,5 @@
 import os.path
-from typing import Type, Dict, Any
+from typing import Type, Dict, Any, Mapping
 from uuid import uuid4 as gen_uuid
 
 from flask_login import logout_user, UserMixin
@@ -7,7 +7,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from yamlable import YamlAble, yaml_info, Y
 
 from core.crypto_utils import CryptoUtils
-from core.models import EnhancedDict
+from core.models import EnhancedDict, K, V
 from system_utils import try_makedir
 
 
@@ -100,7 +100,7 @@ class EncryptedYamlAble(YamlAble):
 
 
 @yaml_info(yaml_tag='users')
-class UserDict(EnhancedDict[str, User], EncryptedYamlAble):
+class UserDict(EnhancedDict, EncryptedYamlAble, Mapping[K, V]):
 
     def __to_yaml_dict__(self):  # type: (...) -> Dict[str, Any]
         return self
@@ -118,4 +118,5 @@ class UserDict(EnhancedDict[str, User], EncryptedYamlAble):
         super(UserDict, self).sort(order_by)
 
 
+users: UserDict[str, User]
 users = UserDict()

@@ -12,7 +12,7 @@ from core.config.logger_config import config as logger_config
 from core.config.web_config import config as web_config
 from core.exceptions import WireguardError
 from core.models import interfaces, Interface
-from core.modules import peer_manager, interface_manager
+from core.modules import peer_manager
 from core.utils import is_wg_iface_up, get_wg_interfaces_summary
 from system_utils import get_routing_table, get_wg_interface_status, \
     get_network_adapters, list_to_str, get_system_interfaces, log_exception
@@ -288,13 +288,13 @@ def operate_wireguard_iface(uuid: str, action: str):
     action = action.lower()
     try:
         if action == "start":
-            interface_manager.iface_up(uuid)
+            interfaces[uuid].up()
             return Response(status=NO_CONTENT)
         if action == "restart":
-            interface_manager.restart_iface(uuid)
+            interfaces[uuid].restart()
             return Response(status=NO_CONTENT)
         if action == "stop":
-            interface_manager.iface_down(uuid)
+            interfaces[uuid].down()
             return Response(status=NO_CONTENT)
         raise WireguardError(f"Invalid operation: {action}", BAD_REQUEST)
     except WireguardError as e:
@@ -308,15 +308,15 @@ def operate_wireguard_ifaces(action: str):
     try:
         if action == "start":
             for iface in interfaces.values():
-                interface_manager.iface_up(iface.uuid)
+                iface.up()
             return Response(status=NO_CONTENT)
         if action == "restart":
             for iface in interfaces.values():
-                interface_manager.restart_iface(iface.uuid)
+                iface.restart()
             return Response(status=NO_CONTENT)
         if action == "stop":
             for iface in interfaces.values():
-                interface_manager.iface_down(iface.uuid)
+                iface.down()
             return Response(status=NO_CONTENT)
         raise WireguardError(f"invalid operation: {action}", BAD_REQUEST)
     except WireguardError as e:
