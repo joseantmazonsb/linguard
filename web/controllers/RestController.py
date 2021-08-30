@@ -164,9 +164,8 @@ class RestController:
 
     def download_iface(self, iface: Interface) -> Response:
         try:
-            with open(iface.conf_file, "r") as f:
-                conf = f.read()
-                return self.send_text_as_file(filename=f"{iface.name}.conf", text=conf)
+            conf = iface.generate_conf()
+            return self.send_text_as_file(filename=f"{iface.name}.conf", text=conf)
         except Exception as e:
             log_exception(e)
             return Response(str(e), status=HTTP_INTERNAL_ERROR)

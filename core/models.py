@@ -136,9 +136,8 @@ class Interface(YamlAble):
                           public_key=public_key, on_up=on_up, on_down=on_down, peers=peers)
         return iface
 
-    def save(self) -> str:
-        """Generate a wireguard configuration file suitable for this interface and store it."""
-        try_makedir(os.path.dirname(self.conf_file))
+    def generate_conf(self) -> str:
+        """Generate the wireguard configuration for this interface."""
         iface = f"[Interface]\n" \
                 f"PrivateKey = {self.private_key}\n" \
                 f"Address = {self.ipv4_address}\n" \
@@ -153,11 +152,14 @@ class Interface(YamlAble):
             peers += f"\n[Peer]\n" \
                      f"PublicKey = {peer.public_key}\n" \
                      f"AllowedIPs = {peer.ipv4_address}\n"
-        conf = iface + peers
+        return iface + peers
+
+    def save(self):
+        """Store the current wireguard configuration for this interface in the file system."""
         debug(f"Saving configuration of interface {self.name} to {self.conf_file}...")
-        write_lines(conf, self.conf_file)
+        try_makedir(os.path.dirname(self.conf_file))
+        write_lines(self.generate_conf(), self.conf_file)
         debug(f"Configuration saved!")
-        return conf
 
     @property
     def is_up(self):
