@@ -68,7 +68,7 @@ debug "Git tag set to '$GIT_TAG'."
 info "Installing dependencies..."
 debug "Updating packages list..."
 apt-get -qq update
-dependencies="git python3 python3-pip python3-virtualenv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3"
+dependencies="git python3 python3-pip python3-venv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3"
 debug "The following packages will be installed: $dependencies"
 apt-get -qq install $dependencies
 if [ $? -ne 0 ]; then
@@ -99,8 +99,14 @@ if [ "$clone" = true ]; then
 fi
 
 info "Setting up virtual environment..."
-virtualenv "${INSTALLATION_PATH}"/venv
+python3 -m venv "${INSTALLATION_PATH}"/venv
 source "${INSTALLATION_PATH}"/venv/bin/activate
+if [ $? -ne 0 ]; then
+    fatal "Unable to activate virtual environment."
+    exit 1
+fi
+debug "Upgrading pip3..."
+pip3 install --upgrade pip
 debug "Installing python requirements..."
 pip3 install -r "${INSTALLATION_PATH}"/requirements.txt
 if [ $? -ne 0 ]; then
