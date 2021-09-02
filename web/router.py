@@ -470,7 +470,7 @@ def save_settings():
 
 @router.app_errorhandler(BAD_REQUEST)
 def bad_request(err):
-    error_code = 400
+    error_code = int(BAD_REQUEST)
     context = {
         "title": error_code,
         "error_code": error_code,
@@ -490,7 +490,7 @@ def unauthorized(err):
             uuid = request.path.rsplit("/", 1)[-1]
             next = url_for(request.endpoint, uuid=uuid)
         return redirect(url_for("router.login", next=next))
-    error_code = int(http.HTTPStatus.UNAUTHORIZED)
+    error_code = int(UNAUTHORIZED)
     context = {
         "title": error_code,
         "error_code": error_code,
@@ -501,7 +501,7 @@ def unauthorized(err):
 
 @router.app_errorhandler(NOT_FOUND)
 def not_found(err):
-    error_code = int(http.HTTPStatus.NOT_FOUND)
+    error_code = int(NOT_FOUND)
     context = {
         "title": error_code,
         "error_code": error_code,
@@ -513,7 +513,7 @@ def not_found(err):
 
 @router.app_errorhandler(INTERNAL_SERVER_ERROR)
 def not_found(err):
-    error_code = int(http.HTTPStatus.INTERNAL_SERVER_ERROR)
+    error_code = int(INTERNAL_SERVER_ERROR)
     context = {
         "title": error_code,
         "error_code": error_code,

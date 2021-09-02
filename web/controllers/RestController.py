@@ -1,7 +1,7 @@
 import http
 import io
 import re
-from http.client import NOT_FOUND
+from http.client import NOT_FOUND, NO_CONTENT, BAD_REQUEST, INTERNAL_SERVER_ERROR
 from logging import debug
 from typing import Dict, Any
 
@@ -18,10 +18,6 @@ from core.modules import peer_manager
 from system_utils import log_exception, str_to_list
 from web.controllers.ViewController import ViewController
 from web.models import users, User
-
-HTTP_NO_CONTENT = 204
-HTTP_BAD_REQUEST = 400
-HTTP_INTERNAL_ERROR = 500
 
 
 class RestController:
@@ -56,36 +52,36 @@ class RestController:
         try:
             interfaces[self.uuid].remove()
             config_manager.save()
-            return Response(status=HTTP_NO_CONTENT)
+            return Response(status=NO_CONTENT)
         except WireguardError as e:
             log_exception(e)
             return Response(str(e), status=e.http_code)
         except Exception as e:
             log_exception(e)
-            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+            return Response(str(e), status=INTERNAL_SERVER_ERROR)
 
     @staticmethod
     def find_errors_in_save_peer(data: Dict[str, Any]):
         wg_iface = data["interface"]
         if not wg_iface:
-            raise WireguardError(f"a valid wireguard interface must be provided,.", HTTP_BAD_REQUEST)
+            raise WireguardError(f"a valid wireguard interface must be provided,.", BAD_REQUEST)
         try:
             interfaces[wg_iface]
         except WireguardError:
-            raise WireguardError(f"'{wg_iface}' is not a valid wireguard interface.", HTTP_BAD_REQUEST)
+            raise WireguardError(f"'{wg_iface}' is not a valid wireguard interface.", BAD_REQUEST)
         if not re.match(Peer.REGEX_NAME, data["name"]):
             raise WireguardError("peer name can only contain alphanumeric characters, "
                                  "underscores (_), hyphens (-) and dots (.). It must also begin with a letter "
-                                 f"and its length cannot exceed {Peer.MAX_NAME_LENGTH} characters.", HTTP_BAD_REQUEST)
+                                 f"and its length cannot exceed {Peer.MAX_NAME_LENGTH} characters.", BAD_REQUEST)
         if not re.match(Interface.REGEX_IPV4_CIDR, data["ipv4_address"]):
             raise WireguardError("invalid IPv4 address or mask. Must follow the format X.X.X.X/Y, "
-                                 "just like 10.0.0.10/24, for instance.", HTTP_BAD_REQUEST)
+                                 "just like 10.0.0.10/24, for instance.", BAD_REQUEST)
         if not re.match(Interface.REGEX_IPV4, data["dns1"]):
             raise WireguardError("invalid primary DNS. Must follow the format X.X.X.X, "
-                                 "just like 8.8.8.8, for instance.", HTTP_BAD_REQUEST)
+                                 "just like 8.8.8.8, for instance.", BAD_REQUEST)
         if data["dns2"] and not re.match(Interface.REGEX_IPV4, data["dns2"]):
             raise WireguardError("invalid secondary DNS. Must follow the format X.X.X.X, "
-                                 "just like 8.8.4.4, for instance.", HTTP_BAD_REQUEST)
+                                 "just like 8.8.4.4, for instance.", BAD_REQUEST)
 
     def add_peer(self, data: Dict[str, Any]) -> Response:
         try:
@@ -96,13 +92,13 @@ class RestController:
                                    data["dns1"], data["nat"], data.get("dns2", ""))
             peer_manager.add_peer(peer)
             config_manager.save()
-            return Response(status=HTTP_NO_CONTENT)
+            return Response(status=NO_CONTENT)
         except WireguardError as e:
             log_exception(e)
             return Response(str(e), status=e.http_code)
         except Exception as e:
             log_exception(e)
-            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+            return Response(str(e), status=INTERNAL_SERVER_ERROR)
 
     @staticmethod
     def remove_peer(uuid: str) -> Response:
@@ -112,16 +108,16 @@ class RestController:
                 if uuid in iface.peers:
                     peer = iface.peers[uuid]
             if peer is None:
-                raise WireguardError("unable to remove interface.", HTTP_BAD_REQUEST)
+                raise WireguardError("unable to remove interface.", BAD_REQUEST)
             peer_manager.remove_peer(peer)
             config_manager.save()
-            return Response(status=HTTP_NO_CONTENT)
+            return Response(status=NO_CONTENT)
         except WireguardError as e:
             log_exception(e)
             return Response(str(e), status=e.http_code)
         except Exception as e:
             log_exception(e)
-            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+            return Response(str(e), status=INTERNAL_SERVER_ERROR)
 
     def save_peer(self, data: Dict[str, Any]) -> Response:
         try:
@@ -137,13 +133,13 @@ class RestController:
                                    data["ipv4_address"], iface, data["dns1"],
                                    data["nat"], data["dns2"])
             config_manager.save()
-            return Response(status=HTTP_NO_CONTENT)
+            return Response(status=NO_CONTENT)
         except WireguardError as e:
             log_exception(e)
             return Response(str(e), status=e.http_code)
         except Exception as e:
             log_exception(e)
-            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+            return Response(str(e), status=INTERNAL_SERVER_ERROR)
 
     def download_peer(self) -> Response:
         try:
@@ -160,7 +156,7 @@ class RestController:
             return Response(str(e), status=e.http_code)
         except Exception as e:
             log_exception(e)
-            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+            return Response(str(e), status=INTERNAL_SERVER_ERROR)
 
     def download_iface(self, iface: Interface) -> Response:
         try:
@@ -168,7 +164,7 @@ class RestController:
             return self.send_text_as_file(filename=f"{iface.name}.conf", text=conf)
         except Exception as e:
             log_exception(e)
-            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+            return Response(str(e), status=INTERNAL_SERVER_ERROR)
 
     @staticmethod
     def send_text_as_file(filename: str, text: str):
