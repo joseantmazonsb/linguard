@@ -4,6 +4,8 @@
 
 Linguard aims to provide an easy way to manage your WireGuard server, and it's written in Python3 and powered by Flask.
 
+Check out [the wiki](https://github.com/joseantmazonsb/linguard/wiki) for additional info!
+
 ## Table of contents
 - [Screenshots](#screenshots)
 - [Installation](#installation)
