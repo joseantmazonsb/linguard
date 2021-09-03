@@ -17,6 +17,7 @@ class TestServer:
     @pytest.mark.skipif(os.environ.get("skip_sample_server", None),
                         reason="This test may fail due to permission issues.")
     def test_sample_server(self):
-        server = Server("../config/linguard.sample.yaml")
+        path = os.path.join(os.path.abspath(os.pardir), "config", "linguard.sample.yaml")
+        server = Server(path)
         server.start()
         server.stop()

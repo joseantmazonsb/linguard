@@ -41,8 +41,8 @@ jobs:
 
       - name: Run tests
         run: |
-          pip install pytest pytest-cov coverage
-          coverage run -m pytest --cov-report xml:coverage.xml --cov
+          pip install pytest pytest-cov
+          python -m pytest -s --cov-report xml:coverage.xml --cov
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v1
