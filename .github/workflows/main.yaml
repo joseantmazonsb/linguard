@@ -40,12 +40,12 @@ jobs:
           source ./venv/bin/activate
           pip install -r requirements.txt
 
-      - name: Run linter
-        run: |
-          source ./venv/bin/activate
-          pip install flake8
-          flake8 .
-        continue-on-error: true
+      #- name: Run linter
+      #  run: |
+      #    source ./venv/bin/activate
+      #    pip install flake8
+      #    flake8 .
+      #  continue-on-error: true
 
       - name: Run tests
         run: |
