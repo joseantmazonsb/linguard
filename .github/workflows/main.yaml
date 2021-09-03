@@ -42,4 +42,9 @@ jobs:
       - name: Run tests
         run: |
           pip install pytest
-          python -m pytest tests/
+          python -m pytest --cov-fail-under=70 --cov tests/
+
+      - name: Upload coverage report to Codecov
+        uses: codecov/codecov-action@v1
+        if: always()
+        with:
