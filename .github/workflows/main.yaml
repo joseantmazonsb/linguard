@@ -3,11 +3,7 @@
 
 name: main
 
-on:
-  push:
-    branches: [ $${{ github.event.repository.default_branch }} ]
-  pull_request:
-    branches: [ ${{ github.event.repository.default_branch }} ]
+on: [push]
 
 jobs:
   build:
