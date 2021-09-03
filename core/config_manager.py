@@ -28,7 +28,7 @@ class ConfigManager:
     def __load_config__(self):
         info(f"Restoring configuration from {self.config_filepath}...")
         if not os.path.exists(self.config_filepath):
-            warning(f"Unable to restore configuration file {self.config_filepath}: not found.")
+            warning(f"Unable to restore configuration file {self.config_filepath}: not found in {os.listdir(os.path.dirname(self.config_filepath))}")
             info("Using default configuration...")
             return
         with open(self.config_filepath, "r") as file:
