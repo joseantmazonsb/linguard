@@ -25,29 +25,26 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Enable virtual environment
-        run: |
-          sudo apt-get -qq install python3-venv
-          python3 -m venv ./venv
-          source ./venv/bin/activate
-
       - name: Upgrade pip
         run: |
           pip install --upgrade pip
 
       - name: Install dependencies
         run: |
+          sudo apt-get -qq install python3-venv
+          python3 -m venv ./venv
+          source ./venv/bin/activate
           pip install -r requirements.txt
+          pip install flake8
+          pip install pytest pytest-cov
 
       - name: Run linter
         run: |
-          pip install flake8
           flake8 .
         continue-on-error: true
 
       - name: Run tests
         run: |
-          pip install pytest pytest-cov
           export github_action_hook=True
           sudo ./venv/bin/python -m pytest -s --cov-report xml:coverage.xml --cov
 
