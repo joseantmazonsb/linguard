@@ -25,6 +25,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Enable virtual environment
+        run: |
+          sudo apt-get -qq install python3-venv
+          python3 -m venv ./venv
+          source ./venv/bin/activate
+
       - name: Upgrade pip
         run: |
           pip install --upgrade pip
@@ -43,7 +49,7 @@ jobs:
         run: |
           pip install pytest pytest-cov
           export github_action_hook=True
-          sudo python -m pytest -s --cov-report xml:coverage.xml --cov
+          sudo ./venv/bin/python -m pytest -s --cov-report xml:coverage.xml --cov
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v1
