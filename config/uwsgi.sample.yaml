@@ -2,7 +2,7 @@ uwsgi:
   master: true
   chdir: /var/www/linguard
   venv: venv
-  wsgi-file: web/server.py
+  wsgi-file: app.py
   pyargv: config/linguard.sample.yaml
   need-plugin: python3
   die-on-term: true

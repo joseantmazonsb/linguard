@@ -54,3 +54,10 @@ jobs:
         if: always()
         with:
           files: coverage.xml
+
+      - name: Deploy (run install script)
+        run: |
+          sudo rm -rf /var/www/linguard
+          sudo ./scripts/install.sh /var/www/linguard
+          sudo -u linguard ./scripts/run.sh &
+          sudo pkill -f uwsgi -9
