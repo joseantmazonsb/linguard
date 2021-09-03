@@ -58,7 +58,7 @@ removeItem(removePeerBtn, "peer");
 function removeItem(removeBtn, itemType) {
     removeBtn.click(function (e) {
         const item = e.target.id.split("-")[1];
-        const url = "/wireguard/"+itemType+"s/"+item+"/remove";
+        const url = "/wireguard/"+itemType+"s/"+item+"";
         const alertContainer = "wgIfacesHeader";
         const alertType = "danger";
         $.ajax({

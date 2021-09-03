@@ -1,9 +1,7 @@
 import http
 import io
-import re
-from http.client import NOT_FOUND, NO_CONTENT, BAD_REQUEST, INTERNAL_SERVER_ERROR
+from http.client import NO_CONTENT, INTERNAL_SERVER_ERROR
 from logging import debug
-from typing import Dict, Any
 
 from flask import Response, send_file, url_for, redirect, abort
 from flask_login import login_user
@@ -14,7 +12,6 @@ from core.config.web_config import config as web_config, WebConfig
 from core.config_manager import config_manager
 from core.exceptions import WireguardError
 from core.models import Interface, Peer, interfaces
-from core.modules import peer_manager
 from system_utils import log_exception, str_to_list
 from web.controllers.ViewController import ViewController
 from web.models import users, User
@@ -61,96 +58,36 @@ class RestController:
             return Response(str(e), status=INTERNAL_SERVER_ERROR)
 
     @staticmethod
-    def find_errors_in_save_peer(data: Dict[str, Any]):
-        wg_iface = data["interface"]
-        if not wg_iface:
-            raise WireguardError(f"a valid wireguard interface must be provided,.", BAD_REQUEST)
-        try:
-            interfaces[wg_iface]
-        except WireguardError:
-            raise WireguardError(f"'{wg_iface}' is not a valid wireguard interface.", BAD_REQUEST)
-        if not re.match(Peer.REGEX_NAME, data["name"]):
-            raise WireguardError("peer name can only contain alphanumeric characters, "
-                                 "underscores (_), hyphens (-) and dots (.). It must also begin with a letter "
-                                 f"and its length cannot exceed {Peer.MAX_NAME_LENGTH} characters.", BAD_REQUEST)
-        if not re.match(Interface.REGEX_IPV4_CIDR, data["ipv4_address"]):
-            raise WireguardError("invalid IPv4 address or mask. Must follow the format X.X.X.X/Y, "
-                                 "just like 10.0.0.10/24, for instance.", BAD_REQUEST)
-        if not re.match(Interface.REGEX_IPV4, data["dns1"]):
-            raise WireguardError("invalid primary DNS. Must follow the format X.X.X.X, "
-                                 "just like 8.8.8.8, for instance.", BAD_REQUEST)
-        if data["dns2"] and not re.match(Interface.REGEX_IPV4, data["dns2"]):
-            raise WireguardError("invalid secondary DNS. Must follow the format X.X.X.X, "
-                                 "just like 8.8.4.4, for instance.", BAD_REQUEST)
+    def add_peer(form) -> Peer:
+        iface = interfaces.get_value_by_attr("name", form.interface.data)
+        peer = Peer(name=form.name.data, description=form.description.data,
+                    interface=iface, ipv4_address=form.ipv4.data,
+                    dns1=form.dns1.data, dns2=form.dns2.data, nat=form.nat.data)
+        iface.add_peer(peer)
+        config_manager.save()
+        return peer
 
-    def add_peer(self, data: Dict[str, Any]) -> Response:
+    @staticmethod
+    def remove_peer(peer: Peer) -> Response:
         try:
-            self.find_errors_in_save_peer(data)
-            iface = interfaces[data["interface"]]
-            peer = peer_manager.get_pending_peer_by_name(data["name"])
-            peer_manager.edit_peer(peer, data["name"], data["description"], data["ipv4_address"], iface,
-                                   data["dns1"], data["nat"], data.get("dns2", ""))
-            peer_manager.add_peer(peer)
+            peer.remove()
             config_manager.save()
             return Response(status=NO_CONTENT)
-        except WireguardError as e:
-            log_exception(e)
-            return Response(str(e), status=e.http_code)
         except Exception as e:
             log_exception(e)
             return Response(str(e), status=INTERNAL_SERVER_ERROR)
 
     @staticmethod
-    def remove_peer(uuid: str) -> Response:
-        try:
-            peer = None
-            for iface in interfaces.values():
-                if uuid in iface.peers:
-                    peer = iface.peers[uuid]
-            if peer is None:
-                raise WireguardError("unable to remove interface.", BAD_REQUEST)
-            peer_manager.remove_peer(peer)
-            config_manager.save()
-            return Response(status=NO_CONTENT)
-        except WireguardError as e:
-            log_exception(e)
-            return Response(str(e), status=e.http_code)
-        except Exception as e:
-            log_exception(e)
-            return Response(str(e), status=INTERNAL_SERVER_ERROR)
+    def save_peer(peer: Peer, form):
+        iface = interfaces.get_value_by_attr("name", form.interface.data)
+        peer.edit(name=form.name.data, description=form.description.data, interface=iface,
+                  ipv4_address=form.ipv4.data, nat=form.nat.data, dns1=form.dns1.data, dns2=form.dns2.data)
+        config_manager.save()
 
-    def save_peer(self, data: Dict[str, Any]) -> Response:
+    def download_peer(self, peer: Peer) -> Response:
         try:
-            peer = None
-            for iface in interfaces.values():
-                if self.uuid in iface.peers:
-                    peer = iface.peers[self.uuid]
-            if not peer:
-                raise WireguardError(f"Unknown peer '{self.uuid}'.", NOT_FOUND)
-            self.find_errors_in_save_peer(data)
-            iface = interfaces[data["interface"]]
-            peer_manager.edit_peer(peer, data["name"], data["description"],
-                                   data["ipv4_address"], iface, data["dns1"],
-                                   data["nat"], data["dns2"])
-            config_manager.save()
-            return Response(status=NO_CONTENT)
-        except WireguardError as e:
-            log_exception(e)
-            return Response(str(e), status=e.http_code)
-        except Exception as e:
-            log_exception(e)
-            return Response(str(e), status=INTERNAL_SERVER_ERROR)
-
-    def download_peer(self) -> Response:
-        try:
-            peer = None
-            for iface in interfaces.values():
-                if self.uuid in iface.peers:
-                    peer = iface.peers[self.uuid]
-            if not peer:
-                raise WireguardError(f"Unknown peer '{self.uuid}'.", NOT_FOUND)
             conf = peer.generate_conf()
-            self.send_text_as_file(filename=f"{peer.name}.conf", text=conf)
+            return self.send_text_as_file(filename=f"{peer.name}.conf", text=conf)
         except WireguardError as e:
             log_exception(e)
             return Response(str(e), status=e.http_code)

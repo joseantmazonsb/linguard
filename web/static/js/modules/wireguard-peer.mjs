@@ -1,111 +1,31 @@
-import {AlertType, prependAlert} from "./utils.mjs";
+import {prependAlert} from "./utils.mjs";
 
-const addPeerBtn = $("#addPeerBtn");
-const loadFeeback = $("#wgLoading");
-const alertContainer = "wgPeerConfig";
-const resetBtn = $("#resetBtn");
+const alertContainer = "alerts";
 
-const peerInputName= $(".peerInputName")
-peerInputName.click(function (e) {
-    if (peerInputName.attr("clicked") === "yes") return;
-    peerInputName.attr("clicked", "yes");
-    const noBorder = "border-0";
-    if (peerInputName.hasClass(noBorder)) {
-        peerInputName.attr("readonly", false);
-        peerInputName.removeClass(noBorder);
+document.getElementById('private_key').setAttribute('type', "password");
+
+document.getElementById("togglePrivateKey").addEventListener("click", function () {
+    const icon = document.getElementById('togglePrivateKeyIcon')
+    const field = document.getElementById('private_key');
+    const type = field.getAttribute('type') === 'password' ? 'text' : 'password';
+    field.setAttribute('type', type);
+    if (type === "password") {
+        icon.classList.add('fa-eye-slash');
+        icon.classList.remove('fa-eye');
     }
     else {
-        peerInputName.addClass(noBorder);
-        peerInputName.attr("readonly", true);
+        icon.classList.add('fa-eye');
+        icon.classList.remove('fa-eye-slash');
     }
-});
+}, false);
 
-resetBtn.click(function (e) {
-   location.reload();
-});
-
-addPeerBtn.click(function (e) {
-    addPeerBtn.attr("disabled", true);
-    resetBtn.attr("disabled", true);
-    const url = location.href;
-    const data = {
-        "name": $("#name").val(),
-        "description": $("#description").val(),
-        "interface": $("#interface").val(),
-        "ipv4_address": $("#ipv4").val(),
-        "dns1": $("#dns1").val(),
-        "dns2": $("#dns2").val(),
-        "nat": $('#nat .active').text().trim().toLowerCase() === "yes"
-    };
-    $.ajax({
-        type: "post",
-        url: url,
-        data: JSON.stringify({"data": data}),
-        dataType: 'json',
-        contentType: 'application/json',
-        beforeSend : function () {
-            loadFeeback.show();
-        },
-        success: function (resp) {
-            prependAlert(alertContainer, "New peer added!", AlertType.SUCCESS, 1500, true, function () {
-                location.replace(document.referrer);
-            });
-        },
-        error: function(resp) {
-            prependAlert(alertContainer, "<strong>Oops, something went wrong</strong>: " + resp["responseText"]);
-            addPeerBtn.attr("disabled", false);
-            resetBtn.attr("disabled", false);
-        },
-        complete: function (resp) {
-            loadFeeback.hide();
-        },
-    });
-});
-
-const saveBtn = $("#saveBtn");
-saveBtn.click(function (e) {
-    const url = location.href+"/save";
-    const data = {
-        "name": $("#name").val(),
-        "description": $("#description").val(),
-        "interface": $("#interface").val(),
-        "ipv4_address": $("#ipv4").val(),
-        "dns1": $("#dns1").val(),
-        "dns2": $("#dns2").val(),
-        "nat": $('#nat .active').text().trim().toLowerCase() === "yes"
-    };
-    $.ajax({
-        type: "post",
-        url: url,
-        data: JSON.stringify({"data": data}),
-        dataType: 'json',
-        contentType: 'application/json',
-        beforeSend : function () {
-            loadFeeback.show();
-        },
-        success: function (resp) {
-            prependAlert(alertContainer, "Changes saved! You may now download the updated configuration.", AlertType.SUCCESS,
-                3000, true);
-        },
-        error: function(resp) {
-            prependAlert(alertContainer, "<strong>Oops, something went wrong</strong>: " + resp["responseText"]);
-        },
-        complete: function (resp) {
-            loadFeeback.hide();
-        },
-    });
-});
-
-const removePeerBtn = $(".removeBtn");
-removePeerBtn.click(function (e) {
-    const item = e.target.id.split("-")[1];
-    const url = "/wireguard/peers/"+item+"/remove";
+document.getElementById("removePeer").addEventListener("click", function () {
     const alertType = "danger";
     $.ajax({
         type: "delete",
-        url: url,
-        success: function () {
-            location.replace(document.referrer);
+        url: location.href,
+        success: function (resp) {
+            location.replace("/wireguard");
         },
         error: function(resp) {
             prependAlert(alertContainer, "<strong>Oops, something went wrong</strong>: " + resp["responseText"],
@@ -113,11 +33,4 @@ removePeerBtn.click(function (e) {
             $("#removeModal").modal("toggle");
         },
     });
-});
-
-const downloadBtn = $(".downloadBtn");
-downloadBtn.click(function (e) {
-    const item = e.target.id.split("-")[1];
-    const url = "/wireguard/peers/"+item+"/download";
-    location.replace(url);
 });

@@ -11,8 +11,7 @@ from core.config.linguard_config import config as linguard_config
 from core.config.logger_config import config as logger_config
 from core.config.web_config import config as web_config
 from core.exceptions import WireguardError
-from core.models import interfaces, Interface
-from core.modules import peer_manager
+from core.models import interfaces, Interface, get_all_peers
 from core.utils import is_wg_iface_up, get_wg_interfaces_summary
 from system_utils import get_routing_table, get_network_adapters, list_to_str, get_system_interfaces, log_exception
 from web.controllers.RestController import RestController
@@ -207,8 +206,8 @@ def wireguard():
 @router.route("/wireguard/interfaces/add", methods=['GET'])
 @login_required
 def create_wireguard_iface():
-    from web.forms import InterfaceForm
-    form = InterfaceForm.populate(InterfaceForm())
+    from web.forms import AddInterfaceForm
+    form = AddInterfaceForm.populate(AddInterfaceForm())
     context = {
         "title": "Add interface",
         "form": form,
@@ -220,8 +219,8 @@ def create_wireguard_iface():
 @router.route("/wireguard/interfaces/add", methods=['POST'])
 @login_required
 def add_wireguard_iface():
-    from web.forms import InterfaceForm
-    form = InterfaceForm.from_form(InterfaceForm(request.form))
+    from web.forms import AddInterfaceForm
+    form = AddInterfaceForm.from_form(AddInterfaceForm(request.form))
     view = "web/wireguard-add-iface.html"
     context = {
         "title": "Add interface",
@@ -256,12 +255,12 @@ def get_wireguard_iface(uuid: str):
         "EMPTY_FIELD": EMPTY_FIELD,
         "app_name": APP_NAME
     }
-    from web.forms import InterfaceEditForm
+    from web.forms import EditInterfaceForm
     if request.method == 'GET':
-        form = InterfaceEditForm.from_interface(iface)
+        form = EditInterfaceForm.from_interface(iface)
         context["form"] = form
         return ViewController("web/wireguard-iface.html", **context).load()
-    form = InterfaceEditForm.from_form(InterfaceEditForm(request.form), iface)
+    form = EditInterfaceForm.from_form(EditInterfaceForm(request.form), iface)
     context["form"] = form
     if not form.validate():
         error("Unable to validate form.")
@@ -279,7 +278,7 @@ def get_wireguard_iface(uuid: str):
     return ViewController(view, **context).load()
 
 
-@router.route("/wireguard/interfaces/<uuid>/remove", methods=['DELETE'])
+@router.route("/wireguard/interfaces/<uuid>", methods=['DELETE'])
 @login_required
 def remove_wireguard_iface(uuid: str):
     if uuid not in interfaces:
@@ -340,21 +339,14 @@ def download_wireguard_iface(uuid: str):
 @router.route("/wireguard/peers/add", methods=['GET'])
 @login_required
 def create_wireguard_peer():
-    iface = None
-    iface_uuid = request.args.get("interface")
-    if iface_uuid:
-        if iface_uuid not in interfaces:
-            abort(BAD_REQUEST, f"Unable to create peer for unknown interface '{iface_uuid}'.")
-        iface = interfaces[iface_uuid]
-    peer = peer_manager.generate_peer(iface)
-    ifaces = get_wg_interfaces_summary(wg_bin=linguard_config.wg_bin,
-                                       interfaces=list(interfaces.values())).values()
+    iface_uuid = request.args.get("interface", None)
+    iface = interfaces.get(iface_uuid, None)
+    from web.forms import AddPeerForm
+    form = AddPeerForm.populate(AddPeerForm(), iface)
     context = {
         "title": "Add peer",
-        "peer": peer,
-        "interfaces": ifaces,
-        "EMPTY_FIELD": EMPTY_FIELD,
-        "APP_NAME": APP_NAME
+        "form": form,
+        "app_name": APP_NAME
     }
     return ViewController("web/wireguard-add-peer.html", **context).load()
 
@@ -362,25 +354,43 @@ def create_wireguard_peer():
 @router.route("/wireguard/peers/add", methods=['POST'])
 @login_required
 def add_wireguard_peer():
-    data = request.json["data"]
-    return RestController().add_peer(data)
+    from web.forms import AddPeerForm
+    form = AddPeerForm.from_form(AddPeerForm(request.form))
+    view = "web/wireguard-add-peer.html"
+    context = {
+        "title": "Add Peer",
+        "form": form,
+        "app_name": APP_NAME
+    }
+    if not form.validate():
+        error("Unable to validate form")
+        return ViewController(view, **context).load()
+    try:
+        peer = RestController().add_peer(form)
+        return redirect(f"{request.url_root}wireguard/peers/{peer.uuid}")
+    except Exception as e:
+        log_exception(e)
+        context["error"] = True
+        context["error_details"] = e
+    return ViewController(view, **context).load()
 
 
-@router.route("/wireguard/peers/<uuid>/remove", methods=['DELETE'])
+@router.route("/wireguard/peers/<uuid>", methods=['DELETE'])
 @login_required
 def remove_wireguard_peer(uuid: str):
-    return RestController().remove_peer(uuid)
+    peer = get_all_peers().get(uuid, None)
+    if not peer:
+        raise WireguardError(f"Unknown peer '{uuid}'.", NOT_FOUND)
+    return RestController().remove_peer(peer)
 
 
-@router.route("/wireguard/peers/<uuid>", methods=['GET'])
+@router.route("/wireguard/peers/<uuid>", methods=['GET', "POST"])
 @login_required
 def get_wireguard_peer(uuid: str):
-    peer = None
-    for iface in interfaces.values():
-        if uuid in iface.peers:
-            peer = iface.peers[uuid]
+    peer = get_all_peers().get(uuid, None)
     if not peer:
-        abort(NOT_FOUND, f"Unknown peer '{uuid}'.")
+        raise WireguardError(f"Unknown peer '{uuid}'.", NOT_FOUND)
+    view = "web/wireguard-peer.html"
     context = {
         "title": "Edit peer",
         "peer": peer,
@@ -388,20 +398,37 @@ def get_wireguard_peer(uuid: str):
         "EMPTY_FIELD": EMPTY_FIELD,
         "APP_NAME": APP_NAME
     }
-    return ViewController("web/wireguard-peer.html", **context).load()
-
-
-@router.route("/wireguard/peers/<uuid>/save", methods=['POST'])
-@login_required
-def save_wireguard_peers(uuid: str):
-    data = request.json["data"]
-    return RestController(uuid).save_peer(data)
+    from web.forms import EditPeerForm
+    if request.method == 'GET':
+        form = EditPeerForm.from_peer(peer)
+        context["form"] = form
+        return ViewController(view, **context).load()
+    form = EditPeerForm.from_form(EditPeerForm(request.form), peer)
+    context["form"] = form
+    if not form.validate():
+        error("Unable to validate form.")
+        return ViewController(view, **context).load()
+    try:
+        RestController().save_peer(peer, form)
+        context["last_update"] = datetime.now().strftime("%H:%M")
+        context["success"] = True
+        context["success_details"] = "Peer updated successfully."
+    except Exception as e:
+        log_exception(e)
+        context["error"] = True
+        context["error_details"] = e
+    return ViewController(view, **context).load()
 
 
 @router.route("/wireguard/peers/<uuid>/download", methods=['GET'])
 @login_required
 def download_wireguard_peer(uuid: str):
-    return RestController(uuid).download_peer()
+    peer = get_all_peers().get(uuid, None)
+    if not peer:
+        msg = f"Unknown peer '{uuid}'."
+        error(msg)
+        abort(NOT_FOUND, msg)
+    return RestController().download_peer(peer)
 
 
 @router.route("/themes")

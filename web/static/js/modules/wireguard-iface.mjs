@@ -3,7 +3,7 @@ import {postJSON, prependAlert} from "./utils.mjs";
 const gwIface = $("#gateway");
 const onUp = $("#on_up")
 const onDown = $("#on_down")
-const alertContainer = "wgIfaceConfig";
+const alertContainer = "alerts";
 
 let oldGw = gwIface.val();
 
@@ -54,7 +54,7 @@ removeItem(removePeerBtn, "peer", function () {
 function removeItem(removeBtn, itemType, onSuccess) {
     removeBtn.click(function (e) {
         const item = e.target.id.split("-")[1];
-        const url = "/wireguard/"+itemType+"s/"+item+"/remove";
+        const url = "/wireguard/"+itemType+"s/"+item;
         const alertType = "danger";
         $.ajax({
             type: "delete",
@@ -69,16 +69,6 @@ function removeItem(removeBtn, itemType, onSuccess) {
     });
 }
 
-const downloadBtn = $(".downloadBtn");
-downloadBtn.click(function (e) {
-    let item = e.target.id.split("-")[1];
-    if (!item) {
-        item = e.target.farthestViewportElement.id.split("-")[1];
-    }
-    const url = "/wireguard/peers/"+item+"/download";
-    location.replace(url);
-});
-
 const startOrStopIfaceBtn = $(".startOrStopIfaceBtn");
 startOrStopIfaceBtn.click(function (e) {
     const button = e.target;
@@ -86,7 +76,6 @@ startOrStopIfaceBtn.click(function (e) {
     const action = button.innerText;
 
     const url = `/wireguard/interfaces/${iface}/${action}`;
-    const alertContainer = "wgIfacesHeader";
     const alertType = "danger";
     const loadFeedback = "wgIface-" + iface + "-loading"
 

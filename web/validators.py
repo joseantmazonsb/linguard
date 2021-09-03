@@ -5,7 +5,7 @@ from wtforms.validators import StopValidation
 
 from core.config.web_config import config
 from core.crypto_utils import CryptoUtils
-from core.models import Interface
+from core.models import Interface, Peer
 from web.models import users
 
 
@@ -103,3 +103,43 @@ class InterfacePortValidator(SettingsPortValidator):
         super(InterfacePortValidator, self).__call__(form, field)
         if Interface.is_port_in_use(field.data, form.iface):
             stop_validation(field, "port already in use!")
+
+
+class PeerNameValidator:
+    def __call__(self, form, field):
+        if not Peer.is_name_valid(field.data):
+            msg = f"can only contain alphanumeric characters, underscores (_), " \
+                  f"hyphens (-) and whitespaces. It must also begin with a letter and be between {Peer.MIN_NAME_LENGTH} and " \
+                  f"{Peer.MAX_NAME_LENGTH} characters long."
+            stop_validation(field, msg)
+
+
+class PeerIpValidator:
+    def __call__(self, form, field):
+        try:
+            ipaddress.IPv4Interface(field.data)
+            if Peer.is_ip_in_use(field.data, form.peer):
+                stop_validation(field, "address already in use!")
+        except ValueError:
+            msg = "must be valid IPv4 interface. Follow the format 'X.X.X.X/Y'."
+            stop_validation(field, msg)
+
+
+class PeerPrimaryDnsValidator:
+    def __call__(self, form, field):
+        try:
+            ipaddress.IPv4Address(field.data)
+        except ValueError:
+            msg = "must be valid IPv4 address. Follow the format 'X.X.X.X'."
+            stop_validation(field, msg)
+
+
+class PeerSecondaryDnsValidator:
+    def __call__(self, form, field):
+        if not field.data:
+            return
+        try:
+            ipaddress.IPv4Address(field.data)
+        except ValueError:
+            msg = "must be valid IPv4 address. Follow the format 'X.X.X.X'."
+            stop_validation(field, msg)

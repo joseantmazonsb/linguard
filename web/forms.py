@@ -11,12 +11,13 @@ from core.config.logger_config import config as logger_config
 from core.config.web_config import config as web_config
 from core.config_manager import config_manager
 from core.crypto_utils import CryptoUtils
-from core.models import Interface
+from core.models import Interface, Peer, interfaces
 from system_utils import get_network_adapters, get_system_interfaces, get_default_gateway, list_to_str
 from web.utils import fake
 from web.validators import LoginUsernameValidator, LoginPasswordValidator, SignupPasswordValidator, \
     SignupUsernameValidator, SettingsSecretKeyValidator, SettingsPortValidator, SettingsLoginAttemptsValidator, \
-    InterfaceIpValidator, InterfaceNameValidator, InterfacePortValidator
+    InterfaceIpValidator, InterfaceNameValidator, InterfacePortValidator, PeerIpValidator, PeerPrimaryDnsValidator, \
+    PeerSecondaryDnsValidator, PeerNameValidator
 
 
 class LoginForm(FlaskForm):
@@ -76,7 +77,7 @@ class SettingsForm(FlaskForm):
     submit = SubmitField('Save')
 
 
-class InterfaceForm(FlaskForm):
+class AddInterfaceForm(FlaskForm):
     name = StringField("Name", validators=[DataRequired(), InterfaceNameValidator()])
     auto = BooleanField("Auto", default=True)
     description = TextAreaField("Description", render_kw={"placeholder": "Some details..."})
@@ -99,8 +100,8 @@ class InterfaceForm(FlaskForm):
         return choices
 
     @classmethod
-    def from_form(cls, form: "InterfaceForm") -> "InterfaceForm":
-        new_form = InterfaceForm()
+    def from_form(cls, form: "AddInterfaceForm") -> "AddInterfaceForm":
+        new_form = AddInterfaceForm()
         new_form.name.data = form.name.data
         new_form.gateway.choices = cls.get_choices(exclusions=["lo"])
         new_form.gateway.data = form.gateway.data
@@ -111,7 +112,7 @@ class InterfaceForm(FlaskForm):
         return new_form
 
     @classmethod
-    def populate(cls, form: "InterfaceForm") -> "InterfaceForm":
+    def populate(cls, form: "AddInterfaceForm") -> "AddInterfaceForm":
         name = Interface.generate_valid_name()
         form.name.data = name
         form.gateway.choices = cls.get_choices(exclusions=["lo"])
@@ -132,14 +133,14 @@ class InterfaceForm(FlaskForm):
         return form
 
 
-class InterfaceEditForm(InterfaceForm):
+class EditInterfaceForm(AddInterfaceForm):
     public_key = StringField("Public key", render_kw={"disabled": "disabled"})
     private_key = StringField("Private key", render_kw={"disabled": "disabled"})
     submit = SubmitField('Save')
 
     @classmethod
-    def from_form(cls, form: "InterfaceEditForm", iface: Interface) -> "InterfaceEditForm":
-        new_form = InterfaceEditForm()
+    def from_form(cls, form: "EditInterfaceForm", iface: Interface) -> "EditInterfaceForm":
+        new_form = EditInterfaceForm()
         new_form.iface = iface
         new_form.name.data = form.name.data
         new_form.gateway.choices = cls.get_choices(exclusions=["lo", form.name])
@@ -153,8 +154,8 @@ class InterfaceEditForm(InterfaceForm):
         return new_form
 
     @classmethod
-    def from_interface(cls, iface: Interface) -> "InterfaceEditForm":
-        form = InterfaceEditForm()
+    def from_interface(cls, iface: Interface) -> "EditInterfaceForm":
+        form = EditInterfaceForm()
         form.iface = iface
         form.name.data = iface.name
         form.description.data = iface.description
@@ -167,4 +168,80 @@ class InterfaceEditForm(InterfaceForm):
         form.auto.data = iface.auto
         form.public_key.data = iface.public_key
         form.private_key.data = iface.private_key
+        return form
+
+
+class AddPeerForm(FlaskForm):
+    name = StringField("Name", validators=[DataRequired(), PeerNameValidator()])
+    nat = BooleanField("NAT", default=False)
+    description = TextAreaField("Description", render_kw={"placeholder": "Some details..."})
+    interface = SelectField("Interface", validate_choice=False)
+    ipv4 = StringField("IPv4", validators=[DataRequired(), PeerIpValidator()],
+                       render_kw={"placeholder": "0.0.0.0/32"})
+    dns1 = StringField("Primary DNS", validators=[DataRequired(), PeerPrimaryDnsValidator()],
+                       default="8.8.8.8", render_kw={"placeholder": "8.8.8.8"})
+    dns2 = StringField("Secondary DNS", validators=[PeerSecondaryDnsValidator()],
+                       render_kw={"placeholder": "8.8.4.4"})
+    peer = None
+    submit = SubmitField('Add')
+
+    @classmethod
+    def get_choices(cls) -> List[Tuple[str, str]]:
+        choices = []
+        for iface in interfaces.values():
+            choices.append((iface.name, iface.name))
+        return choices
+
+    @classmethod
+    def from_form(cls, form: "AddPeerForm") -> "AddPeerForm":
+        new_form = AddPeerForm()
+        new_form.name.data = form.name.data
+        new_form.ipv4.data = form.ipv4.data
+        new_form.interface.choices = cls.get_choices()
+        return new_form
+
+    @classmethod
+    def populate(cls, form: "AddPeerForm", iface: Interface = None) -> "AddPeerForm":
+        form.name.data = Peer.generate_valid_name()
+        form.ipv4.data = f"{fake.ipv4_private()}/{randint(8, 30)}"
+        form.interface.choices = cls.get_choices()
+        if iface:
+            form.interface.data = iface.name
+        return form
+
+
+class EditPeerForm(AddPeerForm):
+    public_key = StringField("Public key", render_kw={"disabled": "disabled"})
+    private_key = StringField("Private key", render_kw={"disabled": "disabled"})
+    submit = SubmitField('Save')
+
+    @classmethod
+    def from_form(cls, form: "EditPeerForm", peer: Peer) -> "EditPeerForm":
+        new_form = EditPeerForm()
+        new_form.peer = peer
+        new_form.name.data = form.name.data
+        new_form.ipv4.data = form.ipv4.data
+        new_form.dns1.data = form.dns1.data
+        new_form.dns2.data = form.dns2.data
+        new_form.nat.data = form.nat.data
+        new_form.public_key.data = peer.public_key
+        new_form.private_key.data = peer.private_key
+        new_form.interface.choices = cls.get_choices()
+        new_form.interface.data = peer.interface.name
+        return new_form
+
+    @classmethod
+    def from_peer(cls, peer: Peer) -> "EditPeerForm":
+        form = EditPeerForm()
+        form.peer = peer
+        form.name.data = peer.name
+        form.description.data = peer.description
+        form.ipv4.data = peer.ipv4_address
+        form.dns1.data = peer.dns1
+        form.dns2.data = peer.dns2
+        form.nat.data = peer.nat
+        form.public_key.data = peer.public_key
+        form.private_key.data = peer.private_key
+        form.interface.choices = cls.get_choices()
+        form.interface.data = peer.interface.name
         return form
