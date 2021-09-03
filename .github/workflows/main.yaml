@@ -61,4 +61,6 @@ jobs:
           sudo ./scripts/install.sh /var/www/linguard
           sudo -u linguard uwsgi --yaml /var/www/linguard/config/uwsgi.sample.yaml &
           sleep 5s
-          sudo pkill -f uwsgi -9
+          sudo pkill -f uwsgi -INT
+          sleep 2s
+          sudo pkill -f uwsgi -INT
