@@ -42,7 +42,6 @@ jobs:
       - name: Run tests
         run: |
           pip install pytest pytest-cov
-          cd linguard
           python -m pytest -s --cov-report xml:coverage.xml --cov
 
       - name: Upload coverage report to Codecov
