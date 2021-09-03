@@ -129,3 +129,4 @@ dmypy.yaml
 config/uwsgi.yaml
 config/linguard.yaml
 config/credentials.yaml
+logs/

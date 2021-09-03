@@ -1,12 +1,56 @@
-from collections import OrderedDict
+import http
+import os
+import re
 from logging import info, warning, error, debug
-from typing import Dict, Any, Type
+from random import randint
+from time import sleep
+from typing import Dict, Any, Type, List, Mapping, TypeVar
 from uuid import uuid4 as gen_uuid
 
+from coolname import generate_slug
 from yamlable import YamlAble, yaml_info, Y
 
 from core.exceptions import WireguardError
-from core.utils import run_os_command, write_lines
+from system_utils import run_os_command, write_lines, try_makedir, get_wg_interface_status
+
+K = TypeVar('K')
+V = TypeVar('V')
+
+
+class EnhancedDict(Dict, Mapping[K, V]):
+
+    def set_contents(self, dct: "EnhancedDict"):
+        """
+        Clear the dictionary and fill it with the values of the given one.
+
+        :param dct:
+        :return:
+        """
+        self.clear()
+        self.update(dct)
+
+    def sort(self, order_by):
+        self.set_contents(EnhancedDict(sorted(self.items(), key=order_by)))
+
+    def get_key_by_attr(self, attr: str, attr_value: str) -> K:
+        """
+        Get the first key (or None) of the dictionary which contains an attribute whose value is equal to attr_value.
+
+        :param attr: Attribute to compare.
+        :param attr_value: Value to compare.
+        :return: The first matching key or None.
+        """
+        return next(iter(filter(lambda k: k.__getattribute__(attr) == attr_value, self.keys())), None)
+
+    def get_value_by_attr(self, attr: str, attr_value: str) -> V:
+        """
+        Get the first value (or None) of the dictionary which contains an attribute whose value is equal to attr_value.
+
+        :param attr: Attribute to compare.
+        :param attr_value: Value to compare.
+        :return: The first matching value or None.
+        """
+        return next(iter(filter(lambda v: v.__getattribute__(attr) == attr_value, self.values())), None)
 
 
 @yaml_info(yaml_tag='interface')
@@ -21,22 +65,35 @@ class Interface(YamlAble):
     REGEX_IPV4 = f"^{REGEX_IPV4_PARTIAL}$"
     REGEX_IPV4_CIDR = f"^{REGEX_IPV4_PARTIAL}\/(3[0-2]|[1-2]\d|\d)$"
 
-    def __init__(self, uuid: str, name: str, conf_file: str, description: str, gw_iface: str, ipv4_address,
-                 listen_port: int, private_key: str, public_key: str, wg_quick_bin: str, auto: bool):
-        self.uuid = uuid
+    @property
+    def wg_quick_bin(self):
+        from core.config.linguard_config import config
+        return config.wg_quick_bin
+
+    def __init__(self, name: str, description: str, gw_iface: str, ipv4_address: str, listen_port: int, auto: bool,
+                 on_up: List[str], on_down: List[str], uuid: str = "", private_key: str = "",
+                 public_key: str = "", peers: "PeerDict" = None):
         self.name = name
-        self.conf_file = conf_file
         self.gw_iface = gw_iface
         self.description = description
         self.ipv4_address = ipv4_address
         self.listen_port = listen_port
-        self.wg_quick_bin = wg_quick_bin
-        self.private_key = private_key
-        self.public_key = public_key
         self.auto = auto
-        self.on_up = []
-        self.on_down = []
-        self.peers = OrderedDict()
+        self.on_up = on_up
+        self.on_down = on_down
+        self.uuid = uuid or gen_uuid().hex
+        self.peers = peers or PeerDict()
+        for peer in self.peers.values():
+            peer.interface = self
+        from core.utils import generate_privkey, generate_pubkey
+        from core.config.linguard_config import config
+        self.conf_file = f"{os.path.join(config.interfaces_folder, self.name)}.conf"
+        self.private_key = private_key or generate_privkey()
+        if not private_key:
+            warning("Generating new public key because no private key was provided.")
+            self.public_key = generate_pubkey(self.private_key)
+        else:
+            self.public_key = public_key or generate_pubkey(self.private_key)
 
     def __to_yaml_dict__(self):  # type: (...) -> Dict[str, Any]
         """ Called when you call yaml.dump()"""
@@ -52,19 +109,16 @@ class Interface(YamlAble):
             "auto": self.auto,
             "on_up": self.on_up,
             "on_down": self.on_down,
-            "peers": dict(self.peers)
+            "peers": self.peers
         }
 
     @classmethod
-    def __from_yaml_dict__(cls,      # type: Type[Y]
-                           dct,      # type: Dict[str, Any]
+    def __from_yaml_dict__(cls,  # type: Type[Y]
+                           dct,  # type: Dict[str, Any]
                            yaml_tag  # type: str
                            ):  # type: (...) -> Y
         """ This optional method is called when you call yaml.load()"""
-        if "uuid" in dct:
-            uuid = dct["uuid"]
-        else:
-            uuid = gen_uuid().hex
+        uuid = dct["uuid"]
         name = dct["name"]
         description = dct["description"]
         gw_iface = dct["gw_iface"]
@@ -73,22 +127,16 @@ class Interface(YamlAble):
         private_key = dct["private_key"]
         public_key = dct["public_key"]
         auto = dct["auto"]
-        wg_quick_bin = None
-        if "wg_quick_bin" in dct:
-            wg_quick_bin = dct["wg_quick_bin"]
-        iface = Interface(uuid, name, None, description, gw_iface,
-                          ipv4_address, listen_port, private_key,
-                          public_key, wg_quick_bin, auto)
-        iface.on_up = dct["on_up"]
-        iface.on_down = dct["on_down"]
-        iface.peers = dct["peers"]
-        for peer in iface.peers.values():
-            peer.interface = iface
+        on_up = dct.get("on_up", [])
+        on_down = dct.get("on_down", [])
+        peers = dct.get("peers", None)
+        iface = Interface(name=name, description=description, gw_iface=gw_iface, ipv4_address=ipv4_address,
+                          listen_port=listen_port, auto=auto, uuid=uuid, private_key=private_key,
+                          public_key=public_key, on_up=on_up, on_down=on_down, peers=peers)
         return iface
 
-    def save(self) -> str:
-        """Generate a wireguard configuration file suitable for this interface and store it."""
-
+    def generate_conf(self) -> str:
+        """Generate the wireguard configuration for this interface."""
         iface = f"[Interface]\n" \
                 f"PrivateKey = {self.private_key}\n" \
                 f"Address = {self.ipv4_address}\n" \
@@ -103,11 +151,14 @@ class Interface(YamlAble):
             peers += f"\n[Peer]\n" \
                      f"PublicKey = {peer.public_key}\n" \
                      f"AllowedIPs = {peer.ipv4_address}\n"
-        conf = iface + peers
+        return iface + peers
+
+    def save(self):
+        """Store the current wireguard configuration for this interface in the file system."""
         debug(f"Saving configuration of interface {self.name} to {self.conf_file}...")
-        write_lines(conf, self.conf_file)
+        try_makedir(os.path.dirname(self.conf_file))
+        write_lines(self.generate_conf(), self.conf_file)
         debug(f"Configuration saved!")
-        return conf
 
     @property
     def is_up(self):
@@ -116,6 +167,11 @@ class Interface(YamlAble):
     @property
     def is_down(self):
         return not self.is_up
+
+    @property
+    def status(self):
+        from core.config.linguard_config import config
+        return get_wg_interface_status(config.wg_bin, self.name)
 
     def up(self):
         info(f"Starting interface {self.name}...")
@@ -142,6 +198,85 @@ class Interface(YamlAble):
             error(f"Failed to stop interface {self.name}: code={result.code} | err={result.err} | out={result.output}")
             raise WireguardError(result.err)
 
+    def apply(self):
+        self.down()
+        self.save()
+        self.up()
+
+    def restart(self):
+        self.down()
+        sleep(1)
+        self.up()
+
+    def remove(self):
+        self.down()
+        self.peers.clear()
+        if os.path.exists(self.conf_file):
+            os.remove(self.conf_file)
+        del interfaces[self.uuid]
+        interfaces.sort()
+
+    def edit(self, name: str, description: str, ipv4_address: str,
+             port: int, gw_iface: str, auto: bool, on_up: List[str], on_down: List[str]):
+        self.name = name
+        self.gw_iface = gw_iface
+        self.description = description
+        self.ipv4_address = ipv4_address
+        self.listen_port = port
+        self.auto = auto
+        self.on_up = on_up
+        self.on_down = on_down
+        from core.config.linguard_config import config
+        self.conf_file = f"{os.path.join(config.interfaces_folder, self.name)}.conf"
+
+    def add_peer(self, peer: "Peer"):
+        self.peers[peer.uuid] = peer
+        self.peers.sort()
+
+    @classmethod
+    def generate_valid_name(cls) -> str:
+        name = generate_slug(2)[:cls.MAX_NAME_LENGTH]
+        for iface in interfaces.values():
+            if iface.name == name:
+                return cls.generate_valid_name()
+        return name
+
+    @classmethod
+    def is_name_valid(cls, name: str) -> bool:
+        return re.match(cls.REGEX_NAME, name) is not None
+
+    @classmethod
+    def is_name_in_use(cls, name: str, interface: "Interface") -> bool:
+        iface = interfaces.get_value_by_attr("name", name)
+        if iface:
+            if iface == interface:
+                return False
+            return True
+
+    @classmethod
+    def is_ip_in_use(cls, ip: str, interface_to_exclude: "Interface" = None) -> bool:
+        ip = ip.split("/")[0]
+        for iface in filter(lambda i: i != interface_to_exclude, interfaces.values()):
+            if iface.ipv4_address == ip:
+                return True
+        return False
+
+    @classmethod
+    def is_port_in_use(cls, port: int, interface_to_exclude: "Interface" = None) -> bool:
+        for iface in filter(lambda i: i != interface_to_exclude, interfaces.values()):
+            if iface.listen_port == port:
+                return True
+        return False
+
+    @classmethod
+    def get_unused_port(cls) -> int:
+        tries = 100
+        for i in range(0, tries):
+            port = randint(Interface.MIN_PORT_NUMBER, Interface.MAX_PORT_NUMBER)
+            if not Interface.is_port_in_use(port):
+                return port
+        raise WireguardError(f"Unable to obtain a free port (tried {tries} times)", http.HTTPStatus.BAD_REQUEST)
+
 
 @yaml_info(yaml_tag='peer')
 class Peer(YamlAble):
@@ -149,18 +284,23 @@ class Peer(YamlAble):
     MAX_NAME_LENGTH = 64
     REGEX_NAME = f"^[a-zA-Z][\w\-. ]{{{MIN_NAME_LENGTH - 1},{MAX_NAME_LENGTH - 1}}}$"
 
-    def __init__(self, uuid: str, name: str, description: str, ipv4_address: str, private_key: str, public_key: str,
-                 nat: bool, interface: Interface, dns1: str, dns2: str = None):
-        self.uuid = uuid
+    def __init__(self, name: str, description: str, ipv4_address: str, nat: bool, interface: Interface, dns1: str,
+                 uuid: str = "", private_key: str = "", public_key: str = "", dns2: str = None):
         self.name = name
         self.description = description
         self.ipv4_address = ipv4_address
-        self.private_key = private_key
-        self.public_key = public_key
         self.nat = nat
         self.interface = interface
         self.dns1 = dns1
         self.dns2 = dns2
+        self.uuid = uuid or gen_uuid().hex
+        from core.utils import generate_privkey, generate_pubkey
+        self.private_key = private_key or generate_privkey()
+        if not private_key:
+            warning("Generating new public key because no private key was provided.")
+            self.public_key = generate_pubkey(self.private_key)
+        else:
+            self.public_key = public_key or generate_pubkey(self.private_key)
 
     @property
     def endpoint(self):
@@ -187,8 +327,17 @@ class Peer(YamlAble):
                            yaml_tag  # type: str
                            ):  # type: (...) -> Y
         """ This optional method is called when you call yaml.load()"""
-        return Peer(dct["uuid"], dct["name"], dct["description"], dct["ipv4_address"], dct["private_key"],
-                    dct["public_key"], dct["nat"], None, dct["dns1"], dct["dns2"])
+        uuid = dct["uuid"]
+        name = dct["name"]
+        description = dct["description"]
+        ipv4_address = dct["ipv4_address"]
+        private_key = dct["private_key"]
+        public_key = dct["public_key"]
+        nat = dct["nat"]
+        dns1 = dct["dns1"]
+        dns2 = dct.get("dns2", "")
+        return Peer(name=name, description=description, interface=None, ipv4_address=ipv4_address, nat=nat, uuid=uuid,
+                    private_key=private_key, public_key=public_key, dns1=dns1, dns2=dns2)
 
     def generate_conf(self) -> str:
         """Generate a wireguard configuration file suitable for this client."""
@@ -210,37 +359,89 @@ class Peer(YamlAble):
 
         return iface + peer
 
+    def edit(self, name: str, description: str, ipv4_address: str, interface: Interface, dns1: str, dns2: str,
+             nat: bool):
+        self.remove()
+        self.name = name
+        self.description = description
+        self.ipv4_address = ipv4_address
+        self.interface = interface
+        self.interface.add_peer(self)
+        self.dns1 = dns1
+        self.dns2 = dns2
+        self.nat = nat
 
-@yaml_info(yaml_tag='interfaces')
-class InterfaceDict(Dict[str, Interface], YamlAble):
-
-    def get_by_name(self, name: str):
-        for k, v in self.items():
-            if v.name == name:
-                return v
-        return None
-
-    def set_contents(self, dct: "InterfaceDict"):
-        """
-        Clear the dictionary and fill it with the values of the given one.
-
-        :param dct:
-        :return:
-        """
-        self.clear()
-        self.update(dct)
+    def remove(self):
+        if self.uuid not in self.interface.peers:
+            return
+        del self.interface.peers[self.uuid]
+        self.interface.peers.sort()
 
     @classmethod
-    def __from_yaml_dict__(cls,      # type: Type[Y]
-                           dct,      # type: Dict[str, Any]
+    def is_ip_in_use(cls, ip: str, peer_to_exclude: "Peer" = None) -> bool:
+        ip = ip.split("/")[0]
+        for peer in filter(lambda p: p != peer_to_exclude, get_all_peers().values()):
+            if peer.ipv4_address == ip:
+                return True
+        return False
+
+    @classmethod
+    def generate_valid_name(cls) -> str:
+        name = generate_slug(2)[:cls.MAX_NAME_LENGTH]
+        for iface in interfaces.values():
+            if iface.name == name:
+                return cls.generate_valid_name()
+        return name
+
+    @classmethod
+    def is_name_valid(cls, name: str) -> bool:
+        return re.match(cls.REGEX_NAME, name) is not None
+
+
+@yaml_info(yaml_tag='interfaces')
+class InterfaceDict(EnhancedDict, YamlAble, Mapping[K, V]):
+    @classmethod
+    def __from_yaml_dict__(cls,  # type: Type[Y]
+                           dct,  # type: Dict[str, Any]
                            yaml_tag  # type: str
                            ):  # type: (...) -> Y
         i = InterfaceDict()
         i.update(dct)
+        i.sort()
         return i
 
     def __to_yaml_dict__(self):  # type: (...) -> Dict[str, Any]
         return self
 
+    def sort(self, order_by=lambda pair: pair[1].name):
+        super(InterfaceDict, self).sort(order_by)
 
+
+@yaml_info(yaml_tag='peers')
+class PeerDict(EnhancedDict, YamlAble, Mapping[K, V]):
+    @classmethod
+    def __from_yaml_dict__(cls,  # type: Type[Y]
+                           dct,  # type: Dict[str, Any]
+                           yaml_tag  # type: str
+                           ):  # type: (...) -> Y
+        p = PeerDict()
+        p.update(dct)
+        p.sort()
+        return p
+
+    def __to_yaml_dict__(self):  # type: (...) -> Dict[str, Any]
+        return self
+
+    def sort(self, order_by=lambda pair: pair[1].name):
+        super(PeerDict, self).sort(order_by)
+
+
+def get_all_peers() -> Dict[str, Peer]:
+    dct = {}
+    for iface in interfaces.values():
+        dct.update(iface.peers)
+    return dct
+
+
+interfaces: InterfaceDict[str, Interface]
 interfaces = InterfaceDict()

@@ -1,242 +1,119 @@
 import http
 import io
-import re
-from http.client import NOT_FOUND
+from http.client import NO_CONTENT, INTERNAL_SERVER_ERROR
 from logging import debug
-from typing import Dict, Any, List
 
 from flask import Response, send_file, url_for, redirect, abort
 from flask_login import login_user
 
-from core.app_manager import manager
 from core.config.linguard_config import config as linguard_config, LinguardConfig
 from core.config.logger_config import config as logger_config, LoggerConfig
 from core.config.web_config import config as web_config, WebConfig
+from core.config_manager import config_manager
 from core.exceptions import WireguardError
 from core.models import Interface, Peer, interfaces
-from core.utils import log_exception
+from system_utils import log_exception, str_to_list
 from web.controllers.ViewController import ViewController
 from web.models import users, User
-from web.utils import get_system_interfaces
-
-HTTP_NO_CONTENT = 204
-HTTP_BAD_REQUEST = 400
-HTTP_INTERNAL_ERROR = 500
 
 
 class RestController:
-    def regenerate_iface_keys(self) -> Response:
-        try:
-            manager.regenerate_keys(self.uuid)
-            return Response(status=HTTP_NO_CONTENT)
-        except WireguardError as e:
-            log_exception(e)
-            return Response(str(e), status=e.http_code)
-        except Exception as e:
-            log_exception(e)
-            return Response(str(e), status=HTTP_INTERNAL_ERROR)
 
-    def __init__(self, uuid: str = None):
+    def __init__(self, uuid: str = ""):
         self.uuid = uuid
 
-    def save_iface(self, data: Dict[str, Any]) -> Response:
-        try:
-            self.find_errors_in_save_iface(data)
-            on_down = self.get_list_from_str(data["on_down"])
-            on_up = self.get_list_from_str(data["on_up"])
-            iface = interfaces[self.uuid]
-            manager.edit_interface(iface, data["name"], data["description"],
-                                   data["ipv4_address"], data["listen_port"], data["gw_iface"],
-                                   data["auto"], on_up, on_down)
-            manager.save_changes()
-            return Response(status=HTTP_NO_CONTENT)
-        except WireguardError as e:
-            log_exception(e)
-            return Response(str(e), status=e.http_code)
-        except Exception as e:
-            log_exception(e)
-            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+    @staticmethod
+    def __save_iface__(iface: Interface, form):
+        iface.edit(name=form.name.data, description=form.description.data,
+                   gw_iface=form.gateway.data, ipv4_address=form.ipv4.data, port=form.port.data,
+                   auto=form.auto.data, on_up=str_to_list(form.on_up.data),
+                   on_down=str_to_list(form.on_down.data))
+        config_manager.save()
+
+    def apply_iface(self, iface: Interface, form):
+        self.__save_iface__(iface, form)
+        iface.apply()
 
     @staticmethod
-    def get_list_from_str(string: str, separator: str = "\n") -> List[str]:
-        chunks = string.strip().split(separator)
-        lst = []
-        for cmd in chunks:
-            lst.append(cmd)
-        return lst
-
-    @staticmethod
-    def find_errors_in_save_iface(data: Dict[str, Any]):
-        if not re.match(Interface.REGEX_NAME, data["name"]):
-            raise WireguardError("interface name can only contain alphanumeric characters, "
-                                 "underscores (_) and hyphens (-). It must also begin with a "
-                                 f"letter and cannot exceed {Interface.MAX_NAME_LENGTH} characters.", HTTP_BAD_REQUEST)
-        if not re.match(Interface.REGEX_IPV4_CIDR, data["ipv4_address"]):
-            raise WireguardError("invalid IPv4 address or mask. Must follow the format X.X.X.X/Y, "
-                                 "just like 10.0.0.10/24, for instance.", HTTP_BAD_REQUEST)
-        err_msg = f"listen port must be an integer between {Interface.MIN_PORT_NUMBER} " \
-                  f"and {Interface.MAX_PORT_NUMBER} (both included)"
-        try:
-            port = int(data["listen_port"])
-            if port < Interface.MIN_PORT_NUMBER or port > Interface.MAX_PORT_NUMBER:
-                raise WireguardError(err_msg, HTTP_BAD_REQUEST)
-        except Exception:
-            raise WireguardError(err_msg, HTTP_BAD_REQUEST)
-        gw_iface = data["gw_iface"]
-        if not gw_iface:
-            raise WireguardError(f"A valid gateway device must be provided,.", HTTP_BAD_REQUEST)
-        if gw_iface not in get_system_interfaces():
-            raise WireguardError(f"'{data['gw_iface']}' is not a valid gateway device.", HTTP_BAD_REQUEST)
-
-    def apply_iface(self, data: Dict[str, Any]) -> Response:
-        try:
-            self.save_iface(data)
-            iface = interfaces[self.uuid]
-            manager.apply_iface(iface)
-            return Response(status=HTTP_NO_CONTENT)
-        except WireguardError as e:
-            log_exception(e)
-            return Response(str(e), status=e.http_code)
-        except Exception as e:
-            log_exception(e)
-            return Response(str(e), status=HTTP_INTERNAL_ERROR)
-
-    def add_iface(self, data: Dict[str, Any]) -> Response:
-        try:
-            self.find_errors_in_save_iface(data)
-            iface = manager.pending_interfaces[self.uuid]
-            on_up = self.get_list_from_str(data["on_up"])
-            on_down = self.get_list_from_str(data["on_down"])
-            manager.edit_interface(iface, data["name"], data["description"],
-                                   data["ipv4_address"], data["listen_port"], data["gw_iface"],
-                                   data["auto"], on_up, on_down)
-            manager.add_iface(iface)
-            manager.save_changes()
-            return Response(status=HTTP_NO_CONTENT)
-        except WireguardError as e:
-            log_exception(e)
-            return Response(str(e), status=e.http_code)
-        except Exception as e:
-            log_exception(e)
-            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+    def add_iface(form):
+        on_up = str_to_list(form.on_up.data)
+        on_down = str_to_list(form.on_down.data)
+        iface = Interface(name=form.name.data, description=form.description.data, gw_iface=form.gateway.data,
+                          ipv4_address=form.ipv4.data, listen_port=form.port.data, auto=form.auto.data, on_up=on_up,
+                          on_down=on_down)
+        interfaces[iface.uuid] = iface
+        interfaces.sort()
+        config_manager.save()
 
     def remove_iface(self) -> Response:
         try:
-            manager.remove_interface(self.uuid)
-            manager.save_changes()
-            return Response(status=HTTP_NO_CONTENT)
+            interfaces[self.uuid].remove()
+            config_manager.save()
+            return Response(status=NO_CONTENT)
         except WireguardError as e:
             log_exception(e)
             return Response(str(e), status=e.http_code)
         except Exception as e:
             log_exception(e)
-            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+            return Response(str(e), status=INTERNAL_SERVER_ERROR)
 
     @staticmethod
-    def find_errors_in_save_peer(data: Dict[str, Any]):
-        wg_iface = data["interface"]
-        if not wg_iface:
-            raise WireguardError(f"a valid wireguard interface must be provided,.", HTTP_BAD_REQUEST)
-        try:
-            interfaces[wg_iface]
-        except WireguardError:
-            raise WireguardError(f"'{wg_iface}' is not a valid wireguard interface.", HTTP_BAD_REQUEST)
-        if not re.match(Peer.REGEX_NAME, data["name"]):
-            raise WireguardError("peer name can only contain alphanumeric characters, "
-                                 "underscores (_), hyphens (-) and dots (.). It must also begin with a letter "
-                                 f"and its length cannot exceed {Peer.MAX_NAME_LENGTH} characters.", HTTP_BAD_REQUEST)
-        if not re.match(Interface.REGEX_IPV4_CIDR, data["ipv4_address"]):
-            raise WireguardError("invalid IPv4 address or mask. Must follow the format X.X.X.X/Y, "
-                                 "just like 10.0.0.10/24, for instance.", HTTP_BAD_REQUEST)
-        if not re.match(Interface.REGEX_IPV4, data["dns1"]):
-            raise WireguardError("invalid primary DNS. Must follow the format X.X.X.X, "
-                                 "just like 8.8.8.8, for instance.", HTTP_BAD_REQUEST)
-        if data["dns2"] and not re.match(Interface.REGEX_IPV4, data["dns2"]):
-            raise WireguardError("invalid secondary DNS. Must follow the format X.X.X.X, "
-                                 "just like 8.8.4.4, for instance.", HTTP_BAD_REQUEST)
-
-    def add_peer(self, data: Dict[str, Any]) -> Response:
-        try:
-            self.find_errors_in_save_peer(data)
-            iface = interfaces[data["interface"]]
-            peer = manager.get_pending_peer_by_name(data["name"])
-            manager.edit_peer(peer, data["name"], data["description"], data["ipv4_address"], iface,
-                              data["dns1"], data["nat"], data.get("dns2", ""))
-            manager.add_peer(peer)
-            manager.save_changes()
-            return Response(status=HTTP_NO_CONTENT)
-        except WireguardError as e:
-            log_exception(e)
-            return Response(str(e), status=e.http_code)
-        except Exception as e:
-            log_exception(e)
-            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+    def add_peer(form) -> Peer:
+        iface = interfaces.get_value_by_attr("name", form.interface.data)
+        peer = Peer(name=form.name.data, description=form.description.data,
+                    interface=iface, ipv4_address=form.ipv4.data,
+                    dns1=form.dns1.data, dns2=form.dns2.data, nat=form.nat.data)
+        iface.add_peer(peer)
+        config_manager.save()
+        return peer
 
     @staticmethod
-    def remove_peer(uuid: str) -> Response:
+    def remove_peer(peer: Peer) -> Response:
         try:
-            peer = None
-            for iface in interfaces.values():
-                if uuid in iface.peers:
-                    peer = iface.peers[uuid]
-            if peer is None:
-                raise WireguardError("unable to remove interface.", HTTP_BAD_REQUEST)
-            manager.remove_peer(peer)
-            manager.save_changes()
-            return Response(status=HTTP_NO_CONTENT)
-        except WireguardError as e:
-            log_exception(e)
-            return Response(str(e), status=e.http_code)
+            peer.remove()
+            config_manager.save()
+            return Response(status=NO_CONTENT)
         except Exception as e:
             log_exception(e)
-            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+            return Response(str(e), status=INTERNAL_SERVER_ERROR)
 
-    def save_peer(self, data: Dict[str, Any]) -> Response:
-        try:
-            peer = None
-            for iface in interfaces.values():
-                if self.uuid in iface.peers:
-                    peer = iface.peers[self.uuid]
-            if not peer:
-                raise WireguardError(f"Unknown peer '{self.uuid}'.", NOT_FOUND)
-            self.find_errors_in_save_peer(data)
-            iface = interfaces[data["interface"]]
-            manager.edit_peer(peer, data["name"], data["description"],
-                              data["ipv4_address"], iface, data["dns1"],
-                              data["nat"], data["dns2"])
-            manager.save_changes()
-            return Response(status=HTTP_NO_CONTENT)
-        except WireguardError as e:
-            log_exception(e)
-            return Response(str(e), status=e.http_code)
-        except Exception as e:
-            log_exception(e)
-            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+    @staticmethod
+    def save_peer(peer: Peer, form):
+        iface = interfaces.get_value_by_attr("name", form.interface.data)
+        peer.edit(name=form.name.data, description=form.description.data, interface=iface,
+                  ipv4_address=form.ipv4.data, nat=form.nat.data, dns1=form.dns1.data, dns2=form.dns2.data)
+        config_manager.save()
 
-    def download_peer(self) -> Response:
+    def download_peer(self, peer: Peer) -> Response:
         try:
-            peer = None
-            for iface in interfaces.values():
-                if self.uuid in iface.peers:
-                    peer = iface.peers[self.uuid]
-            if not peer:
-                raise WireguardError(f"Unknown peer '{self.uuid}'.", NOT_FOUND)
             conf = peer.generate_conf()
-            proxy = io.StringIO()
-            proxy.writelines(conf)
-            # Creating the byteIO object from the StringIO Object
-            mem = io.BytesIO()
-            mem.write(proxy.getvalue().encode())
-            # seeking was necessary. Python 3.5.2, Flask 0.12.2
-            mem.seek(0)
-            proxy.close()
-            return send_file(mem, as_attachment=True, attachment_filename=f"{peer.name}.conf", mimetype="text/plain")
+            return self.send_text_as_file(filename=f"{peer.name}.conf", text=conf)
         except WireguardError as e:
             log_exception(e)
             return Response(str(e), status=e.http_code)
         except Exception as e:
             log_exception(e)
-            return Response(str(e), status=HTTP_INTERNAL_ERROR)
+            return Response(str(e), status=INTERNAL_SERVER_ERROR)
+
+    def download_iface(self, iface: Interface) -> Response:
+        try:
+            conf = iface.generate_conf()
+            return self.send_text_as_file(filename=f"{iface.name}.conf", text=conf)
+        except Exception as e:
+            log_exception(e)
+            return Response(str(e), status=INTERNAL_SERVER_ERROR)
+
+    @staticmethod
+    def send_text_as_file(filename: str, text: str):
+        proxy = io.StringIO()
+        proxy.writelines(text)
+        # Creating the byteIO object from the StringIO Object
+        mem = io.BytesIO()
+        mem.write(proxy.getvalue().encode())
+        # seeking was necessary. Python 3.5.2, Flask 0.12.2
+        mem.seek(0)
+        proxy.close()
+        return send_file(mem, as_attachment=True, attachment_filename=filename, mimetype="text/plain")
 
     @staticmethod
     def save_settings(form):
@@ -262,7 +139,7 @@ class RestController:
         linguard_config.iptables_bin = form.app_iptables_bin.data or sample_linguard.iptables_bin
         linguard_config.interfaces_folder = form.app_interfaces_folder.data or sample_linguard.interfaces_folder
 
-        manager.save_changes()
+        config_manager.save()
 
     @staticmethod
     def signup(form):

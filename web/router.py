@@ -1,24 +1,23 @@
 import http
-import traceback
 from datetime import datetime, timedelta
 from http.client import BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR, UNAUTHORIZED, NO_CONTENT
 from logging import warning, debug, error, info
+from typing import List, Dict, Any
 
 from flask import Blueprint, abort, request, Response, redirect, url_for
 from flask_login import current_user, login_required, login_user
 
-from core.app_manager import manager
 from core.config.linguard_config import config as linguard_config
 from core.config.logger_config import config as logger_config
 from core.config.web_config import config as web_config
 from core.exceptions import WireguardError
-from core.models import interfaces
+from core.models import interfaces, Interface, get_all_peers
+from core.utils import is_wg_iface_up, get_wg_interfaces_summary
+from system_utils import get_routing_table, get_network_adapters, list_to_str, get_system_interfaces, log_exception
 from web.controllers.RestController import RestController
 from web.controllers.ViewController import ViewController
 from web.models import users
 from web.static.assets.resources import EMPTY_FIELD, APP_NAME
-from web.utils import get_all_interfaces, get_routing_table, get_wg_interfaces_summary, get_wg_interface_status, \
-    get_network_adapters
 
 
 class Router(Blueprint):
@@ -101,12 +100,13 @@ def login_post():
         return redirect(form.next.data or url_for("router.index"))
     router.login_attempts += 1
     if not form.validate():
+        error("Unable to validate form.")
         context = {
             "title": "Login",
             "form": form
         }
         return ViewController("web/login.html", **context).load()
-    u = users.get_by_name(form.username.data)
+    u = users.get_value_by_attr("name", form.username.data)
     if not login_user(u, form.remember_me.data):
         error(f"Unable to log user in.")
         abort(http.HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -119,7 +119,7 @@ def login_post():
 @login_required
 def network():
     wg_ifaces = list(interfaces.values())
-    ifaces = get_all_interfaces(wg_bin=linguard_config.wg_bin, wg_interfaces=wg_ifaces)
+    ifaces = get_network_ifaces(wg_ifaces)
     routes = get_routing_table()
     context = {
         "title": "Network",
@@ -129,6 +129,64 @@ def network():
         "EMPTY_FIELD": EMPTY_FIELD
     }
     return ViewController("web/network.html", **context).load()
+
+
+def get_network_ifaces(wg_interfaces: List[Interface]) -> Dict[str, Dict[str, Any]]:
+    interfaces = get_system_interfaces_summary()
+    for iface in wg_interfaces:
+        if iface.name not in interfaces:
+            interfaces[iface.name] = {
+                "uuid": iface.uuid,
+                "name": iface.name,
+                "status": "down",
+                "ipv4": iface.ipv4_address,
+                "ipv6": EMPTY_FIELD,
+                "mac": EMPTY_FIELD,
+                "flags": EMPTY_FIELD
+            }
+        else:
+            if iface in wg_interfaces:
+                interfaces[iface.name]["uuid"] = iface.uuid
+            if interfaces[iface.name]["status"] == "unknown":
+                if is_wg_iface_up(iface.name):
+                    interfaces[iface.name]["status"] = "up"
+                else:
+                    interfaces[iface.name]["status"] = "down"
+        interfaces[iface.name]["editable"] = True
+
+    return interfaces
+
+
+def get_system_interfaces_summary() -> Dict[str, Dict[str, Any]]:
+    interfaces = {}
+    for item in get_system_interfaces().values():
+        flag_list = list(filter(lambda flag: "UP" not in flag, item["flags"]))
+        flags = list_to_str(flag_list)
+        iface = {
+            "name": item["ifname"],
+            "flags": flags,
+            "status": item["operstate"].lower()
+        }
+        if "LOOPBACK" in iface["flags"]:
+            iface["status"] = "up"
+        if "address" in item:
+            iface["mac"] = item["address"]
+        else:
+            iface["mac"] = EMPTY_FIELD
+        addr_info = item["addr_info"]
+        if addr_info:
+            ipv4_info = addr_info[0]
+            iface["ipv4"] = f"{ipv4_info['local']}/{ipv4_info['prefixlen']}"
+            if len(addr_info) > 1:
+                ipv6_info = addr_info[1]
+                iface["ipv6"] = f"{ipv6_info['local']}/{ipv6_info['prefixlen']}"
+            else:
+                iface["ipv6"] = EMPTY_FIELD
+        else:
+            iface["ipv4"] = EMPTY_FIELD
+            iface["ipv6"] = EMPTY_FIELD
+        interfaces[iface["name"]] = iface
+    return interfaces
 
 
 @router.route("/wireguard")
@@ -148,51 +206,79 @@ def wireguard():
 @router.route("/wireguard/interfaces/add", methods=['GET'])
 @login_required
 def create_wireguard_iface():
-    iface = manager.generate_interface()
+    from web.forms import AddInterfaceForm
+    form = AddInterfaceForm.populate(AddInterfaceForm())
     context = {
         "title": "Add interface",
-        "iface": iface,
-        "EMPTY_FIELD": EMPTY_FIELD,
-        "APP_NAME": APP_NAME
+        "form": form,
+        "app_name": APP_NAME
     }
     return ViewController("web/wireguard-add-iface.html", **context).load()
 
 
-@router.route("/wireguard/interfaces/add/<uuid>", methods=['POST'])
+@router.route("/wireguard/interfaces/add", methods=['POST'])
 @login_required
-def add_wireguard_iface(uuid: str):
-    data = request.json["data"]
-    return RestController(uuid).add_iface(data)
+def add_wireguard_iface():
+    from web.forms import AddInterfaceForm
+    form = AddInterfaceForm.from_form(AddInterfaceForm(request.form))
+    view = "web/wireguard-add-iface.html"
+    context = {
+        "title": "Add interface",
+        "form": form,
+        "app_name": APP_NAME
+    }
+    if not form.validate():
+        error("Unable to validate form")
+        return ViewController(view, **context).load()
+    try:
+        RestController().add_iface(form)
+        return redirect(url_for("router.wireguard"))
+    except Exception as e:
+        log_exception(e)
+        context["error"] = True
+        context["error_details"] = e
+    return ViewController(view, **context).load()
 
 
-@router.route("/wireguard/interfaces/<uuid>", methods=['GET'])
+@router.route("/wireguard/interfaces/<uuid>", methods=['GET', "POST"])
 @login_required
 def get_wireguard_iface(uuid: str):
     if uuid not in interfaces:
         abort(NOT_FOUND, f"Unknown interface '{uuid}'.")
     iface = interfaces[uuid]
-    iface_status = get_wg_interface_status(linguard_config.wg_bin, iface.name)
+    view = "web/wireguard-iface.html"
     context = {
         "title": "Edit interface",
         "iface": iface,
-        "iface_status": iface_status,
+        "iface_status": iface.status,
         "last_update": datetime.now().strftime("%H:%M"),
         "EMPTY_FIELD": EMPTY_FIELD,
-        "APP_NAME": APP_NAME
+        "app_name": APP_NAME
     }
-    return ViewController("web/wireguard-iface.html", **context).load()
+    from web.forms import EditInterfaceForm
+    if request.method == 'GET':
+        form = EditInterfaceForm.from_interface(iface)
+        context["form"] = form
+        return ViewController("web/wireguard-iface.html", **context).load()
+    form = EditInterfaceForm.from_form(EditInterfaceForm(request.form), iface)
+    context["form"] = form
+    if not form.validate():
+        error("Unable to validate form.")
+        return ViewController(view, **context).load()
+    try:
+        RestController().apply_iface(iface, form)
+        context["iface_status"] = iface.status
+        context["last_update"] = datetime.now().strftime("%H:%M")
+        context["success"] = True
+        context["success_details"] = "Interface updated successfully."
+    except Exception as e:
+        log_exception(e)
+        context["error"] = True
+        context["error_details"] = e
+    return ViewController(view, **context).load()
 
 
-@router.route("/wireguard/interfaces/<uuid>/save", methods=['POST'])
-@login_required
-def save_wireguard_iface(uuid: str):
-    if uuid not in interfaces:
-        abort(NOT_FOUND, f"Interface {uuid} not found.")
-    data = request.json["data"]
-    return RestController(uuid).apply_iface(data)
-
-
-@router.route("/wireguard/interfaces/<uuid>/remove", methods=['DELETE'])
+@router.route("/wireguard/interfaces/<uuid>", methods=['DELETE'])
 @login_required
 def remove_wireguard_iface(uuid: str):
     if uuid not in interfaces:
@@ -200,71 +286,67 @@ def remove_wireguard_iface(uuid: str):
     return RestController(uuid).remove_iface()
 
 
-@router.route("/wireguard/interfaces/<uuid>/regenerate-keys", methods=['POST'])
+@router.route("/wireguard/interfaces/<uuid>/<action>", methods=['POST'])
 @login_required
-def regenerate_iface_keys(uuid: str):
-    return RestController(uuid).regenerate_iface_keys()
-
-
-@router.route("/wireguard/interfaces/<uuid>", methods=['POST'])
-@login_required
-def operate_wireguard_iface(uuid: str):
-    action = request.json["action"].lower()
+def operate_wireguard_iface(uuid: str, action: str):
+    action = action.lower()
     try:
         if action == "start":
-            manager.iface_up(uuid)
+            interfaces[uuid].up()
             return Response(status=NO_CONTENT)
         if action == "restart":
-            manager.restart_iface(uuid)
+            interfaces[uuid].restart()
             return Response(status=NO_CONTENT)
         if action == "stop":
-            manager.iface_down(uuid)
+            interfaces[uuid].down()
             return Response(status=NO_CONTENT)
         raise WireguardError(f"Invalid operation: {action}", BAD_REQUEST)
     except WireguardError as e:
         return Response(e.cause, status=e.http_code)
 
 
-@router.route("/wireguard/interfaces", methods=['POST'])
+@router.route("/wireguard/<action>", methods=['POST'])
 @login_required
-def operate_wireguard_ifaces():
-    action = request.json["action"].lower()
+def operate_wireguard_ifaces(action: str):
+    action = action.lower()
     try:
         if action == "start":
             for iface in interfaces.values():
-                manager.iface_up(iface.uuid)
+                iface.up()
             return Response(status=NO_CONTENT)
         if action == "restart":
             for iface in interfaces.values():
-                manager.restart_iface(iface.uuid)
+                iface.restart()
             return Response(status=NO_CONTENT)
         if action == "stop":
             for iface in interfaces.values():
-                manager.iface_down(iface.uuid)
+                iface.down()
             return Response(status=NO_CONTENT)
         raise WireguardError(f"invalid operation: {action}", BAD_REQUEST)
     except WireguardError as e:
         return Response(e.cause, status=e.http_code)
 
 
+@router.route("/wireguard/interfaces/<uuid>/download", methods=['GET'])
+@login_required
+def download_wireguard_iface(uuid: str):
+    if uuid not in interfaces.keys():
+        error(f"Unknown interface {uuid}")
+        abort(NOT_FOUND)
+    return RestController().download_iface(interfaces[uuid])
+
+
 @router.route("/wireguard/peers/add", methods=['GET'])
 @login_required
 def create_wireguard_peer():
-    iface = None
-    iface_uuid = request.args.get("interface")
-    if iface_uuid:
-        if iface_uuid not in interfaces:
-            abort(BAD_REQUEST, f"Unable to create peer for unknown interface '{iface_uuid}'.")
-        iface = interfaces[iface_uuid]
-    peer = manager.generate_peer(iface)
-    ifaces = get_wg_interfaces_summary(wg_bin=linguard_config.wg_bin,
-                                           interfaces=list(interfaces.values())).values()
+    iface_uuid = request.args.get("interface", None)
+    iface = interfaces.get(iface_uuid, None)
+    from web.forms import AddPeerForm
+    form = AddPeerForm.populate(AddPeerForm(), iface)
     context = {
         "title": "Add peer",
-        "peer": peer,
-        "interfaces": ifaces,
-        "EMPTY_FIELD": EMPTY_FIELD,
-        "APP_NAME": APP_NAME
+        "form": form,
+        "app_name": APP_NAME
     }
     return ViewController("web/wireguard-add-peer.html", **context).load()
 
@@ -272,25 +354,43 @@ def create_wireguard_peer():
 @router.route("/wireguard/peers/add", methods=['POST'])
 @login_required
 def add_wireguard_peer():
-    data = request.json["data"]
-    return RestController().add_peer(data)
+    from web.forms import AddPeerForm
+    form = AddPeerForm.from_form(AddPeerForm(request.form))
+    view = "web/wireguard-add-peer.html"
+    context = {
+        "title": "Add Peer",
+        "form": form,
+        "app_name": APP_NAME
+    }
+    if not form.validate():
+        error("Unable to validate form")
+        return ViewController(view, **context).load()
+    try:
+        peer = RestController().add_peer(form)
+        return redirect(f"{request.url_root}wireguard/peers/{peer.uuid}")
+    except Exception as e:
+        log_exception(e)
+        context["error"] = True
+        context["error_details"] = e
+    return ViewController(view, **context).load()
 
 
-@router.route("/wireguard/peers/<uuid>/remove", methods=['DELETE'])
+@router.route("/wireguard/peers/<uuid>", methods=['DELETE'])
 @login_required
 def remove_wireguard_peer(uuid: str):
-    return RestController().remove_peer(uuid)
+    peer = get_all_peers().get(uuid, None)
+    if not peer:
+        raise WireguardError(f"Unknown peer '{uuid}'.", NOT_FOUND)
+    return RestController().remove_peer(peer)
 
 
-@router.route("/wireguard/peers/<uuid>", methods=['GET'])
+@router.route("/wireguard/peers/<uuid>", methods=['GET', "POST"])
 @login_required
 def get_wireguard_peer(uuid: str):
-    peer = None
-    for iface in interfaces.values():
-        if uuid in iface.peers:
-            peer = iface.peers[uuid]
+    peer = get_all_peers().get(uuid, None)
     if not peer:
-        abort(NOT_FOUND, f"Unknown peer '{uuid}'.")
+        raise WireguardError(f"Unknown peer '{uuid}'.", NOT_FOUND)
+    view = "web/wireguard-peer.html"
     context = {
         "title": "Edit peer",
         "peer": peer,
@@ -298,20 +398,37 @@ def get_wireguard_peer(uuid: str):
         "EMPTY_FIELD": EMPTY_FIELD,
         "APP_NAME": APP_NAME
     }
-    return ViewController("web/wireguard-peer.html", **context).load()
-
-
-@router.route("/wireguard/peers/<uuid>/save", methods=['POST'])
-@login_required
-def save_wireguard_peers(uuid: str):
-    data = request.json["data"]
-    return RestController(uuid).save_peer(data)
+    from web.forms import EditPeerForm
+    if request.method == 'GET':
+        form = EditPeerForm.from_peer(peer)
+        context["form"] = form
+        return ViewController(view, **context).load()
+    form = EditPeerForm.from_form(EditPeerForm(request.form), peer)
+    context["form"] = form
+    if not form.validate():
+        error("Unable to validate form.")
+        return ViewController(view, **context).load()
+    try:
+        RestController().save_peer(peer, form)
+        context["last_update"] = datetime.now().strftime("%H:%M")
+        context["success"] = True
+        context["success_details"] = "Peer updated successfully."
+    except Exception as e:
+        log_exception(e)
+        context["error"] = True
+        context["error_details"] = e
+    return ViewController(view, **context).load()
 
 
 @router.route("/wireguard/peers/<uuid>/download", methods=['GET'])
 @login_required
 def download_wireguard_peer(uuid: str):
-    return RestController(uuid).download_peer()
+    peer = get_all_peers().get(uuid, None)
+    if not peer:
+        msg = f"Unknown peer '{uuid}'."
+        error(msg)
+        abort(NOT_FOUND, msg)
+    return RestController().download_peer(peer)
 
 
 @router.route("/themes")
@@ -330,7 +447,8 @@ def settings():
     form = SettingsForm()
     context = {
         "title": "Settings",
-        "form": form
+        "form": form,
+        "app_name": APP_NAME
     }
     return ViewController("web/settings.html", **context).load()
 
@@ -340,40 +458,46 @@ def settings():
 def save_settings():
     from web.forms import SettingsForm
     form = SettingsForm(request.form)
+    view = "web/settings.html"
     context = {
         "title": "Settings",
         "form": form
     }
-    if form.validate():
-        try:
-            RestController().save_settings(form)
-            # Fill fields with default values if they were left unfilled
-            form.log_file.data = form.log_file.data or logger_config.logfile
+    if not form.validate():
+        error("Unable to validate form")
+        return ViewController(view, **context).load()
+    try:
+        RestController().save_settings(form)
+        # Fill fields with default values if they were left unfilled
+        form.log_file.data = form.log_file.data or logger_config.logfile
 
-            ifaces = []
-            for k, v in get_network_adapters().items():
-                ifaces.append((k, v))
-            form.web_adapter.data = form.web_adapter.data or ifaces[web_config.host]
-            form.web_secret_key.data = form.web_secret_key.data or web_config.secret_key
-            form.web_credentials_file.data = form.web_credentials_file.data or web_config.credentials_file
+        ifaces = []
+        for k, v in get_network_adapters().items():
+            ifaces.append((k, v))
+        form.web_adapter.data = form.web_adapter.data or ifaces[web_config.host]
+        form.web_secret_key.data = form.web_secret_key.data or web_config.secret_key
+        form.web_credentials_file.data = form.web_credentials_file.data or web_config.credentials_file
 
-            form.app_endpoint.data = form.app_endpoint.data or linguard_config.endpoint
-            form.app_wg_bin.data = form.app_wg_bin.data or linguard_config.wg_bin
-            form.app_wg_quick_bin.data = form.app_wg_quick_bin.data or linguard_config.wg_quick_bin
-            form.app_iptables_bin.data = form.app_iptables_bin.data or linguard_config.iptables_bin
-            form.app_interfaces_folder.data = form.app_interfaces_folder.data or linguard_config.interfaces_folder
+        form.app_endpoint.data = form.app_endpoint.data or linguard_config.endpoint
+        form.app_wg_bin.data = form.app_wg_bin.data or linguard_config.wg_bin
+        form.app_wg_quick_bin.data = form.app_wg_quick_bin.data or linguard_config.wg_quick_bin
+        form.app_iptables_bin.data = form.app_iptables_bin.data or linguard_config.iptables_bin
+        form.app_interfaces_folder.data = form.app_interfaces_folder.data or linguard_config.interfaces_folder
 
-            context["success"] = True
-        except Exception as e:
-            error(f"{traceback.format_exc()}")
-            context["error"] = True
-            context["error_details"] = e
-    return ViewController("web/settings.html", **context).load()
+        context["success"] = True
+        context["success_details"] = "Settings updated!"
+        context["warning"] = True
+        context["warning_details"] = f"You may need to restart {APP_NAME} to apply some changes."
+    except Exception as e:
+        log_exception(e)
+        context["error"] = True
+        context["error_details"] = e
+    return ViewController(view, **context).load()
 
 
 @router.app_errorhandler(BAD_REQUEST)
 def bad_request(err):
-    error_code = 400
+    error_code = int(BAD_REQUEST)
     context = {
         "title": error_code,
         "error_code": error_code,
@@ -387,8 +511,13 @@ def unauthorized(err):
     warning(f"Unauthorized request from {request.remote_addr}!")
     if request.method == "GET":
         debug(f"Redirecting to login...")
-        return redirect(url_for("router.login", next=url_for(request.endpoint)))
-    error_code = int(http.HTTPStatus.UNAUTHORIZED)
+        try:
+            next = url_for(request.endpoint)
+        except Exception:
+            uuid = request.path.rsplit("/", 1)[-1]
+            next = url_for(request.endpoint, uuid=uuid)
+        return redirect(url_for("router.login", next=next))
+    error_code = int(UNAUTHORIZED)
     context = {
         "title": error_code,
         "error_code": error_code,
@@ -399,7 +528,7 @@ def unauthorized(err):
 
 @router.app_errorhandler(NOT_FOUND)
 def not_found(err):
-    error_code = int(http.HTTPStatus.NOT_FOUND)
+    error_code = int(NOT_FOUND)
     context = {
         "title": error_code,
         "error_code": error_code,
@@ -411,7 +540,7 @@ def not_found(err):
 
 @router.app_errorhandler(INTERNAL_SERVER_ERROR)
 def not_found(err):
-    error_code = int(http.HTTPStatus.INTERNAL_SERVER_ERROR)
+    error_code = int(INTERNAL_SERVER_ERROR)
     context = {
         "title": error_code,
         "error_code": error_code,

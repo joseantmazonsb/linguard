@@ -6,13 +6,12 @@ startOrStopIfaceBtn.click(function (e) {
     const iface = button.value;
     const action = button.innerText;
 
-    const url = "/wireguard/interfaces/" + iface;
-    const data = JSON.stringify({"action": action})
+    const url = `/wireguard/interfaces/${iface}/${action}`;
     const alertContainer = "wgIfacesHeader";
     const alertType = "danger";
     const loadFeedback = "wgIface-" + iface + "-loading"
 
-    postJSON(url, alertContainer, alertType, loadFeedback, data);
+    postJSON(url, alertContainer, alertType, loadFeedback);
 });
 
 const restartIfaceBtn = $(".restartIfaceBtn");
@@ -20,37 +19,34 @@ restartIfaceBtn.click(function (e) {
     const iface = e.target.value;
     const action = "restart";
 
-    const url = "/wireguard/interfaces/" + iface;
-    const data = JSON.stringify({"action": action})
+    const url = `/wireguard/interfaces/${iface}/${action}`;
     const alertContainer = "wgIfacesHeader";
     const alertType = "danger";
     const loadFeedback = "wgIface-" + iface + "-loading"
 
-    postJSON(url, alertContainer, alertType, loadFeedback, data);
+    postJSON(url, alertContainer, alertType, loadFeedback);
 });
 
 const startAllBtn = $("#startAllBtn");
 startAllBtn.click(function (e) {
     const action = "start";
-    const url = "/wireguard/interfaces";
-    const data = JSON.stringify({"action": action})
+    const url = `/wireguard/${action}`;
     const alertContainer = "wgIfacesHeader";
     const alertType = "danger";
     const loadFeedback = "wgIfacesLoading";
 
-    postJSON(url, alertContainer, alertType, loadFeedback, data);
+    postJSON(url, alertContainer, alertType, loadFeedback);
 });
 
 const stopAllBtn = $("#stopAllBtn");
 stopAllBtn.click(function (e) {
     const action = "stop";
-    const url = "/wireguard/interfaces";
-    const data = JSON.stringify({"action": action})
+    const url = `/wireguard/${action}`;
     const alertContainer = "wgIfacesHeader";
     const alertType = "danger";
     const loadFeedback = "wgIfacesLoading";
 
-    postJSON(url, alertContainer, alertType, loadFeedback, data);
+    postJSON(url, alertContainer, alertType, loadFeedback);
 });
 
 const removeIfaceBtn = $(".removeIfaceBtn");
@@ -62,7 +58,7 @@ removeItem(removePeerBtn, "peer");
 function removeItem(removeBtn, itemType) {
     removeBtn.click(function (e) {
         const item = e.target.id.split("-")[1];
-        const url = "/wireguard/"+itemType+"s/"+item+"/remove";
+        const url = "/wireguard/"+itemType+"s/"+item+"";
         const alertContainer = "wgIfacesHeader";
         const alertType = "danger";
         $.ajax({
