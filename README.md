@@ -1,8 +1,8 @@
 # Linguard
 
-![GitHub](https://img.shields.io/github/license/joseantmazonsb/linguard) ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/joseantmazonsb/linguard/main) [![codecov](https://codecov.io/gh/joseantmazonsb/linguard/branch/main/graph/badge.svg)](https://codecov.io/gh/joseantmazonsb/linguard) 
+[![GitHub](https://img.shields.io/github/license/joseantmazonsb/linguard)](LICENSE.md) [![GitHub Workflow Status](https://img.shields.io/github/workflow/status/joseantmazonsb/linguard/main)](https://github.com/joseantmazonsb/linguard/actions) [![codecov](https://codecov.io/gh/joseantmazonsb/linguard/branch/main/graph/badge.svg)](https://codecov.io/gh/joseantmazonsb/linguard) 
 
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/joseantmazonsb/linguard) ![GitHub all releases](https://img.shields.io/github/downloads/joseantmazonsb/linguard/total) ![Docker Pulls](https://img.shields.io/docker/pulls/joseantmazonsb/linguard)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/joseantmazonsb/linguard)](https://github.com/joseantmazonsb/linguard/releases) [![GitHub all releases](https://img.shields.io/github/downloads/joseantmazonsb/linguard/total)](https://github.com/joseantmazonsb/linguard/releases) [![Docker Pulls](https://img.shields.io/docker/pulls/joseantmazonsb/linguard)](https://hub.docker.com/repository/docker/joseantmazonsb/linguard)
 
 
 Linguard aims to provide an easy way to manage your WireGuard server, and it's written in Python3 and powered by Flask.
