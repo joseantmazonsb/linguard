@@ -43,7 +43,7 @@ jobs:
         run: |
           pip install pytest pytest-cov
           export github_action_hook=True
-          python -m pytest -s --cov-report xml:coverage.xml --cov
+          sudo python -m pytest -s --cov-report xml:coverage.xml --cov
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v1
