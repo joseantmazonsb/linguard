@@ -41,9 +41,11 @@ jobs:
 
       - name: Run tests
         run: |
-          pip install pytest
-          python -m pytest --cov-fail-under=70 --cov tests/
+          pip install pytest pytest-cov
+          python -m pytest --cov-fail-under=70 --cov-report xml:coverage.xml --cov tests/
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v1
         if: always()
+        with:
+          files: coverage.xml
