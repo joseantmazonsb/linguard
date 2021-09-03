@@ -1,5 +1,4 @@
 import logging
-import os
 
 import flask
 from flask import Flask
@@ -34,7 +33,7 @@ class Server:
 
     def __init__(self, config_file: str, debug: bool = False):
         self.config_manager = config_manager
-        self.config_manager.load(os.path.abspath(config_file))
+        self.config_manager.load(config_file)
         self.app = Flask(__name__, template_folder="templates")
         self.app.config['SECRET_KEY'] = web_config.secret_key
         self.app.register_blueprint(router)
