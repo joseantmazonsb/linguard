@@ -1,6 +1,9 @@
 # Linguard
 
-[![codecov](https://codecov.io/gh/joseantmazonsb/linguard/branch/main/graph/badge.svg)](https://codecov.io/gh/joseantmazonsb/linguard)
+![GitHub](https://img.shields.io/github/license/joseantmazonsb/linguard) ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/joseantmazonsb/linguard/main) [![codecov](https://codecov.io/gh/joseantmazonsb/linguard/branch/main/graph/badge.svg)](https://codecov.io/gh/joseantmazonsb/linguard) 
+
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/joseantmazonsb/linguard) ![GitHub all releases](https://img.shields.io/github/downloads/joseantmazonsb/linguard/total) ![Docker Pulls](https://img.shields.io/docker/pulls/joseantmazonsb/linguard)
+
 
 Linguard aims to provide an easy way to manage your WireGuard server, and it's written in Python3 and powered by Flask.
 
