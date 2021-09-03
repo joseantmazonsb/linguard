@@ -51,8 +51,8 @@ jobs:
         run: |
           source ./venv/bin/activate
           pip install pytest pytest-cov
-          sudo export github_action_hook=True
-          sudo ./venv/bin/python -m pytest -s --cov-report xml:coverage.xml --cov
+          export github_action_hook=True
+          sudo -E ./venv/bin/python -m pytest -s --cov-report xml:coverage.xml --cov
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v1
