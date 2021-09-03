@@ -6,7 +6,7 @@ import yaml
 from core.config.linguard_config import config as linguard_config
 from core.config.logger_config import config as logger_config
 from core.config.web_config import config as web_config
-from system_utils import log_exception
+from system_utils import log_exception, try_makedir
 from web.models import UserDict, users
 
 
@@ -58,6 +58,7 @@ class ConfigManager:
             "web": web_config,
             "linguard": linguard_config
         }
+        try_makedir(os.path.dirname(self.config_filepath))
         with open(self.config_filepath, "w") as file:
             yaml.safe_dump(config, file)
         info("Configuration saved!")
