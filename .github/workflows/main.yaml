@@ -39,10 +39,6 @@ jobs:
           flake8 .
         continue-on-error: true
 
-      - name: Run formatting check
-        run: |
-          pipenv run format --check
-
       - name: Run tests
         run: |
           python -m pytest tests/
