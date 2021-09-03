@@ -1,0 +1,46 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Linguard
+
+on: [push]
+  #push:
+  #  branches: [ $default-branch ]
+  #pull_request:
+  #  branches: [ $default-branch ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      #fail-fast: false
+      matrix:
+        python-version: [3.7, 3.8, 3.9]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install pipenv
+        run: |
+          python -m pip install --upgrade pipenv wheel
+
+      - name: Install dependencies
+        run: |
+          pipenv install --deploy --dev
+
+      - name: Run linter
+        run: |
+          pipenv run lint
+
+      - name: Run formatting check
+        run: |
+          pipenv run format --check
+
+      - name: Test with pytest
+        run: |
+          pytest

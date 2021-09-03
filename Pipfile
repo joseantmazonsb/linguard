@@ -1,0 +1,21 @@
+[[source]]
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+WTForms = "~=2.3.3"
+Faker = "~=8.1.4"
+Flask = "~=1.1.4"
+Flask-Login = "~=0.5.0"
+Flask-WTF = "~=0.15.1"
+Werkzeug = "~=1.0.1"
+yamlable = "~=1.0.4"
+coolname = "~=1.1.0"
+PyYAML = "~=5.3.1"
+cryptography = "~=3.4.7"
+
+[dev-packages]
+
+[requires]
+python_version = "3.8"
