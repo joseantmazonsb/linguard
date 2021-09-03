@@ -80,6 +80,9 @@
                                                 <span class="badge badge-pill badge-secondary">auto</span>
                                             {% endif %}
                                             <div class="float-right">
+                                                <a href="/wireguard/interfaces/{{ iface.uuid }}/download" title="Download"
+                                                   class="mr-2"><i class="fa fa-download"></i>
+                                                </a>
                                                 <a href="/wireguard/interfaces/{{ iface.uuid }}"
                                                    title="Edit" class="mr-2"><i class="fas fa-pen"></i></a>
                                                 <span data-toggle="modal" data-target="#removeModal-{{ iface.uuid }}"
@@ -172,11 +175,12 @@
                                                 <td>{{ EMPTY_FIELD | safe }}</td>
                                             {% endif %}
                                             <td>
-                                                <span type="button" class="btn-link mr-2 downloadBtn" id="downloadBtn-{{ peer.uuid }}">
-                                                    <i title="Download" class="fa fa-download downloadBtn" id="downloadBtn-{{ peer.uuid }}"></i>
-                                                </span>
-                                                <a href="/wireguard/peers/{{ peer.uuid }}"
-                                                title="Edit" class="mr-2"><i class="fas fa-pen"></i></a>
+                                                <a href="/wireguard/peers/{{ peer.uuid }}/download" title="Download"
+                                                   class="mr-2"><i class="fa fa-download"></i>
+                                                </a>
+                                                <a href="/wireguard/peers/{{ peer.uuid }}" title="Edit" class="mr-2">
+                                                    <i class="fas fa-pen"></i>
+                                                </a>
                                                 <span data-toggle="modal" data-target="#removeModal-{{ peer.uuid }}"
                                                       type="button" class="btn-link removal-link">
                                                     <i title="Remove" class="fas fa-trash"></i>
