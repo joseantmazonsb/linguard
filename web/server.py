@@ -1,4 +1,3 @@
-import argparse
 import logging
 import os
 
@@ -7,8 +6,8 @@ from flask import Flask
 from flask_login import LoginManager
 
 from core.config.linguard_config import config
-from core.config_manager import ConfigManager, config_manager
 from core.config.web_config import config as web_config
+from core.config_manager import ConfigManager, config_manager
 from core.exceptions import WireguardError
 from web.models import users
 from web.router import router
@@ -33,22 +32,17 @@ class Server:
     def host(self):
         return web_config.host
 
-    def __init__(self):
-        self.parser = argparse.ArgumentParser(description="Welcome to Linguard, the best WireGuard's web GUI :)")
-        self.parser.add_argument("config", type=str, help="Path to the configuration file.")
-        self.parser.add_argument("--debug", help="Start flask in debug mode.", action="store_true")
-
-        self.args = self.parser.parse_args()
-
+    def __init__(self, config_file: str, debug: bool = False):
         self.config_manager = config_manager
-        self.config_manager.load(os.path.abspath(self.args.config))
+        self.config_manager.load(os.path.abspath(config_file))
         self.app = Flask(__name__, template_folder="templates")
         self.app.config['SECRET_KEY'] = web_config.secret_key
         self.app.register_blueprint(router)
+        self.debug = debug
         self.started = False
         login_manager.init_app(self.app)
 
-    def run(self):
+    def start(self):
         logging.info("Starting VPN server...")
         if self.started:
             logging.warning("Unable to start VPN server: already started.")
@@ -62,8 +56,6 @@ class Server:
                 pass
         self.started = True
         logging.info("VPN server started.")
-        logging.info("Running backend...")
-        self.app.run(debug=self.args.debug, port=self.bindport, host=self.host)
 
     def stop(self):
         logging.info("Stopping VPN server...")
@@ -78,6 +70,7 @@ class Server:
         self.started = False
         logging.info("VPN server stopped.")
 
-
-server = Server()
-server.run()
+    def run(self):
+        self.start()
+        logging.info("Running backend...")
+        self.app.run(debug=self.debug, port=self.bindport, host=self.host)

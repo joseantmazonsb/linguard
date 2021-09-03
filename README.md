@@ -1,5 +1,7 @@
 # Linguard
 
+[![codecov](https://codecov.io/gh/joseantmazonsb/linguard/branch/main/graph/badge.svg)](https://codecov.io/gh/joseantmazonsb/linguard)
+
 Linguard aims to provide an easy way to manage your WireGuard server, and it's written in Python3 and powered by Flask.
 
 ## Table of contents

@@ -1,0 +1,60 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: main
+
+on:
+  push:
+    branches: [ $default-branch ]
+  pull_request:
+    branches: [ $default-branch ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8, 3.9]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up virtual environment
+        run: |
+          sudo apt-get -qq install python3-venv
+          python3 -m venv ./venv
+
+      - name: Upgrade pip
+        run: |
+          source ./venv/bin/activate
+          pip install --upgrade pip
+
+      - name: Install dependencies
+        run: |
+          source ./venv/bin/activate
+          pip install -r requirements.txt
+
+      #- name: Run linter
+      #  run: |
+      #    source ./venv/bin/activate
+      #    pip install flake8
+      #    flake8 .
+      #  continue-on-error: true
+
+      - name: Run tests
+        run: |
+          source ./venv/bin/activate
+          pip install pytest pytest-cov
+          export github_action_hook=True
+          sudo -E ./venv/bin/python -m pytest -s --cov-report xml:coverage.xml --cov
+
+      - name: Upload coverage report to Codecov
+        uses: codecov/codecov-action@v1
+        if: always()
+        with:
+          files: coverage.xml

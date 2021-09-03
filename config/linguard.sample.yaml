@@ -4,19 +4,29 @@ linguard: !yamlable/linguard
     39a855187c4c4ca694d8c3f215e76cdc: !yamlable/interface
       auto: false
       description: 'vpn for scranton branch'
-      gw_iface: enp0s31f6
-      ipv4_address: 192.168.92.234/21
+      gw_iface: eth0
+      ipv4_address: 10.0.0.2/24
       listen_port: '52123'
       name: scranton-vpn
       on_down:
       - /usr/sbin/iptables -D FORWARD -i tough-moth -j ACCEPT
       - /usr/sbin/iptables -D FORWARD -o tough-moth -j ACCEPT
-      - /usr/sbin/iptables -t nat -D POSTROUTING -o enp0s31f6 -j MASQUERADE
+      - /usr/sbin/iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
       on_up:
       - /usr/sbin/iptables -I FORWARD -i tough-moth -j ACCEPT
       - /usr/sbin/iptables -I FORWARD -o tough-moth -j ACCEPT
-      - /usr/sbin/iptables -t nat -I POSTROUTING -o enp0s31f6 -j MASQUERADE
-      peers: {}
+      - /usr/sbin/iptables -t nat -I POSTROUTING -o eth0 -j MASQUERADE
+      peers: !yamlable/peers
+        9ea085f97fdd4022a16df6f0a70b24db: !yamlable/peer
+          description: ''
+          dns1: 8.8.8.8
+          dns2: ''
+          ipv4_address: 10.0.0.3/24
+          name: jim halpert
+          nat: true
+          private_key: KMLxYphCvI4joTyrf3Dp9Yg1vLUj+b8SjLFrUeYnCk0=
+          public_key: mvtz+LwXkJur9BkjFmBDOzdE5tacePRfBTFSX4OwmgU=
+          uuid: 9ea085f97fdd4022a16df6f0a70b24db
       private_key: 4Ob32NhyhwIXbj7od6L5ASWle3vbOjn9g80at/dxPm0=
       public_key: 7NTAVIucHQJsS9Z8eT3lUV8VUoTSFrB6J272F9ox5RQ=
       uuid: 39a855187c4c4ca694d8c3f215e76cdc
@@ -32,4 +42,5 @@ web: !yamlable/web
   bindport: 8080
   credentials_file: /var/www/linguard/credentials.yaml
   login_attempts: 0
+  host: 0.0.0.0
   secret_key: G,XhSEIu{>TFu$y?4-kMy+<MN%T*J@/[
