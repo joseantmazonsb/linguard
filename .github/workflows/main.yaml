@@ -25,13 +25,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install pipenv
+      - name: Upgrade pip
         run: |
-          pip install --upgrade pipenv wheel
+          pip install --upgrade pip
 
       - name: Install dependencies
         run: |
-          pipenv install --deploy --dev
+          pip install -r requirements.txt
 
       - name: Run linter
         run: |
