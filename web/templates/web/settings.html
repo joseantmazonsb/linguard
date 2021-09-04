@@ -44,16 +44,6 @@
                     </div>
                     <div class="card-body">
                         <div id="alerts">
-                            {% for error in form.web_adapter.errors %}
-                                <div class="alert alert-danger" role="alert">
-                                  Error in field <strong>{{ form.web_adapter.label.text }}</strong>: {{ error }}
-                                </div>
-                            {% endfor %}
-                            {% for error in form.web_port.errors %}
-                                <div class="alert alert-danger" role="alert">
-                                  Error in field <strong>{{ form.web_port.label.text }}</strong>: {{ error }}
-                                </div>
-                            {% endfor %}
                             {% for error in form.web_login_attempts.errors %}
                                 <div class="alert alert-danger" role="alert">
                                   Error in field <strong>{{ form.web_login_attempts.label.text }}</strong>: {{ error }}
@@ -71,25 +61,6 @@
                             {% endfor %}
                         </div>
                         <div class="form-row">
-                            <div class="form-group col-md-4">
-                                {{ form.web_adapter.label() }}
-                                <span type="button" class="ml-1" data-toggle="popover"
-                                            data-placement="top"
-                                            data-content="Network interface used to host the application.
-                                            {{ app_name }} will need a restart to apply this setting.">
-                                            <i class="fas fa-question-circle"></i>
-                                </span>
-                                {{ form.web_adapter(class="form-control") }}
-                            </div>
-                            <div class="form-group col-md-4">
-                                {{ form.web_port.label() }}
-                                <span type="button" class="ml-1" data-toggle="popover"
-                                            data-placement="top"
-                                            data-content="TCP port used to host the application. {{ app_name }} will need a restart to apply this setting.">
-                                            <i class="fas fa-question-circle"></i>
-                                </span>
-                                {{ form.web_port(class="form-control") }}
-                            </div>
                             <div class="form-group col-md-4">
                                 {{ form.web_login_attempts.label() }}
                                 <span type="button" class="ml-1" data-toggle="popover"

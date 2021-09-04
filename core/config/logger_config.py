@@ -26,6 +26,9 @@ class LoggerConfig(BaseConfig):
 
     def __init__(self):
         super().__init__()
+        self.load_defaults()
+
+    def load_defaults(self):
         self.overwrite = False
         self.level = logging.getLevelName(self.DEFAULT_LEVEL).lower()
         self.logfile = ""

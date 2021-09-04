@@ -18,12 +18,18 @@ class ConfigManager:
 
     def load(self, config_filepath: str):
         try:
-            self.config_filepath = config_filepath
+            self.config_filepath = os.path.abspath(config_filepath)
             self.__load_config__()
             self.save(apply=False)
         except Exception as e:
             log_exception(e, is_fatal=True)
             exit(1)
+
+    @staticmethod
+    def load_defaults():
+        logger_config.load_defaults()
+        web_config.load_defaults()
+        linguard_config.load_defaults()
 
     def __load_config__(self):
         info(f"Restoring configuration from {self.config_filepath}...")

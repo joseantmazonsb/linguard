@@ -12,10 +12,10 @@ from core.config.web_config import config as web_config
 from core.config_manager import config_manager
 from core.crypto_utils import CryptoUtils
 from core.models import Interface, Peer, interfaces
-from system_utils import get_network_adapters, get_system_interfaces, get_default_gateway, list_to_str
+from system_utils import get_system_interfaces, get_default_gateway, list_to_str
 from web.utils import fake
 from web.validators import LoginUsernameValidator, LoginPasswordValidator, SignupPasswordValidator, \
-    SignupUsernameValidator, SettingsSecretKeyValidator, SettingsPortValidator, SettingsLoginAttemptsValidator, \
+    SignupUsernameValidator, SettingsSecretKeyValidator, SettingsLoginAttemptsValidator, \
     InterfaceIpValidator, InterfaceNameValidator, InterfacePortValidator, PeerIpValidator, PeerPrimaryDnsValidator, \
     PeerSecondaryDnsValidator, PeerNameValidator
 
@@ -41,13 +41,6 @@ class SignupForm(FlaskForm):
 
 
 class SettingsForm(FlaskForm):
-    ifaces = {}
-    for k, v in get_network_adapters().items():
-        ifaces[k] = (k, v)
-    web_adapter = SelectField("Listen interface", choices=ifaces.values(), default=web_config.host)
-    web_port = IntegerField("Listen port", validators=[SettingsPortValidator()],
-                            render_kw={"placeholder": f"{web_config.DEFAULT_BINDPORT}", "type": "number"},
-                            default=web_config.bindport)
     web_login_attempts = IntegerField("Maximum login attempts", validators=[SettingsLoginAttemptsValidator()],
                                       render_kw={"placeholder": f"{web_config.DEFAULT_LOGIN_ATTEMPTS}",
                                                  "type": "number"},

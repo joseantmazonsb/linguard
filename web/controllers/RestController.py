@@ -125,8 +125,6 @@ class RestController:
 
         sample_web = WebConfig()
 
-        web_config.host = form.web_adapter.data or sample_web.host
-        web_config.bindport = form.web_port.data or sample_web.bindport
         web_config.login_attempts = form.web_login_attempts.data or sample_web.login_attempts
         web_config.secret_key = form.web_secret_key.data or sample_web.secret_key
         web_config.credentials_file = form.web_credentials_file.data or sample_web.credentials_file

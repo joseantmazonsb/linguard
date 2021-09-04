@@ -13,6 +13,7 @@ from core.config.web_config import config as web_config
 from core.exceptions import WireguardError
 from core.models import interfaces, Interface, get_all_peers
 from core.utils import is_wg_iface_up, get_wg_interfaces_summary
+from core.wireguard_manager import wireguard_manager
 from system_utils import get_routing_table, get_network_adapters, list_to_str, get_system_interfaces, log_exception
 from web.controllers.RestController import RestController
 from web.controllers.ViewController import ViewController
@@ -39,6 +40,13 @@ def index():
         "title": "Dashboard"
     }
     return ViewController("web/index.html", **context).load()
+
+
+@router.route("/stop")
+@login_required
+def stop():
+    wireguard_manager.stop()
+    return "Wireguard manager stopped."
 
 
 @router.route("/logout")
