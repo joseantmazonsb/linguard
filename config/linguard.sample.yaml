@@ -39,8 +39,6 @@ logger: !yamlable/logger
   logfile: /var/www/linguard/linguard.log
   overwrite: false
 web: !yamlable/web
-  bindport: 8080
   credentials_file: /var/www/linguard/credentials.yaml
   login_attempts: 0
-  host: 0.0.0.0
   secret_key: G,XhSEIu{>TFu$y?4-kMy+<MN%T*J@/[

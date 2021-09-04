@@ -58,15 +58,6 @@ class SettingsSecretKeyValidator:
             stop_validation(field, msg)
 
 
-class SettingsPortValidator:
-    def __call__(self, form, field):
-        if type(field.data) is not int:
-            return
-        if field.data and field.data < config.MIN_PORT or field.data > config.MAX_PORT:
-            msg = f"must be an integer value between {config.MIN_PORT} and {config.MAX_PORT}."
-            stop_validation(field, msg)
-
-
 class SettingsLoginAttemptsValidator:
     def __call__(self, form, field):
         if type(field.data) is not int:
@@ -98,9 +89,13 @@ class InterfaceIpValidator:
             stop_validation(field, msg)
 
 
-class InterfacePortValidator(SettingsPortValidator):
+class InterfacePortValidator:
     def __call__(self, form, field):
-        super(InterfacePortValidator, self).__call__(form, field)
+        if type(field.data) is not int:
+            return
+        if field.data and field.data < config.MIN_PORT or field.data > config.MAX_PORT:
+            msg = f"must be an integer value between {config.MIN_PORT} and {config.MAX_PORT}."
+            stop_validation(field, msg)
         if Interface.is_port_in_use(field.data, form.iface):
             stop_validation(field, "port already in use!")
 

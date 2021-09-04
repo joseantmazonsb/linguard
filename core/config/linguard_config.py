@@ -29,6 +29,9 @@ class LinguardConfig(BaseConfig):
         self.__interfaces_folder = value
 
     def __init__(self):
+        self.load_defaults()
+
+    def load_defaults(self):
         self.endpoint = ""
         self.wg_bin = run_os_command("whereis wg | tr ' ' '\n' | grep bin").output
         self.wg_quick_bin = run_os_command("whereis wg-quick | tr ' ' '\n' | grep bin").output
