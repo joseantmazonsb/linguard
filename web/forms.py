@@ -80,7 +80,7 @@ class AddInterfaceForm(FlaskForm):
     port = IntegerField("Listen port", validators=[InterfacePortValidator()],
                         render_kw={"placeholder": "25000", "type": "number"})
     on_up = TextAreaField("On up")
-    on_down = TextAreaField("On up")
+    on_down = TextAreaField("On down")
     iface = None
     submit = SubmitField('Add')
 

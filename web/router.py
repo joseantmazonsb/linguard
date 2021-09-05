@@ -14,7 +14,7 @@ from core.exceptions import WireguardError
 from core.models import interfaces, Interface, get_all_peers
 from core.utils import is_wg_iface_up, get_wg_interfaces_summary
 from core.wireguard_manager import wireguard_manager
-from system_utils import get_routing_table, get_network_adapters, list_to_str, get_system_interfaces, log_exception
+from system_utils import get_routing_table, list_to_str, get_system_interfaces, log_exception
 from web.controllers.RestController import RestController
 from web.controllers.ViewController import ViewController
 from web.models import users
@@ -479,10 +479,6 @@ def save_settings():
         # Fill fields with default values if they were left unfilled
         form.log_file.data = form.log_file.data or logger_config.logfile
 
-        ifaces = []
-        for k, v in get_network_adapters().items():
-            ifaces.append((k, v))
-        form.web_adapter.data = form.web_adapter.data or ifaces[web_config.host]
         form.web_secret_key.data = form.web_secret_key.data or web_config.secret_key
         form.web_credentials_file.data = form.web_credentials_file.data or web_config.credentials_file
 
