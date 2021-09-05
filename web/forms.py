@@ -17,7 +17,7 @@ from web.utils import fake
 from web.validators import LoginUsernameValidator, LoginPasswordValidator, SignupPasswordValidator, \
     SignupUsernameValidator, SettingsSecretKeyValidator, SettingsLoginAttemptsValidator, \
     InterfaceIpValidator, InterfaceNameValidator, InterfacePortValidator, PeerIpValidator, PeerPrimaryDnsValidator, \
-    PeerSecondaryDnsValidator, PeerNameValidator
+    PeerSecondaryDnsValidator, PeerNameValidator, NewPasswordValidator, OldPasswordValidator
 
 
 class LoginForm(FlaskForm):
@@ -80,7 +80,7 @@ class AddInterfaceForm(FlaskForm):
     port = IntegerField("Listen port", validators=[InterfacePortValidator()],
                         render_kw={"placeholder": "25000", "type": "number"})
     on_up = TextAreaField("On up")
-    on_down = TextAreaField("On up")
+    on_down = TextAreaField("On down")
     iface = None
     submit = SubmitField('Add')
 
@@ -238,3 +238,18 @@ class EditPeerForm(AddPeerForm):
         form.interface.choices = cls.get_choices()
         form.interface.data = peer.interface.name
         return form
+
+
+class ProfileForm(FlaskForm):
+    username = StringField("Username", validators=[DataRequired()], render_kw={"placeholder": "admin"})
+    submit = SubmitField('Save')
+
+
+class PasswordResetForm(FlaskForm):
+    old_password = PasswordField("Old password", validators=[DataRequired(), OldPasswordValidator()],
+                                 render_kw={"placeholder": "Your old password"})
+    new_password = PasswordField("New password", validators=[DataRequired(), NewPasswordValidator()],
+                                 render_kw={"placeholder": "A strong new password"})
+    confirm = PasswordField("Confirm password", validators=[DataRequired()],
+                            render_kw={"placeholder": "A strong new password"})
+    submit = SubmitField('Save')

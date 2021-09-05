@@ -29,6 +29,7 @@ Check out [the wiki](https://github.com/joseantmazonsb/linguard/wiki) for additi
 ![Edit wireguard interface configuration (2)](images/wireguard-edit-2.png)
 ![Edit wireguard peer configuration](images/peer-edit-1.png)
 ![Settings](images/settings.png)
+![Profile](images/profile.png)
 
 ## Installation
 
