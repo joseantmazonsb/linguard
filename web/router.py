@@ -10,6 +10,7 @@ from flask_login import current_user, login_required, login_user
 from core.config.linguard_config import config as linguard_config
 from core.config.logger_config import config as logger_config
 from core.config.web_config import config as web_config
+from core.config_manager import config_manager
 from core.exceptions import WireguardError
 from core.models import interfaces, Interface, get_all_peers
 from core.utils import is_wg_iface_up, get_wg_interfaces_summary
@@ -494,6 +495,81 @@ def save_settings():
         context["warning_details"] = f"You may need to restart {APP_NAME} to apply some changes."
     except Exception as e:
         log_exception(e)
+        context["error"] = True
+        context["error_details"] = e
+    return ViewController(view, **context).load()
+
+
+@router.route("/profile", methods=['GET'])
+@login_required
+def profile():
+    from web.forms import ProfileForm, PasswordResetForm
+    profile_form = ProfileForm()
+    profile_form.username.data = current_user.name
+    if request.form:
+        password_reset_form = PasswordResetForm(request.form)
+    else:
+        password_reset_form = PasswordResetForm()
+    view = "web/profile.html"
+    context = {
+        "title": "Profile",
+        "profile_form": profile_form,
+        "password_reset_form": password_reset_form,
+        "app_name": APP_NAME
+    }
+    return ViewController(view, **context).load()
+
+
+@router.route("/profile", methods=['POST'])
+@login_required
+def save_profile():
+    if "new_password" in request.form:
+        return password_reset()
+    from web.forms import ProfileForm, PasswordResetForm
+    view = "web/profile.html"
+    profile_form = ProfileForm(request.form)
+    password_reset_form = PasswordResetForm()
+    context = {
+        "title": "Profile",
+        "profile_form": profile_form,
+        "password_reset_form": password_reset_form,
+        "app_name": APP_NAME
+    }
+    if not profile_form.validate():
+        error("Unable to validate form")
+        return ViewController(view, **context).load()
+    try:
+        current_user.name = profile_form.username.data
+        config_manager.save_credentials()
+        context["success"] = True
+        context["success_details"] = "Profile updated!"
+    except Exception as e:
+        context["error"] = True
+        context["error_details"] = e
+    return ViewController(view, **context).load()
+
+
+def password_reset():
+    view = "web/profile.html"
+    from web.forms import PasswordResetForm, ProfileForm
+    profile_form = ProfileForm()
+    profile_form.username.data = current_user.name
+    password_reset_form = PasswordResetForm(request.form)
+    context = {
+        "title": "Profile",
+        "profile_form": profile_form,
+        "password_reset_form": password_reset_form,
+        "app_name": APP_NAME
+    }
+    if not password_reset_form.validate():
+        error("Unable to validate form")
+        return ViewController(view, **context).load()
+    try:
+        current_user.password = password_reset_form.new_password.data
+        config_manager.save_credentials()
+        context["success"] = True
+        context["success_details"] = "Password updated!"
+    except Exception as e:
         context["error"] = True
         context["error_details"] = e
     return ViewController(view, **context).load()

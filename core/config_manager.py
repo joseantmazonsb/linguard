@@ -74,5 +74,9 @@ class ConfigManager:
         linguard_config.apply()
         web_config.apply()
 
+    @staticmethod
+    def save_credentials():
+        users.save(web_config.credentials_file, web_config.secret_key)
+
 
 config_manager = ConfigManager()

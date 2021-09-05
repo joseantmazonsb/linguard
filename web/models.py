@@ -54,11 +54,15 @@ class User(UserMixin, YamlAble):
         u.__password = str(dct["password"])
         return u
 
-    def login(self, password) -> bool:
+    def login(self, password: str) -> bool:
         if self.is_authenticated:
             return True
-        self.__authenticated = check_password_hash(self.password, password)
+        self.__authenticated = self.check_password(password)
         return self.__authenticated
+
+    def check_password(self, password: str) -> bool:
+        """Check if the specified password matches the user's password without triggering a proper login."""
+        return check_password_hash(self.password, password)
 
     def logout(self):
         self.__authenticated = False

@@ -1,6 +1,7 @@
 import ipaddress
 from logging import error
 
+from flask_login import current_user
 from wtforms.validators import StopValidation
 
 from core.config.web_config import config
@@ -138,3 +139,20 @@ class PeerSecondaryDnsValidator:
         except ValueError:
             msg = "must be valid IPv4 address. Follow the format 'X.X.X.X'."
             stop_validation(field, msg)
+
+
+class NewPasswordValidator:
+    def __call__(self, form, field):
+        if field.data != form.confirm.data:
+            msg = "passwords do not match"
+            raise StopValidation(msg)
+        if current_user.check_password(field.data):
+            raise StopValidation("the new password cannot be the same as the old one!")
+
+
+class OldPasswordValidator:
+    def __call__(self, form, field):
+        if not current_user.check_password(field.data):
+            msg = "wrong password"
+            raise StopValidation(msg)
+
