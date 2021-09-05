@@ -3,7 +3,15 @@
 
 name: main
 
-on: [push]
+on:
+  push:
+    paths:
+      - "**.py"
+      - "**.js"
+      - "**.yml"
+      - "**.yaml"
+      - "**.sh"
+      - "requirements.txt"
 
 jobs:
   build:
