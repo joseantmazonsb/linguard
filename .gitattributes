@@ -1,2 +1,2 @@
-web/static/css -linguist-detectable
-web/static/templates -linguist-detectable
+web/static/css/* linguist-vendored
+web/static/templates/* linguist-vendored
