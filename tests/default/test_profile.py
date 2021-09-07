@@ -1,8 +1,7 @@
-import sys
-
 import pytest
 from flask_login import current_user
 
+from tests.default.utils import get_default_app
 from tests.utils import default_cleanup, is_http_success, login, exists_credentials_file
 
 url = "/profile"
@@ -14,11 +13,7 @@ def cleanup():
 
 @pytest.fixture
 def client():
-    sys.argv = [sys.argv[0], "linguard.test.yaml"]
-    from app import app
-    app.config["TESTING"] = True
-    app.config["WTF_CSRF_ENABLED"] = False
-    with app.test_client() as client:
+    with get_default_app().test_client() as client:
         yield client
 
 

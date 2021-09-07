@@ -13,8 +13,7 @@ from core.config.web_config import config as web_config
 from core.config_manager import config_manager
 from core.exceptions import WireguardError
 from core.models import interfaces, Interface, get_all_peers
-from core.utils import is_wg_iface_up, get_wg_interfaces_summary
-from core.wireguard_manager import wireguard_manager
+from core.utils import is_wg_iface_up, get_wg_interfaces_summary, get_wireguard_traffic
 from system_utils import get_routing_table, list_to_str, get_system_interfaces, log_exception
 from web.controllers.RestController import RestController
 from web.controllers.ViewController import ViewController
@@ -37,17 +36,28 @@ router = Router("router", __name__)
 @router.route("/dashboard")
 @login_required
 def index():
+
+    traffic = get_wireguard_traffic()
+    #traffic = get_wireguard_traffic_mock()
+    iface_names = []
+    ifaces_traffic = []
+    for iface in interfaces.values():
+        iface_names.append(iface.name)
+        if len(traffic) > 0:
+            ifaces_traffic.append(traffic[iface.name]["rx"] + traffic[iface.name]["tx"])
+    peer_names = []
+    peers_traffic = []
+    for peer in get_all_peers().values():
+        peer_names.append(peer.name)
+        if len(traffic) > 0:
+            peers_traffic.append(traffic[peer.name]["rx"] + traffic[peer.name]["tx"])
+
     context = {
-        "title": "Dashboard"
+        "title": "Dashboard",
+        "interfaces_chart": {"labels": iface_names, "values": ifaces_traffic},
+        "peers_chart": {"labels": peer_names, "values": peers_traffic},
     }
     return ViewController("web/index.html", **context).load()
-
-
-@router.route("/stop")
-@login_required
-def stop():
-    wireguard_manager.stop()
-    return "Wireguard manager stopped."
 
 
 @router.route("/logout")

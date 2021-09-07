@@ -28,6 +28,7 @@ def default_cleanup():
     for iface in interfaces.values():
         iface.remove()
     users.clear()
+    interfaces.clear()
 
 
 def is_http_success(code: int):
@@ -42,3 +43,10 @@ def login(client):
     response = client.post("/login", data={"username": username, "password": password, "remember_me": False})
     assert is_http_success(response.status_code), default_cleanup()
     assert current_user.name == "admin", default_cleanup()
+
+
+def get_testing_app():
+    from app import app
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
+    return app

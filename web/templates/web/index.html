@@ -1,112 +1,82 @@
 {% extends 'web/web-main.html' %}
 
+{% block additional_prioritary_scripts %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.5.1/dist/chart.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels" crossorigin="anonymous"></script>
+    <script src="../../static/js/libs/color-scheme.min.js"></script>
+    <script src="../../static/js/libs/chartUtils.js"></script>
+{% endblock %}
+
 {% block content %}
     <main>
         <div class="container-fluid">
-            <h1 class="mt-4">Dashboard</h1>
-            <ol class="breadcrumb mb-4">
-                <li class="breadcrumb-item active">Dashboard</li>
-            </ol>
-            <div class="row">
-                <div class="col-xl-3 col-md-6">
-                    <div class="card bg-primary text-white mb-4">
-                        <div class="card-body">Primary Card</div>
-                        <div class="card-footer d-flex align-items-center justify-content-between">
-                            <a class="small text-white stretched-link" href="#">View Details</a>
-                            <div class="small text-white"><i class="fas fa-angle-right"></i></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xl-3 col-md-6">
-                    <div class="card bg-warning text-white mb-4">
-                        <div class="card-body">Warning Card</div>
-                        <div class="card-footer d-flex align-items-center justify-content-between">
-                            <a class="small text-white stretched-link" href="#">View Details</a>
-                            <div class="small text-white"><i class="fas fa-angle-right"></i></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xl-3 col-md-6">
-                    <div class="card bg-success text-white mb-4">
-                        <div class="card-body">Success Card</div>
-                        <div class="card-footer d-flex align-items-center justify-content-between">
-                            <a class="small text-white stretched-link" href="#">View Details</a>
-                            <div class="small text-white"><i class="fas fa-angle-right"></i></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xl-3 col-md-6">
-                    <div class="card bg-danger text-white mb-4">
-                        <div class="card-body">Danger Card</div>
-                        <div class="card-footer d-flex align-items-center justify-content-between">
-                            <a class="small text-white stretched-link" href="#">View Details</a>
-                            <div class="small text-white"><i class="fas fa-angle-right"></i></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <h1 class="mt-4">{{ title }}</h1>
             <div class="row">
                 <div class="col-xl-6">
                     <div class="card mb-4">
                         <div class="card-header">
-                            <i class="fas fa-chart-area mr-1"></i>
-                            Area Chart Example
+                            <i class="fas fa-chart-pie mr-1"></i>
+                            Interfaces' traffic
                         </div>
-                        <div class="card-body"><canvas id="myAreaChart" width="100%" height="40"></canvas></div>
+                        <div class="card-body">
+                            {% if interfaces_chart["labels"] | length < 1 %}
+                            <div class="col">
+                                There are no interfaces available yet, why don't you <a href="/wireguard/interfaces/add">add one</a>?
+                            </div>
+                            {% elif interfaces_chart["values"] | length < 1 %}
+                            <div class="col">
+                                There is no traffic data yet!
+                            </div>
+                            {% else %}
+                            <canvas id="interfacesChart" width="100%" height="40"></canvas>
+                            <script>
+                                let interface_labels = [
+                                {% for label in interfaces_chart["labels"] %}
+                                    "{{label}}",
+                                {% endfor %}
+                                ]
+                                chartUtils.createDoughnoutChart("Received and transmitted data in MB", "interfacesChart", interface_labels, {{ interfaces_chart["values"] }},
+                                " MB");
+                            </script>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
                 <div class="col-xl-6">
                     <div class="card mb-4">
                         <div class="card-header">
-                            <i class="fas fa-chart-bar mr-1"></i>
-                            Bar Chart Example
+                            <i class="fas fa-chart-pie mr-1"></i>
+                            Peers' traffic
                         </div>
-                        <div class="card-body"><canvas id="myBarChart" width="100%" height="40"></canvas></div>
-                    </div>
-                </div>
-            </div>
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-table mr-1"></i>
-                    DataTable Example
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Position</th>
-                                    <th>Office</th>
-                                    <th>Age</th>
-                                    <th>Start date</th>
-                                    <th>Salary</th>
-                                </tr>
-                            </thead>
-                            <tfoot>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Position</th>
-                                    <th>Office</th>
-                                    <th>Age</th>
-                                    <th>Start date</th>
-                                    <th>Salary</th>
-                                </tr>
-                            </tfoot>
-                            <tbody>
-                                <tr>
-                                    <td>Tiger Nixon</td>
-                                    <td>System Architect</td>
-                                    <td>Edinburgh</td>
-                                    <td>61</td>
-                                    <td>2011/04/25</td>
-                                    <td>$320,800</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div class="card-body">
+                            {% if peers_chart["labels"] | length < 1 %}
+                            <div class="col">
+                                There are no peers available yet, why don't you <a href="/wireguard/peers/add">add one</a>?
+                            </div>
+                            {% elif peers_chart["values"] | length < 1 %}
+                            <div class="col">
+                                There is no traffic data yet!
+                            </div>
+                            {% else %}
+                            <canvas id="peerChart" width="100%" height="40"></canvas>
+                            <script>
+                                const peer_labels = [
+                                {% for label in peers_chart["labels"] %}
+                                    "{{label}}",
+                                {% endfor %}
+                                ]
+                                chartUtils.createDoughnoutChart("Received and transmitted data in MB", "peerChart", peer_labels, {{ peers_chart["values"] }},
+                                " MB");
+                            </script>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </main>
+{% endblock %}
+
+{% block additional_scripts %}
+    <!--<script type="module" src="../../static/js/modules/dashboard.mjs"></script>-->
 {% endblock %}
