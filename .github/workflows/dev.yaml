@@ -5,7 +5,7 @@ name: main
 
 on:
   push:
-    branches:
+    branches-ignore:
       - main
     paths:
       - "**.py"
@@ -64,16 +64,3 @@ jobs:
         if: always()
         with:
           files: coverage.xml
-
-      - name: Extract branch name
-        shell: bash
-        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-        id: extract_branch
-
-      - name: Deploy (run install script)
-        run: |
-          sudo rm -rf /var/www/linguard
-          sudo ./scripts/install.sh /var/www/linguard "${{ steps.extract_branch.outputs.branch }}"
-          sudo -u linguard uwsgi --yaml /var/www/linguard/config/uwsgi.sample.yaml &
-          sleep 2s
-          sudo pkill -f uwsgi
