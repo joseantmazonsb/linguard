@@ -1,5 +1,9 @@
 {% extends "web/web-main.html" %}
 
+{% block additional_styles %}
+    <link href="https://cdn.datatables.net/1.10.20/css/dataTables.bootstrap4.min.css" rel="stylesheet" crossorigin="anonymous" />
+{% endblock %}
+
 {% block content %}
     <main>
         <div class="container-fluid">
@@ -302,5 +306,9 @@
 {% endblock %}
 
 {% block additional_scripts %}
+    <script src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.datatables.net/1.10.20/js/dataTables.bootstrap4.min.js" crossorigin="anonymous"></script>
+    <script src="../../static/js/libs/chartUtils.js"></script>
+    <script src="../../static/js/libs/datatablesUtils.js"></script>
     <script type="module" src="../../static/js/modules/wireguard-iface.mjs"></script>
 {% endblock %}

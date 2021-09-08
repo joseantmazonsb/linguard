@@ -36,7 +36,6 @@ router = Router("router", __name__)
 @router.route("/dashboard")
 @login_required
 def index():
-
     traffic = get_wireguard_traffic()
     #traffic = get_wireguard_traffic_mock()
     iface_names = []
@@ -56,6 +55,9 @@ def index():
         "title": "Dashboard",
         "interfaces_chart": {"labels": iface_names, "values": ifaces_traffic},
         "peers_chart": {"labels": peer_names, "values": peers_traffic},
+        "interfaces": interfaces,
+        "last_update": datetime.now().strftime("%H:%M"),
+        "EMPTY_FIELD": EMPTY_FIELD
     }
     return ViewController("web/index.html", **context).load()
 

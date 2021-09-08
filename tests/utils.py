@@ -26,7 +26,8 @@ def default_cleanup():
     if exists_credentials_file():
         os.remove(web_config.credentials_file)
     for iface in interfaces.values():
-        iface.remove()
+        if os.path.exists(iface.conf_file):
+            os.remove(iface.conf_file)
     users.clear()
     interfaces.clear()
 
