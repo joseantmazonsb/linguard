@@ -16,11 +16,12 @@ on:
       - "requirements.txt"
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  test:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         python-version: [3.7, 3.8, 3.9]
+        os: [ubuntu-20.04, ubuntu-18.04]
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
@@ -64,3 +65,25 @@ jobs:
         if: always()
         with:
           files: coverage.xml
+  deploy:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-20.04, ubuntu-18.04 ]
+    steps:
+      - name: Extract branch name
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
+
+      - name: Download specific branch's installation script and run it
+        run: |
+          wget -q "https://raw.githubusercontent.com/joseantmazonsb/linguard/${{ steps.extract_branch.outputs.branch }}/scripts/install.sh" .
+          chmod +x install.sh
+          sudo ./scripts/install.sh /var/www/linguard "${{ steps.extract_branch.outputs.branch }}"
+
+      - name: Briefly test using uWSGI
+        run: |
+          sudo -u linguard uwsgi --yaml /var/www/linguard/config/uwsgi.sample.yaml &
+          sleep 2s
+          sudo pkill -f uwsgi
+
