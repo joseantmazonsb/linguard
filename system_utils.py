@@ -34,6 +34,8 @@ def run_os_command(command: str) -> CommandResult:
     proc = run(command, shell=True, check=False, stdout=PIPE, stderr=PIPE)
     debug(f"Running command '{command}'...")
     result = CommandResult(proc.returncode, proc.stdout.decode('utf-8').strip(), proc.stderr.decode('utf-8').strip())
+    if not result.successful:
+        error(f"Failed to run command '{command}': err={result.err} | out={result.output} | code={result.code}")
     return result
 
 
