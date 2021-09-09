@@ -26,6 +26,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v2
 
+      - name: Set permissions
+        run: |
+          - chmod +x core/tools/*
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
