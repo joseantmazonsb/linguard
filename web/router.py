@@ -40,16 +40,14 @@ def index():
     #traffic = get_wireguard_traffic_mock()
     iface_names = []
     ifaces_traffic = []
-    for iface in interfaces.values():
-        iface_names.append(iface.name)
-        if len(traffic) > 0:
-            ifaces_traffic.append(traffic[iface.name]["rx"] + traffic[iface.name]["tx"])
     peer_names = []
     peers_traffic = []
-    for peer in get_all_peers().values():
-        peer_names.append(peer.name)
-        if len(traffic) > 0:
-            peers_traffic.append(traffic[peer.name]["rx"] + traffic[peer.name]["tx"])
+    for iface in interfaces.values():
+        iface_names.append(iface.name)
+        ifaces_traffic.append(__get_total_traffic__(iface.name, traffic))
+        for peer in iface.peers.values():
+            peer_names.append(peer.name)
+            peers_traffic.append(__get_total_traffic__(peer.name, traffic))
 
     context = {
         "title": "Dashboard",
@@ -60,6 +58,17 @@ def index():
         "EMPTY_FIELD": EMPTY_FIELD
     }
     return ViewController("web/index.html", **context).load()
+
+
+def __get_total_traffic__(name: str, traffic: Dict):
+    rx = 0
+    tx = 0
+    if name in traffic:
+        if "rx" in traffic[name]:
+            rx = traffic[name]["rx"]
+        if "tx" in traffic[name]:
+            tx = traffic[name]["tx"]
+    return rx + tx
 
 
 @router.route("/logout")
@@ -269,7 +278,7 @@ def get_wireguard_iface(uuid: str):
     iface = interfaces[uuid]
     view = "web/wireguard-iface.html"
     context = {
-        "title": "Edit interface",
+        "title": "Interface",
         "iface": iface,
         "iface_status": iface.status,
         "last_update": datetime.now().strftime("%H:%M"),
@@ -413,7 +422,7 @@ def get_wireguard_peer(uuid: str):
         raise WireguardError(f"Unknown peer '{uuid}'.", NOT_FOUND)
     view = "web/wireguard-peer.html"
     context = {
-        "title": "Edit peer",
+        "title": "Peer",
         "peer": peer,
         "last_update": datetime.now().strftime("%H:%M"),
         "EMPTY_FIELD": EMPTY_FIELD,

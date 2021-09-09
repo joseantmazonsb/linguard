@@ -1,6 +1,5 @@
 Chart.defaults.font.family = '-apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
 Chart.defaults.color = '#292b2c';
-Chart.register(ChartDataLabels);
 
 function getRandomInt(min, max) {
   return Math.floor(Math.random() * (max - min)) + min;
@@ -75,6 +74,67 @@ class ChartUtils {
           },
         };
         return this.createChart(canvasId, labels, values, dataLabel, config, colorPalette)
+    }
+
+    sortChartData(labels, values) {
+        let objs = labels.map(function(d, i) {
+          return {
+            label: d,
+            data: values[i] || 0
+          };
+        });
+
+        let sortedArrayOfObj = objs.sort(function(a, b) {
+          return b.data - a.data;
+        });
+
+        let newArrayLabel = [];
+        let newArrayData = [];
+        sortedArrayOfObj.forEach(function(d){
+          newArrayLabel.push(d.label);
+          newArrayData.push(d.data);
+        });
+        return {
+            labels: newArrayLabel,
+            values: newArrayData
+        }
+    }
+
+    createBarChart(title, yValuesTag, canvasId, labels, values, dataLabel) {
+        const colors = this.getRandomColorPalette(labels.length);
+        const dct = this.sortChartData(labels, values);
+        const data = {
+          labels: dct.labels,
+          datasets: [{
+            label: dataLabel,
+            data: dct.values,
+            backgroundColor: colors,
+            borderColor: colors,
+          }],
+        };
+
+        const options = {
+          scales: {
+              y: {
+                  ticks: {
+                      callback: function(value, index, values) {
+                          return value + yValuesTag;
+                      }
+                  },
+              }
+          },
+          plugins: {
+              title: {
+                  display: title.length > 0,
+                  text: title
+              }
+          }
+        };
+        return new Chart(document.getElementById(canvasId), {
+            type: 'bar',
+            data: data,
+            options: options
+        });
     }
 }
 let chartUtils = new ChartUtils();

@@ -19,8 +19,8 @@ Check out [the wiki](https://github.com/joseantmazonsb/linguard/wiki) for additi
 
 ## Screenshots
 
-![Signup](images/signup.png)
-![Login](images/login.png)
+![Dashboard (1)](images/dashboard-1.png)
+![Dashboard (2)](images/dashboard-2.png)
 ![Network interfaces](images/network-section-1.png)
 ![Routing information](images/network-section-2.png)
 ![Wireguard interfaces section (1)](images/wireguard-section-1.png)
@@ -29,7 +29,6 @@ Check out [the wiki](https://github.com/joseantmazonsb/linguard/wiki) for additi
 ![Edit wireguard interface configuration (2)](images/wireguard-edit-2.png)
 ![Edit wireguard peer configuration](images/peer-edit-1.png)
 ![Settings](images/settings.png)
-![Profile](images/profile.png)
 
 ## Installation
 

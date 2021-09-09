@@ -10,7 +10,7 @@ function removeItem(removeBtn, itemType) {
     removeBtn.click(function (e) {
         const item = e.target.id.split("-")[1];
         const url = "/wireguard/"+itemType+"s/"+item+"";
-        const alertContainer = "wgIfacesHeader";
+        const alertContainer = "global_alerts";
         const alertType = "danger";
         $.ajax({
             type: "delete",

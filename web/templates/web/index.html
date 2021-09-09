@@ -2,7 +2,6 @@
 
 {% block additional_prioritary_scripts %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.5.1/dist/chart.min.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels" crossorigin="anonymous"></script>
     <script src="../../static/js/libs/color-scheme.min.js"></script>
     <script src="../../static/js/libs/chartUtils.js"></script>
 {% endblock %}
@@ -15,24 +14,16 @@
     <main>
         <div class="container-fluid">
             <h1 class="my-4">{{ title }}</h1>
+            <div id="global_alerts"></div>
             <!-- Traffic charts -->
             <div class="row">
                 <div class="col-xl-6">
                     <div class="card mb-4">
                         <div class="card-header">
-                            <i class="fas fa-chart-pie mr-1"></i>
+                            <i class="fas fa-chart-bar mr-1"></i>
                             Interfaces' traffic
                         </div>
                         <div class="card-body">
-                            {% if interfaces_chart["labels"] | length < 1 %}
-                            <div class="col">
-                                There are no interfaces available yet, why don't you <a href="/wireguard/interfaces/add">add one</a>?
-                            </div>
-                            {% elif interfaces_chart["values"] | length < 1 %}
-                            <div class="col">
-                                There is no traffic data yet!
-                            </div>
-                            {% else %}
                             <canvas id="interfacesChart" width="100%"></canvas>
                             <script>
                                 let interface_labels = [
@@ -40,10 +31,9 @@
                                     "{{label}}",
                                 {% endfor %}
                                 ]
-                                chartUtils.createDoughnoutChart("Received and transmitted data in MB", "interfacesChart", interface_labels, {{ interfaces_chart["values"] }},
-                                " MB");
+                                chartUtils.createBarChart("Transmitted and received data", " GB", "interfacesChart",
+                                    interface_labels, {{ interfaces_chart["values"] }}, "GB");
                             </script>
-                            {% endif %}
                         </div>
                         <div class="card-footer">
                           <small class="text-muted">Information provided at {{ last_update }}.</small>
@@ -53,19 +43,10 @@
                 <div class="col-xl-6">
                     <div class="card mb-4">
                         <div class="card-header">
-                            <i class="fas fa-chart-pie mr-1"></i>
+                            <i class="fas fa-chart-bar mr-1"></i>
                             Peers' traffic
                         </div>
                         <div class="card-body">
-                            {% if peers_chart["labels"] | length < 1 %}
-                            <div class="col">
-                                There are no peers available yet, why don't you <a href="/wireguard/peers/add">add one</a>?
-                            </div>
-                            {% elif peers_chart["values"] | length < 1 %}
-                            <div class="col">
-                                There is no traffic data yet!
-                            </div>
-                            {% else %}
                             <canvas id="peerChart" width="100%"></canvas>
                             <script>
                                 const peer_labels = [
@@ -73,15 +54,97 @@
                                     "{{label}}",
                                 {% endfor %}
                                 ]
-                                chartUtils.createDoughnoutChart("Received and transmitted data in MB", "peerChart", peer_labels, {{ peers_chart["values"] }},
-                                " MB");
+                                chartUtils.createBarChart("Transmitted and received data", " GB", "peerChart",
+                                    peer_labels, {{ peers_chart["values"] }}, "GB");
                             </script>
-                            {% endif %}
                         </div>
                         <div class="card-footer">
                           <small class="text-muted">Information provided at {{ last_update }}.</small>
                         </div>
                     </div>
+                </div>
+            </div>
+            <!-- wg ifaces -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-ethernet mr-1"></i>
+                    Interfaces
+                    <a href="/wireguard/interfaces/add" class="float-right" title="Add"><i class="fas fa-plus mr-1"></i></a>
+                </div>
+                <div class="card-body">
+                    <div id="wgIfaces">
+                        <div class="table-responsive">
+                            <table class="table table-bordered dataTable">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Description</th>
+                                        <th>IPv4</th>
+                                        <th>Listen port</th>
+                                        <th>Peers</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for iface in interfaces.values() %}
+                                        <tr>
+                                            <td>
+                                                <span>{{ iface.name }}</span>
+                                            </td>
+                                            {% if iface.description %}
+                                                <td>{{ iface.description }}</td>
+                                            {% else %}
+                                                <td>{{ EMPTY_FIELD | safe }}</td>
+                                            {% endif %}
+                                            <td>{{ iface.ipv4_address }}</td>
+                                            <td>{{ iface.listen_port}}</td>
+                                            <td>{{ iface.peers | length}}</td>
+                                            <td>{{ iface.status}}</td>
+                                            <td>
+                                                <a href="/wireguard/interfaces/{{ iface.uuid }}/download" title="Download"
+                                                   class="mr-2"><i class="fa fa-download"></i>
+                                                </a>
+                                                <a href="/wireguard/interfaces/{{ iface.uuid }}" title="Edit" class="mr-2">
+                                                    <i class="fas fa-pen"></i>
+                                                </a>
+                                                <span data-toggle="modal" data-target="#removeModal-{{ iface.uuid }}"
+                                                      type="button" class="btn-link removal-link">
+                                                    <i title="Remove" class="fas fa-trash"></i>
+                                                </span>
+                                                <!-- Modal -->
+                                                <div class="modal fade" id="removeModal-{{ iface.uuid }}" tabindex="-1" role="dialog"
+                                                     aria-labelledby="removeIfaceTitle" aria-hidden="true">
+                                                  <div class="modal-dialog" role="document">
+                                                    <div class="modal-content">
+                                                      <div class="modal-header">
+                                                        <h5 class="modal-title" id="removeModalTitle">Delete interface</h5>
+                                                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                          <span aria-hidden="true">&times;</span>
+                                                        </button>
+                                                      </div>
+                                                      <div class="modal-body">
+                                                          Do you really want to remove <strong>{{ iface.name }}</strong>?
+                                                          This cannot be undone.
+                                                      </div>
+                                                      <div class="modal-footer">
+                                                          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                                          <button type="button" id="removeIfaceBtn-{{ iface.uuid }}"
+                                                                class="btn btn-danger removeIfaceBtn">Remove</button>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                  <small class="text-muted">Information provided at {{ last_update }}.</small>
                 </div>
             </div>
             <!-- Peers -->
@@ -94,7 +157,7 @@
                 <div class="card-body">
                     <div id="wgIfacePeers">
                         <div class="table-responsive">
-                            <table class="table table-bordered" id="dataTable">
+                            <table class="table table-bordered dataTable">
                                 <thead>
                                     <tr>
                                         <th>Name</th>
