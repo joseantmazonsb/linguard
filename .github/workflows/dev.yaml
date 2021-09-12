@@ -89,11 +89,12 @@ jobs:
         id: escaped_extract_branch
 
       - name: Download specific branch's installation script and run it
+        env:
+          NO_VENV: "true"
         run: |
           wget -q "https://raw.githubusercontent.com/joseantmazonsb/linguard/${{ steps.escaped_extract_branch.outputs.branch }}/scripts/install.sh" .
           chmod +x install.sh
           sudo ./scripts/install.sh /var/www/linguard "${{ steps.extract_branch.outputs.branch }}"
-        shell: bash
 
       - name: Briefly test using uWSGI
         run: |

@@ -97,13 +97,16 @@ if [ "$clone" = true ]; then
     exit 1
   fi
 fi
-
-info "Setting up virtual environment..."
-python3 -m venv "${INSTALLATION_PATH}"/venv
-source "${INSTALLATION_PATH}"/venv/bin/activate
-if [ $? -ne 0 ]; then
-    fatal "Unable to activate virtual environment."
-    exit 1
+if [[ -z "${NO_VENV}" ]]; then
+  info "Setting up virtual environment..."
+  python3 -m venv "${INSTALLATION_PATH}"/venv
+  source "${INSTALLATION_PATH}"/venv/bin/activate
+  if [ $? -ne 0 ]; then
+      fatal "Unable to activate virtual environment."
+      exit 1
+  fi
+else
+  warn "Not using virtual environment..."
 fi
 debug "Upgrading pip3..."
 pip3 install --upgrade pip
@@ -113,7 +116,10 @@ if [ $? -ne 0 ]; then
     fatal "Unable to install requirements."
     exit 1
 fi
-deactivate
+
+if [[ -z "${NO_VENV}" ]]; then
+  deactivate
+fi
 
 info "Settings permissions..."
 groupadd linguard
