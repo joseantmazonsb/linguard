@@ -275,7 +275,7 @@
                                             {% else %}
                                                 <td>No</td>
                                             {% endif %}
-                                            {% if peer.name in session_traffic %}
+                                            {% if peer.name in session_traffic and session_traffic[peer.name].last_handshake %}
                                                 <td>{{ session_traffic[peer.name].last_handshake.strftime("%H:%M:%S, %d/%m/%Y") }}</td>
                                             {% else %}
                                                 <td>{{ EMPTY_FIELD | safe }}</td>

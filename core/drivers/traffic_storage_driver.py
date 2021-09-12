@@ -43,9 +43,9 @@ class TrafficStorageDriver(YamlAble):
             iface_rx = 0
             iface_tx = 0
             for peer in iface.peers.values():
-                if peer.public_key not in data[iface]:
+                if peer.public_key not in data[iface.name]["peers"]:
                     continue
-                peer_data = data[iface][peer.public_key]
+                peer_data = data[iface.name]["peers"][peer.public_key]
                 peer_rx = 0
                 peer_tx = 0
                 if "transferRx" in peer_data:
