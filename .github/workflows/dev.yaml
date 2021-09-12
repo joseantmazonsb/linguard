@@ -90,7 +90,7 @@ jobs:
 
       - name: Download specific branch's installation script and run it
         run: |
-          wget "https://raw.githubusercontent.com/joseantmazonsb/linguard/${{ steps.escaped_extract_branch.outputs.branch }}/scripts/install.sh"
+          wget -q "https://raw.githubusercontent.com/joseantmazonsb/linguard/${{ steps.escaped_extract_branch.outputs.branch }}/scripts/install.sh"
           chmod +x install.sh
           sudo ./install.sh /var/www/linguard "${{ steps.extract_branch.outputs.branch }}"
 

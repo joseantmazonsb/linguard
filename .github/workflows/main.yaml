@@ -64,7 +64,7 @@ jobs:
     steps:
     - name: Download and install
       run: |
-        wget -q https://raw.githubusercontent.com/joseantmazonsb/linguard/main/scripts/install.sh .
+        wget -q https://raw.githubusercontent.com/joseantmazonsb/linguard/main/scripts/install.sh
         chmod +x install.sh
         sudo ./install.sh /var/www/linguard
 
