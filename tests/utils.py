@@ -3,8 +3,10 @@ import os
 
 from flask_login import current_user
 
+from core.config.traffic_config import config as traffic_config
 from core.config.web_config import config as web_config
 from core.config_manager import config_manager
+from core.cron_manager import cron_manager
 from core.models import interfaces
 from web.models import users, User
 
@@ -20,16 +22,25 @@ def exists_credentials_file() -> bool:
     return os.path.exists(web_config.credentials_file)
 
 
+def exists_traffic_file() -> bool:
+    if not traffic_config.driver.filepath:
+        return False
+    return os.path.exists(traffic_config.driver.filepath)
+
+
 def default_cleanup():
     if exists_config_file():
         os.remove(config_manager.config_filepath)
     if exists_credentials_file():
         os.remove(web_config.credentials_file)
+    if exists_traffic_file():
+        os.remove(traffic_config.driver.filepath)
     for iface in interfaces.values():
         if os.path.exists(iface.conf_file):
             os.remove(iface.conf_file)
     users.clear()
     interfaces.clear()
+    cron_manager.stop()
 
 
 def is_http_success(code: int):
