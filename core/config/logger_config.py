@@ -59,7 +59,10 @@ class LoggerConfig(BaseConfig):
         config.level = dct.get("level", None) or config.level
         if config.level not in config.LEVELS:
             raise WireguardError(f"'{config.level}' is not a valid log level!")
-        config.overwrite = dct.get("overwrite", None) or config.overwrite
+        overwrite = config.overwrite
+        config.overwrite = dct.get("overwrite", None)
+        if config.overwrite is None:
+            config.overwrite = overwrite
         if config.logfile:
             config.logfile = os.path.abspath(config.logfile)
         return config

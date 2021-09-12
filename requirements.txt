@@ -30,6 +30,7 @@ pytest-cov==2.12.1
 python-dateutil==2.8.2
 PyYAML==5.4.1
 requests==2.26.0
+schedule==1.1.0
 six==1.16.0
 text-unidecode==1.3
 toml==0.10.2

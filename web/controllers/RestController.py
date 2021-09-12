@@ -1,13 +1,16 @@
 import http
 import io
+import json
 from http.client import NO_CONTENT, INTERNAL_SERVER_ERROR
 from logging import debug
 
 from flask import Response, send_file, url_for, redirect, abort
 from flask_login import login_user
 
+from core import traffic_storage
 from core.config.linguard_config import config as linguard_config, LinguardConfig
 from core.config.logger_config import config as logger_config, LoggerConfig
+from core.config.traffic_config import config as traffic_config
 from core.config.web_config import config as web_config, WebConfig
 from core.config_manager import config_manager
 from core.exceptions import WireguardError
@@ -120,7 +123,7 @@ class RestController:
         sample_logger = LoggerConfig()
 
         logger_config.logfile = form.log_file.data or sample_logger.logfile
-        logger_config.overwrite = form.log_overwrite.data == "Yes" or sample_logger.overwrite
+        logger_config.overwrite = form.log_overwrite.data
         logger_config.level = form.log_level.data or sample_logger.level
 
         sample_web = WebConfig()
@@ -136,6 +139,12 @@ class RestController:
         linguard_config.wg_quick_bin = form.app_wg_quick_bin.data or sample_linguard.wg_quick_bin
         linguard_config.iptables_bin = form.app_iptables_bin.data or sample_linguard.iptables_bin
         linguard_config.interfaces_folder = form.app_interfaces_folder.data or sample_linguard.interfaces_folder
+
+        traffic_config.enabled = form.traffic_enabled.data
+        driver_name = form.traffic_driver.data
+        driver = traffic_storage.registered_drivers[driver_name]
+        options = json.loads(form.traffic_driver_options.data.replace("\'", "\""))
+        traffic_config.driver = driver.__from_yaml_dict__(options)
 
         config_manager.save()
 

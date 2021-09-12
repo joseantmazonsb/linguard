@@ -5,6 +5,7 @@ import yaml
 
 from core.config.linguard_config import config as linguard_config
 from core.config.logger_config import config as logger_config
+from core.config.traffic_config import config as traffic_config
 from core.config.web_config import config as web_config
 from system_utils import log_exception, try_makedir
 from web.models import UserDict, users
@@ -13,7 +14,6 @@ from web.models import UserDict, users
 class ConfigManager:
 
     def __init__(self):
-        self.started = False
         self.config_filepath = None
 
     def load(self, config_filepath: str):
@@ -30,6 +30,7 @@ class ConfigManager:
         logger_config.load_defaults()
         web_config.load_defaults()
         linguard_config.load_defaults()
+        traffic_config.load_defaults()
 
     def __load_config__(self):
         info(f"Restoring configuration from {self.config_filepath}...")
@@ -55,6 +56,9 @@ class ConfigManager:
         if "linguard" in config:
             linguard_config.load(config["linguard"])
             linguard_config.apply()
+        if "traffic" in config:
+            traffic_config.load(config["traffic"])
+            traffic_config.apply()
         info(f"Configuration restored!")
 
     def save(self, apply: bool = True):
@@ -62,7 +66,8 @@ class ConfigManager:
         config = {
             "logger": logger_config,
             "web": web_config,
-            "linguard": linguard_config
+            "linguard": linguard_config,
+            "traffic": traffic_config,
         }
         try_makedir(os.path.dirname(self.config_filepath))
         with open(self.config_filepath, "w") as file:
@@ -73,6 +78,7 @@ class ConfigManager:
         logger_config.apply()
         linguard_config.apply()
         web_config.apply()
+        traffic_config.apply()
 
     @staticmethod
     def save_credentials():

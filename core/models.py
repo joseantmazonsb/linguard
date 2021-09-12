@@ -436,8 +436,8 @@ class PeerDict(EnhancedDict, YamlAble, Mapping[K, V]):
         super(PeerDict, self).sort(order_by)
 
 
-def get_all_peers() -> Dict[str, Peer]:
-    dct = {}
+def get_all_peers() -> PeerDict[str, Peer]:
+    dct = PeerDict()
     for iface in interfaces.values():
         dct.update(iface.peers)
     return dct

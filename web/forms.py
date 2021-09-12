@@ -2,12 +2,14 @@ from random import randint
 from typing import List, Tuple
 
 from flask_wtf import FlaskForm
-from wtforms import StringField, BooleanField, PasswordField, SubmitField, RadioField, SelectField, IntegerField, \
+from wtforms import StringField, BooleanField, PasswordField, SubmitField, SelectField, IntegerField, \
     TextAreaField
 from wtforms.validators import DataRequired
 
+from core import traffic_storage
 from core.config.linguard_config import config as linguard_config
 from core.config.logger_config import config as logger_config
+from core.config.traffic_config import config as traffic_config
 from core.config.web_config import config as web_config
 from core.config_manager import config_manager
 from core.crypto_utils import CryptoUtils
@@ -63,9 +65,13 @@ class SettingsForm(FlaskForm):
     app_iptables_bin = StringField("iptables bin", render_kw={"placeholder": "path/to/file"},
                                    default=linguard_config.iptables_bin)
 
-    log_overwrite = RadioField("Overwrite", choices=["Yes", "No"], default="Yes" if logger_config.overwrite else "No")
+    log_overwrite = BooleanField("Overwrite", default=logger_config.overwrite)
     log_file = StringField("Logfile", render_kw={"placeholder": "path/to/file"}, default=logger_config.logfile)
     log_level = SelectField(choices=logger_config.LEVELS.keys(), default=logger_config.level)
+
+    traffic_enabled = BooleanField("Enabled", default=traffic_config.enabled)
+    traffic_driver = SelectField("Driver", choices=traffic_storage.registered_drivers.keys())
+    traffic_driver_options = TextAreaField("Driver configuration")
 
     submit = SubmitField('Save')
 

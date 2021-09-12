@@ -53,4 +53,3 @@ def test_get(client):
         assert peer.name.encode() in response.data, cleanup()
 
     cleanup()
-

@@ -26,10 +26,8 @@ class CommandResult:
 def run_os_command(command: str) -> CommandResult:
     """
     Execute a command on the operating system.
-    Returns an object containing the output
-    [Data Types] object
-    Args:
-        :param command:
+
+    :param command:
     """
     proc = run(command, shell=True, check=False, stdout=PIPE, stderr=PIPE)
     debug(f"Running command '{command}'...")
@@ -37,6 +35,17 @@ def run_os_command(command: str) -> CommandResult:
     if not result.successful:
         error(f"Failed to run command '{command}': err={result.err} | out={result.output} | code={result.code}")
     return result
+
+
+def run_tool(name: str) -> CommandResult:
+    """
+    Execute a core tool.
+
+    :param name: Filename of the tool.
+    :return:
+    """
+    bin_path = os.path.join(os.path.dirname(__file__), "core", "tools", name)
+    return run_os_command(bin_path)
 
 
 def get_system_interfaces() -> Dict[str, Any]:

@@ -26,17 +26,46 @@
                         <div class="card-body">
                             <canvas id="interfacesChart" width="100%"></canvas>
                             <script>
-                                let interface_labels = [
-                                {% for label in interfaces_chart["labels"] %}
-                                    "{{label}}",
-                                {% endfor %}
-                                ]
-                                chartUtils.createBarChart("Transmitted and received data", " GB", "interfacesChart",
-                                    interface_labels, {{ interfaces_chart["values"] }}, "GB");
+                                const colors = chartUtils.getRandomColorPalette(2);
+                                let colorIndex = 0;
+                                let data = {
+                                    labels: {{ interfaces_chart["labels"] | safe }},
+                                    datasets: []
+                                }
+                                for (let dataset of {{ interfaces_chart["datasets"] | safe }}) {
+                                    data.datasets.push({
+                                        label: dataset["label"],
+                                        data: dataset["data"],
+                                        backgroundColor: colors[colorIndex]
+                                    })
+                                    colorIndex++;
+                                }
+                                let options = {
+                                  scales: {
+                                      y: {
+                                          ticks: {
+                                              callback: function(value, index, values) {
+                                                  return value + " GB";
+                                              }
+                                          },
+                                      }
+                                  },
+                                  plugins: {
+                                      title: {
+                                          display: true,
+                                          text: "Combination of traffic data from current session and history of traffic data (if enabled)"
+                                      }
+                                  }
+                                };
+                                new Chart(document.getElementById("interfacesChart"), {
+                                    type: 'bar',
+                                    data: data,
+                                    options: options
+                                });
                             </script>
                         </div>
                         <div class="card-footer">
-                          <small class="text-muted">Information provided at {{ last_update }}.</small>
+                          <small class="text-muted">Information provided by <code>wg</code> at {{ last_update }}.</small>
                         </div>
                     </div>
                 </div>
@@ -49,17 +78,45 @@
                         <div class="card-body">
                             <canvas id="peerChart" width="100%"></canvas>
                             <script>
-                                const peer_labels = [
-                                {% for label in peers_chart["labels"] %}
-                                    "{{label}}",
-                                {% endfor %}
-                                ]
-                                chartUtils.createBarChart("Transmitted and received data", " GB", "peerChart",
-                                    peer_labels, {{ peers_chart["values"] }}, "GB");
+                                colorIndex = 0;
+                                data = {
+                                    labels: {{ peers_chart["labels"] | safe }},
+                                    datasets: []
+                                }
+                                for (let dataset of {{ peers_chart["datasets"] | safe }}) {
+                                    data.datasets.push({
+                                        label: dataset["label"],
+                                        data: dataset["data"],
+                                        backgroundColor: colors[colorIndex]
+                                    })
+                                    colorIndex++;
+                                }
+                                options = {
+                                  scales: {
+                                      y: {
+                                          ticks: {
+                                              callback: function(value, index, values) {
+                                                  return value + " GB";
+                                              }
+                                          },
+                                      }
+                                  },
+                                  plugins: {
+                                      title: {
+                                          display: true,
+                                          text: "Combination of traffic data from current session and history of traffic data (if enabled)"
+                                      }
+                                  }
+                                };
+                                new Chart(document.getElementById("peerChart"), {
+                                    type: 'bar',
+                                    data: data,
+                                    options: options
+                                });
                             </script>
                         </div>
                         <div class="card-footer">
-                          <small class="text-muted">Information provided at {{ last_update }}.</small>
+                          <small class="text-muted">Information provided by <code>wg</code> at {{ last_update }}.</small>
                         </div>
                     </div>
                 </div>

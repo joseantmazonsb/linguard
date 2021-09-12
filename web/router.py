@@ -1,19 +1,23 @@
 import http
+import json
 from datetime import datetime, timedelta
 from http.client import BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR, UNAUTHORIZED, NO_CONTENT
 from logging import warning, debug, error, info
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 
 from flask import Blueprint, abort, request, Response, redirect, url_for
 from flask_login import current_user, login_required, login_user
 
 from core.config.linguard_config import config as linguard_config
 from core.config.logger_config import config as logger_config
+from core.config.traffic_config import config as traffic_config
 from core.config.web_config import config as web_config
 from core.config_manager import config_manager
+from core.drivers.traffic_storage_driver import TrafficData
 from core.exceptions import WireguardError
-from core.models import interfaces, Interface, get_all_peers
-from core.utils import is_wg_iface_up, get_wg_interfaces_summary, get_wireguard_traffic
+from core.models import interfaces, Interface, get_all_peers, Peer
+from core.traffic_storage import bytes_to_gb
+from core.utils import is_wg_iface_up, get_wg_interfaces_summary
 from system_utils import get_routing_table, list_to_str, get_system_interfaces, log_exception
 from web.controllers.RestController import RestController
 from web.controllers.ViewController import ViewController
@@ -36,39 +40,51 @@ router = Router("router", __name__)
 @router.route("/dashboard")
 @login_required
 def index():
-    traffic = get_wireguard_traffic()
-    #traffic = get_wireguard_traffic_mock()
+    if traffic_config.enabled:
+        traffic = traffic_config.driver.get_session_and_stored_data()
+    else:
+        traffic = {datetime.now(): traffic_config.driver.get_session_data()}
     iface_names = []
-    ifaces_traffic = []
+    ifaces_traffic = [
+        {"label": "Received", "data": []},
+        {"label": "Transmitted", "data": []},
+    ]
     peer_names = []
-    peers_traffic = []
+    peers_traffic = [
+        {"label": "Received", "data": []},
+        {"label": "Transmitted", "data": []},
+    ]
     for iface in interfaces.values():
         iface_names.append(iface.name)
-        ifaces_traffic.append(__get_total_traffic__(iface.name, traffic))
+        iface_traffic = __get_total_traffic__(iface.name, traffic)
+        ifaces_traffic[0]["data"].append(bytes_to_gb(iface_traffic.rx))
+        ifaces_traffic[1]["data"].append(bytes_to_gb(iface_traffic.tx))
         for peer in iface.peers.values():
             peer_names.append(peer.name)
-            peers_traffic.append(__get_total_traffic__(peer.name, traffic))
+            peer_traffic = __get_total_traffic__(peer.name, traffic)
+            peers_traffic[0]["data"].append(bytes_to_gb(peer_traffic.rx))
+            peers_traffic[1]["data"].append(bytes_to_gb(peer_traffic.tx))
 
     context = {
         "title": "Dashboard",
-        "interfaces_chart": {"labels": iface_names, "values": ifaces_traffic},
-        "peers_chart": {"labels": peer_names, "values": peers_traffic},
+        "interfaces_chart": {"labels": iface_names, "datasets": ifaces_traffic},
+        "peers_chart": {"labels": peer_names, "datasets": peers_traffic},
         "interfaces": interfaces,
         "last_update": datetime.now().strftime("%H:%M"),
-        "EMPTY_FIELD": EMPTY_FIELD
+        "EMPTY_FIELD": EMPTY_FIELD,
+        "traffic_config": traffic_config
     }
     return ViewController("web/index.html", **context).load()
 
 
-def __get_total_traffic__(name: str, traffic: Dict):
+def __get_total_traffic__(name: str, traffic: Dict[datetime, Dict[str, TrafficData]]) -> TrafficData:
     rx = 0
     tx = 0
-    if name in traffic:
-        if "rx" in traffic[name]:
-            rx = traffic[name]["rx"]
-        if "tx" in traffic[name]:
-            tx = traffic[name]["tx"]
-    return rx + tx
+    for timestamp, data in traffic.items():
+        if name in data:
+            rx += data[name].rx
+            tx += data[name].tx
+    return TrafficData(rx, tx)
 
 
 @router.route("/logout")
@@ -270,6 +286,19 @@ def add_wireguard_iface():
     return ViewController(view, **context).load()
 
 
+def load_traffic_data(item: Union[Peer, Interface]):
+    labels = []
+    datasets = {"rx": [], "tx": []}
+    for timestamp, traffic_data in traffic_config.driver.load_data().items():
+        labels.append(str(timestamp))
+        for device, data in traffic_data.items():
+            if device == item.name:
+                datasets["rx"].append(bytes_to_gb(data.rx))
+                datasets["tx"].append(bytes_to_gb(data.tx))
+                break
+    return {"labels": labels, "datasets": datasets}
+
+
 @router.route("/wireguard/interfaces/<uuid>", methods=['GET', "POST"])
 @login_required
 def get_wireguard_iface(uuid: str):
@@ -277,13 +306,20 @@ def get_wireguard_iface(uuid: str):
         abort(NOT_FOUND, f"Unknown interface '{uuid}'.")
     iface = interfaces[uuid]
     view = "web/wireguard-iface.html"
+    data = load_traffic_data(iface)
+    session_data = traffic_config.driver.get_session_data()
+    iface_traffic = session_data.get(iface.name, TrafficData(0, 0))
     context = {
         "title": "Interface",
         "iface": iface,
         "iface_status": iface.status,
         "last_update": datetime.now().strftime("%H:%M"),
         "EMPTY_FIELD": EMPTY_FIELD,
-        "app_name": APP_NAME
+        "app_name": APP_NAME,
+        "chart": {"labels": data["labels"], "datasets": data["datasets"]},
+        "iface_traffic": TrafficData(bytes_to_gb(iface_traffic.rx), bytes_to_gb(iface_traffic.tx)),
+        "session_traffic": session_data,
+        "traffic_config": traffic_config
     }
     from web.forms import EditInterfaceForm
     if request.method == 'GET':
@@ -298,7 +334,6 @@ def get_wireguard_iface(uuid: str):
     try:
         RestController().apply_iface(iface, form)
         context["iface_status"] = iface.status
-        context["last_update"] = datetime.now().strftime("%H:%M")
         context["success"] = True
         context["success_details"] = "Interface updated successfully."
     except Exception as e:
@@ -421,12 +456,18 @@ def get_wireguard_peer(uuid: str):
     if not peer:
         raise WireguardError(f"Unknown peer '{uuid}'.", NOT_FOUND)
     view = "web/wireguard-peer.html"
+    data = load_traffic_data(peer)
+    session_data = traffic_config.driver.get_session_data().get(peer.name, TrafficData(0, 0))
     context = {
         "title": "Peer",
         "peer": peer,
         "last_update": datetime.now().strftime("%H:%M"),
         "EMPTY_FIELD": EMPTY_FIELD,
-        "APP_NAME": APP_NAME
+        "APP_NAME": APP_NAME,
+        "chart": {"labels": data["labels"], "datasets": data["datasets"]},
+        "session_traffic": TrafficData(bytes_to_gb(session_data.rx), bytes_to_gb(session_data.tx),
+                                       session_data.last_handshake),
+        "traffic_config": traffic_config
     }
     from web.forms import EditPeerForm
     if request.method == 'GET':
@@ -440,7 +481,6 @@ def get_wireguard_peer(uuid: str):
         return ViewController(view, **context).load()
     try:
         RestController().save_peer(peer, form)
-        context["last_update"] = datetime.now().strftime("%H:%M")
         context["success"] = True
         context["success_details"] = "Peer updated successfully."
     except Exception as e:
@@ -475,6 +515,9 @@ def themes():
 def settings():
     from web.forms import SettingsForm
     form = SettingsForm()
+    form.traffic_enabled.data = traffic_config.enabled
+    form.log_overwrite.data = logger_config.overwrite
+    form.traffic_driver_options.data = json.dumps(traffic_config.driver.__to_yaml_dict__(), indent=4, sort_keys=True)
     context = {
         "title": "Settings",
         "form": form,

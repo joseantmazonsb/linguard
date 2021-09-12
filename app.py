@@ -7,6 +7,8 @@ from flask_login import LoginManager
 
 from core.config.web_config import config
 from core.config_manager import config_manager
+from core.cron_manager import cron_manager
+from core.signal_manager import signal_manager
 from core.wireguard_manager import wireguard_manager
 from web.models import users
 from web.router import router
@@ -29,7 +31,9 @@ config_manager.load(os.path.abspath(args.config))
 app.config['SECRET_KEY'] = config.secret_key
 app.register_blueprint(router)
 login_manager.init_app(app)
+signal_manager.attach()
 wireguard_manager.start()
+cron_manager.start()
 
 if __name__ == "__main__":
     warning("Running development server...")

@@ -193,7 +193,6 @@
                 </div>
 
                 <!-- Logger config -->
-
                 <div class="card mb-4">
                     <div class="card-header">
                         <i class="fas fa-cog mr-1"></i>
@@ -219,30 +218,73 @@
                         </div>
                         <div class="form-row">
                             <div class="form-group col-md-4">
-                                {{ form.log_overwrite.label() }}
-                                <span type="button" class="ml-1" data-toggle="popover"
-                                    data-placement="top"
-                                    data-content="Whether to overwrite the log file each time {{ app_name }} boots up,
-                                    discarding its previous content, or to append the new logs to the file.">
-                                    <i class="fas fa-question-circle"></i>
-                                </span>
-                                <br>
-                                {% for field in form.log_overwrite %}
-                                    <tr>
-                                        <td>{{ field }}</td>
-                                        <td>{{ field.label }}</td>
-                                    </tr>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group col-md-4">
                                 {{ form.log_file.label() }}
                                 {{ form.log_file(class="form-control") }}
                             </div>
                             <div class="form-group col-md-4">
                                 {{ form.log_level.label() }}
                                 {{ form.log_level(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                <div class="custom-control custom-checkbox">
+                                    {{ form.log_overwrite(class="custom-control-input") }}
+                                    {{ form.log_overwrite.label(class="custom-control-label") }}
+                                    <span type="button" class="ml-1" data-toggle="popover"
+                                        data-placement="top"
+                                        data-content="Whether to overwrite the log file each time {{ app_name }} boots up,
+                                        discarding its previous content, or to append the new logs to the file.">
+                                        <i class="fas fa-question-circle"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Traffic config -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="fas fa-cog mr-1"></i>
+                        Traffic data collection
+                    </div>
+                    <div class="card-body">
+                        <div id="alerts">
+                            {% for error in form.traffic_enabled.errors %}
+                                <div class="alert alert-danger" role="alert">
+                                  Error in field <strong>{{ form.traffic_enabled.label.error }}</strong>: {{ error }}
+                                </div>
+                            {% endfor %}
+                            {% for error in form.traffic_driver.errors %}
+                                <div class="alert alert-danger" role="alert">
+                                  Error in field <strong>{{ form.traffic_driver.label.error }}</strong>: {{ error }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                <div class="custom-control custom-checkbox">
+                                    {{ form.traffic_enabled(class="custom-control-input") }}
+                                    {{ form.traffic_enabled.label(class="custom-control-label") }}
+                                    <span type="button" class="ml-1" data-toggle="popover"
+                                        data-placement="top"
+                                        data-content="Collect peer's traffic data (received and transmitted bytes).">
+                                        <i class="fas fa-question-circle"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                {{ form.traffic_driver.label() }}
+                                {{ form.traffic_driver(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                {{ form.traffic_driver_options.label() }}
+                                {{ form.traffic_driver_options(class="form-control", rows=5) }}
                             </div>
                         </div>
                     </div>

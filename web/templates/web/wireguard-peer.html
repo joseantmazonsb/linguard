@@ -1,10 +1,25 @@
 {% extends "web/web-main.html" %}
 
+{% block additional_prioritary_scripts %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.5.1/dist/chart.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.0"></script>
+    <script src="../../static/js/libs/color-scheme.min.js"></script>
+    <script src="../../static/js/libs/chartUtils.js"></script>
+{% endblock %}
+
 {% block content %}
     <main>
         <div class="container-fluid">
             <h1 class="my-4">{{ title }}</h1>
-            <div id="alerts">
+            <ol class="breadcrumb mb-4">
+                {% if session_traffic.last_handshake %}
+                    <li class="breadcrumb-item active">Last handshake was at {{ session_traffic.last_handshake.strftime("%H:%M:%S, %d/%m/%Y") }}.</li>
+                {% else %}
+                    <li class="breadcrumb-item active">No handshake has been performed in this session.</li>
+                {% endif %}
+            </ol>
+            <div id="global-alerts">
                 {% if success %}
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
                         <strong>Done!</strong> {{ success_details }}
@@ -29,6 +44,7 @@
                     </div>
                 {% endif %}
             </div>
+            <!-- Configuration -->
             <form action="{{ url_for(request.endpoint, uuid=peer.uuid) }}" method="post" novalidate>
                 {{ form.hidden_tag() }}
                 <div class="card mb-4">
@@ -178,6 +194,164 @@
                     </div>
                 </div>
             </form>
+            <!-- Traffic data -->
+            <div class="row mb-1">
+                    <div class="col-xl-6">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <i class="fas fa-chart-bar mr-1"></i>
+                                Received and transmitted data in this session
+                            </div>
+                            <div class="card-body">
+                                <canvas id="barChart" width="100%"></canvas>
+                                <script>
+                                    const colors = chartUtils.getRandomColorPalette(2);
+                                    let data = {
+                                      labels: ["Traffic data"],
+                                      datasets: [
+                                          {
+                                              label: "Received",
+                                              data: [{{ session_traffic.rx }}],
+                                              backgroundColor: "rgba(2,117,216,0.2)",
+                                              borderColor: "rgba(2,117,216,1)",
+                                          },
+                                          {
+                                              label: "Transmitted",
+                                              data: [{{ session_traffic.tx }}],
+                                              backgroundColor: "rgba(73,2,216,0.2)",
+                                              borderColor: "rgb(73,2,216)",
+                                          }],
+                                    };
+
+                                    let options = {
+                                      scales: {
+                                          y: {
+                                              ticks: {
+                                                  callback: function(value, index, values) {
+                                                      return value + " GB";
+                                                  }
+                                              },
+                                          }
+                                      },
+                                      plugins: {
+                                          title: {
+                                              display: false,
+                                              text: ""
+                                          }
+                                      }
+                                    };
+                                    new Chart(document.getElementById("barChart"), {
+                                        type: 'bar',
+                                        data: data,
+                                        options: options
+                                    });
+
+                                </script>
+                            </div>
+                            <div class="card-footer">
+                              <small class="text-muted">Information provided by <code>wg</code> at {{ last_update }}.</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-6">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <i class="fas fa-chart-area mr-1"></i>
+                                History of received and transmitted data
+                            </div>
+                            {% if traffic_config.enabled %}
+                                <div class="card-body">
+                                    <canvas id="chart" width="100%"></canvas>
+                                    <script>
+                                    moment.locale("en-AU"); //dd/mm/yyyy
+                                    data = {
+                                      labels: {{ chart["labels"] | safe }},
+                                      datasets: [
+                                          {
+                                              label: "Received",
+                                              data: {{ chart["datasets"]["rx"] }},
+                                              fill: true,
+                                              lineTension: 0.3,
+                                              backgroundColor: "rgba(2,117,216,0.2)",
+                                              borderColor: "rgba(2,117,216,1)",
+                                              pointRadius: 5,
+                                              pointBackgroundColor: "rgba(2,117,216,1)",
+                                              pointBorderColor: "rgba(255,255,255,0.8)",
+                                              pointHoverRadius: 5,
+                                              pointHoverBackgroundColor: "rgba(2,117,216,1)",
+                                              pointHitRadius: 50,
+                                              pointBorderWidth: 2,
+                                          },
+                                          {
+                                              label: "Transmitted",
+                                              data: {{ chart["datasets"]["tx"] }},
+                                              fill: true,
+                                              lineTension: 0.3,
+                                              backgroundColor: "rgba(73,2,216,0.2)",
+                                              borderColor: "rgb(73,2,216)",
+                                              pointRadius: 5,
+                                              pointBackgroundColor: "rgb(109,92,216)",
+                                              pointBorderColor: "rgba(255,255,255,0.8)",
+                                              pointHoverRadius: 5,
+                                              pointHoverBackgroundColor: "rgb(92,73,216)",
+                                              pointHitRadius: 50,
+                                              pointBorderWidth: 2,
+                                          }
+                                      ],
+                                    };
+                                    options = {
+                                      scales: {
+                                          x: {
+                                            type: 'time',
+                                            time: {
+                                                unit: "hour",
+                                                stepSize: 1,
+                                                displayFormats: {
+                                                    hour: 'HH:mm'
+                                                },
+                                            },
+                                            ticks: {
+                                                maxTicksLimit: 12,
+                                                major: {
+                                                   enabled: true, // <-- This is the key line
+                                                   fontStyle: 'bold', //You can also style these values differently
+                                                   fontSize: 14 //You can also style these values differently
+                                                },
+                                            },
+                                          },
+                                          y: {
+                                              ticks: {
+                                                  callback: function(value, index, values) {
+                                                      return value + " GB";
+                                                  }
+                                              },
+                                          }
+                                      },
+                                      plugins: {
+                                          title: {
+                                              display: false,
+                                              text: "History of received and transmitted data"
+                                          }
+                                      }
+                                    };
+                                    new Chart(document.getElementById("chart"), {
+                                        type: 'line',
+                                        data: data,
+                                        options: options
+                                    });
+                                </script>
+                                </div>
+                                <div class="card-footer">
+                                  <small class="text-muted">Information provided at {{ last_update }}.</small>
+                                </div>
+                            {% else %}
+                                <div class="card-body">
+                                    Data collection is not enabled! Enable it in <a href="/settings">settings</a>.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
         </div>
     </main>
 {% endblock %}

@@ -1,23 +1,10 @@
-import signal
-import sys
-from logging import info, warning
+from logging import info
 
 from core.exceptions import WireguardError
 from core.models import interfaces
 
 
 class WireguardManager:
-
-    def __init__(self):
-        info("Setting up termination signal handlers...")
-        signal.signal(signal.SIGINT, self.terminal_signal_handler)
-        signal.signal(signal.SIGTERM, self.terminal_signal_handler)
-        signal.signal(signal.SIGQUIT, self.terminal_signal_handler)
-
-    def terminal_signal_handler(self, sig, frame):
-        warning(f"Caught termination signal {sig}. Shutting down the application...")
-        self.stop()
-        sys.exit(0)
 
     def start(self):
         info("Starting VPN server...")
