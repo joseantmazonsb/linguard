@@ -100,7 +100,7 @@ fi
 
 info "Setting up virtual environment..."
 python3 -m venv "${INSTALLATION_PATH}"/venv
-source "${INSTALLATION_PATH}"/venv/bin/activate
+output=$(source "${INSTALLATION_PATH}"/venv/bin/activate)
 if [ $? -ne 0 ]; then
     fatal "Unable to activate virtual environment."
     exit 1
