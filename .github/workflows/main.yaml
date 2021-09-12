@@ -66,7 +66,7 @@ jobs:
       run: |
         wget -q https://raw.githubusercontent.com/joseantmazonsb/linguard/main/scripts/install.sh .
         chmod +x install.sh
-        sudo ./scripts/install.sh /var/www/linguard
+        sudo ./install.sh /var/www/linguard
 
     - name: Briefly test using uWSGI
       run: |
