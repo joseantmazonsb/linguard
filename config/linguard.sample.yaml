@@ -1,4 +1,4 @@
-linguard: !yamlable/linguard
+wireguard: !yamlable/wireguard
   endpoint: vpn.example.com
   interfaces: !yamlable/interfaces
     39a855187c4c4ca694d8c3f215e76cdc: !yamlable/interface

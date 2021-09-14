@@ -1,0 +1,238 @@
+{% extends "web/web-main.html" %}
+
+{% block additional_styles %}
+    <link href="https://cdn.datatables.net/1.10.20/css/dataTables.bootstrap4.min.css" rel="stylesheet" crossorigin="anonymous" />
+{% endblock %}
+
+{% block content %}
+    <main>
+        <div class="container-fluid">
+            <h1 class="my-4">{{ title }}</h1>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-ethernet mr-1"></i>
+                    Interfaces
+                    <a href="/wireguard/interfaces/add" class="float-right" title="Add"><i class="fas fa-plus mr-1"></i></a>
+                </div>
+                <div id="wgIfacesHeader" class="card-body">
+                    <div class="row row-cols-1 row-cols-lg-2 row-cols-xl-3">
+                        {% if interfaces | length < 1 %}
+                            <div class="col">
+                                There are no interfaces available yet, why don't you <a href="/wireguard/interfaces/add">add one</a>?
+                            </div>
+                        {% else %}
+                            {% for iface in interfaces.values() %}
+                                <div class="col mb-4">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h5 class="card-title mb-3">{{ iface.name }}</h5>
+                                            <div class="table-responsive">
+                                                <table class="table table-bordered">
+                                                    <tbody>
+                                                        <tr>
+                                                            <th>Status</th>
+                                                            {% if iface.status == "up" %}
+                                                                {% set status_color = "bg-success" %}
+                                                            {% elif iface.status == "down" %}
+                                                                {% set status_color = "bg-danger" %}
+                                                            {% else %}
+                                                                {% set status_color = "bg-warning" %}
+                                                            {% endif %}
+                                                            <td id="statusIface-{{ iface.uuid }}" class="{{ status_color }} text-white"> {{ iface.status }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <th>Description</th>
+                                                            {% if iface.description %}
+                                                                <td>{{ iface.description }}</td>
+                                                            {% else %}
+                                                                <td>{{ EMPTY_FIELD | safe }}</td>
+                                                            {% endif %}
+                                                        </tr>
+                                                        <tr>
+                                                            <th>IPv4</th>
+                                                            {% if iface.ipv4_address %}
+                                                                <td>{{ iface.ipv4_address }}</td>
+                                                            {% else %}
+                                                                <td>{{ EMPTY_FIELD | safe }}</td>
+                                                            {% endif %}
+                                                        </tr>
+                                                        <tr>
+                                                            <th>Listen port</th>
+                                                            {% if iface.listen_port %}
+                                                                <td>{{ iface.listen_port }}</td>
+                                                            {% else %}
+                                                                <td>{{ EMPTY_FIELD | safe }}</td>
+                                                            {% endif %}
+                                                        </tr>
+                                                        <tr>
+                                                            <th>Peers</th>
+                                                            <td>{{ iface.peers | length }}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            {% if iface.status == "up" %}
+                                                <button value="{{ iface.uuid }}" class="btn btn-danger startOrStopIfaceBtn">Stop</button>
+                                            {% elif iface.status == "down" %}
+                                                <button value="{{ iface.uuid }}" class="btn btn-success startOrStopIfaceBtn">Start</button>
+                                            {% endif %}
+                                            <button value="{{ iface.uuid }}" class="btn btn-outline-info restartIfaceBtn">Restart</button>
+                                            <i id="wgIface-{{ iface.uuid }}-loading" class="float-right mt-2 fas fa-circle-notch fa-spin" style="display: none"></i>
+                                        </div>
+                                        <div class="card-footer">
+                                            {% if iface.auto %}
+                                                <span class="badge badge-pill badge-secondary">auto</span>
+                                            {% endif %}
+                                            <div class="float-right">
+                                                <a href="/wireguard/interfaces/{{ iface.uuid }}/download" title="Download"
+                                                   class="mr-2"><i class="fa fa-download"></i>
+                                                </a>
+                                                <a href="/wireguard/interfaces/{{ iface.uuid }}"
+                                                   title="Edit" class="mr-2"><i class="fas fa-pen"></i></a>
+                                                <span data-toggle="modal" data-target="#removeModal-{{ iface.uuid }}"
+                                                      type="button" class="btn-link removal-link">
+                                                    <i title="Remove" class="fas fa-trash"></i>
+                                                </span>
+                                                <!-- Modal -->
+                                                <div class="modal fade" id="removeModal-{{ iface.uuid }}" tabindex="-1" role="dialog"
+                                                     aria-labelledby="removeModalTitle" aria-hidden="true">
+                                                  <div class="modal-dialog" role="document">
+                                                    <div class="modal-content">
+                                                      <div class="modal-header">
+                                                        <h5 class="modal-title" id="removeModalTitle">Delete interface</h5>
+                                                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                          <span aria-hidden="true">&times;</span>
+                                                        </button>
+                                                      </div>
+                                                      <div class="modal-body">
+                                                          Do you really want to remove <strong>{{ iface.name }}</strong>?
+                                                          This cannot be undone.
+                                                      </div>
+                                                      <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                                        <button type="button" id="removeIfaceBtn-{{ iface.uuid }}"
+                                                                class="btn btn-danger removeIfaceBtn">Remove</button>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    {% if interfaces | length > 0  %}
+                        <button id="startAllBtn" class="btn btn-success">Start all</button>
+                        <button id="stopAllBtn" class="btn btn-danger">Stop all</button>
+                        <i id="wgIfacesLoading" class="float-right mt-2 fas fa-circle-notch fa-spin" style="display: none"></i>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                  <small class="text-muted">Information provided by <code>wg</code> at {{ last_update }}.</small>
+                </div>
+            </div>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-user-friends mr-1"></i>
+                    Peers
+                    <a href="/wireguard/peers/add" class="float-right" title="Add"><i class="fas fa-plus mr-1"></i></a>
+                </div>
+                <div class="card-body">
+                    <div id="wgIfacePeers">
+                        <div class="table-responsive">
+                            <table class="table table-bordered dataTable">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Interface</th>
+                                        <th>Description</th>
+                                        <th>IPv4</th>
+                                        <th>Primary DNS</th>
+                                        <th>Secondary DNS</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for iface in interfaces.values() %}
+                                    {% for peer in iface.peers.values() %}
+                                        <tr>
+                                            <td>
+                                                <span>{{ peer.name }}</span>
+                                            </td>
+                                            <td><a href="/wireguard/interfaces/{{ iface.uuid }}">{{ iface.name }}</a></td>
+                                            {% if peer.description %}
+                                                <td>{{ peer.description }}</td>
+                                            {% else %}
+                                                <td>{{ EMPTY_FIELD | safe }}</td>
+                                            {% endif %}
+                                            {% if peer.ipv4_address %}
+                                                <td>{{ peer.ipv4_address }}</td>
+                                            {% else %}
+                                                <td>{{ EMPTY_FIELD | safe }}</td>
+                                            {% endif %}
+                                            <td>{{ peer.dns1}}</td>
+                                            {% if peer.dns2 %}
+                                            <td>{{ peer.dns2 }}</td>
+                                            {% else %}
+                                                <td>{{ EMPTY_FIELD | safe }}</td>
+                                            {% endif %}
+                                            <td>
+                                                <a href="/wireguard/peers/{{ peer.uuid }}/download" title="Download"
+                                                   class="mr-2"><i class="fa fa-download"></i>
+                                                </a>
+                                                <a href="/wireguard/peers/{{ peer.uuid }}" title="Edit" class="mr-2">
+                                                    <i class="fas fa-pen"></i>
+                                                </a>
+                                                <span data-toggle="modal" data-target="#removeModal-{{ peer.uuid }}"
+                                                      type="button" class="btn-link removal-link">
+                                                    <i title="Remove" class="fas fa-trash"></i>
+                                                </span>
+                                                <!-- Modal -->
+                                                <div class="modal fade" id="removeModal-{{ peer.uuid }}" tabindex="-1" role="dialog"
+                                                     aria-labelledby="removePeerTitle" aria-hidden="true">
+                                                  <div class="modal-dialog" role="document">
+                                                    <div class="modal-content">
+                                                      <div class="modal-header">
+                                                        <h5 class="modal-title" id="removeModalTitle">Delete peer</h5>
+                                                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                          <span aria-hidden="true">&times;</span>
+                                                        </button>
+                                                      </div>
+                                                      <div class="modal-body">
+                                                          Do you really want to remove <strong>{{ peer.name }}</strong>?
+                                                          This cannot be undone.
+                                                      </div>
+                                                      <div class="modal-footer">
+                                                          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                                          <button type="button" id="removePeerBtn-{{ peer.uuid }}"
+                                                                class="btn btn-danger removePeerBtn">Remove</button>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                  <small class="text-muted">Information provided at {{ last_update }}.</small>
+                </div>
+            </div>
+        </div>
+    </main>
+{% endblock %}
+
+{% block additional_scripts %}
+    <script src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.datatables.net/1.10.20/js/dataTables.bootstrap4.min.js" crossorigin="anonymous"></script>
+    <script src="../../static/js/libs/chartUtils.js"></script>
+    <script src="../../static/js/libs/datatablesUtils.js"></script>
+    <script type="module" src="../../static/js/modules/wireguard.mjs"></script>
+{% endblock %}

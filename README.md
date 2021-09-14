@@ -23,7 +23,7 @@ Check out [the wiki](https://github.com/joseantmazonsb/linguard/wiki) for additi
 
 1. Download the installation script and run it. You must supply the installation directory (for instance, `/var/www/linguard`) and (optionally) the tag to check out.
     ```bash
-    wget -q https://raw.githubusercontent.com/joseantmazonsb/linguard/main/scripts/install.sh .
+    wget -q https://raw.githubusercontent.com/joseantmazonsb/linguard/main/scripts/install.sh
     chmod +x install.sh
     sudo ./install.sh <install_folder> [git_branch]
     ```
