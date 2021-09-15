@@ -18,10 +18,19 @@ from linguard.web.router import router
 from linguard.web.static.assets.resources import APP_NAME
 
 
+def clear_loggers():
+    # Prevent https://github.com/pytest-dev/pytest/issues/5502
+    loggers = [logging.getLogger()] + list(logging.Logger.manager.loggerDict.values())
+    for logger in loggers:
+        handlers = getattr(logger, 'handlers', [])
+        for handler in handlers:
+            logger.removeHandler(handler)
+    logging.basicConfig(format=logger_config.LOG_FORMAT, level=logger_config.LEVELS[logger_config.level])
+
+
 @atexit.register
 def on_exit():
-    # Prevent https://github.com/pytest-dev/pytest/issues/5502
-    logging.basicConfig(format=logger_config.LOG_FORMAT, level=logger_config.LEVELS[logger_config.level], force=True)
+    clear_loggers()
     warning(f"Shutting down {APP_NAME}...")
     cron_manager.stop()
     traffic_config.driver.save_data()
