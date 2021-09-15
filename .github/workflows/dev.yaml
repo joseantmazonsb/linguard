@@ -53,7 +53,8 @@ jobs:
           poetry shell
           poetry add pytest pytest-cov
           export github_action_hook=True
-          poetry run pytest -s --cov-report xml:coverage.xml --cov
+          poetry run coverage run -m pytest
+          poetry run coverage xml
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v1
