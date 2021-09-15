@@ -9,7 +9,7 @@ from flask_login import login_user
 
 from linguard.common.models.user import users, User
 from linguard.common.utils.logs import log_exception
-from linguard.common.utils.string import str_to_list
+from linguard.common.utils.strings import str_to_list
 from linguard.core.config.logger import config as logger_config, LoggerConfig
 from linguard.core.config.traffic import config as traffic_config
 from linguard.core.config.web import config as web_config, WebConfig

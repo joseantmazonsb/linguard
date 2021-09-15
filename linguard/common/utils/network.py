@@ -1,7 +1,7 @@
 import json
 from typing import List, Dict, Any
 
-from linguard.common.utils.string import list_to_str
+from linguard.common.utils.strings import list_to_str
 from linguard.common.utils.system import Command
 from linguard.web.static.assets.resources import EMPTY_FIELD
 

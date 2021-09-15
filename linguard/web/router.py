@@ -11,7 +11,7 @@ from flask_login import current_user, login_required, login_user
 from linguard.common.models.user import users
 from linguard.common.utils.logs import log_exception
 from linguard.common.utils.network import get_routing_table, get_system_interfaces
-from linguard.common.utils.string import list_to_str
+from linguard.common.utils.strings import list_to_str
 from linguard.common.utils.time import get_time_ago
 from linguard.core.config.logger import config as logger_config
 from linguard.core.config.traffic import config as traffic_config

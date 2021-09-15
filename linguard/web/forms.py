@@ -8,7 +8,7 @@ from wtforms.validators import DataRequired
 
 from linguard.common.utils.encryption import CryptoUtils
 from linguard.common.utils.network import get_system_interfaces, get_default_gateway
-from linguard.common.utils.string import list_to_str
+from linguard.common.utils.strings import list_to_str
 from linguard.core.config.logger import config as logger_config
 from linguard.core.config.traffic import config as traffic_config
 from linguard.core.config.web import config as web_config
