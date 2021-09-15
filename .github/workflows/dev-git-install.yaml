@@ -5,8 +5,8 @@ on:
     branches-ignore:
       - main
     paths:
-      - "install.sh"
-      - "dev-git-install.yaml"
+      - "**/install.sh"
+      - "**/dev-git-install.yaml"
 
 jobs:
   install:

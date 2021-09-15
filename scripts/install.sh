@@ -127,4 +127,5 @@ echo "linguard ALL=(ALL) NOPASSWD: /usr/bin/wg" > /etc/sudoers.d/linguard
 echo "linguard ALL=(ALL) NOPASSWD: /usr/bin/wg-quick" >> /etc/sudoers.d/linguard
 chmod +x scripts/run.sh
 cd "$cwd"
+
 info "DONE!"

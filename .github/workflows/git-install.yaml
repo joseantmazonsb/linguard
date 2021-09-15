@@ -5,8 +5,8 @@ on:
     branches:
       - main
     paths:
-      - "install.sh"
-      - "git-install.yaml"
+      - "**/install.sh"
+      - "**/git-install.yaml"
 
 jobs:
   install:
