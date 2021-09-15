@@ -83,7 +83,8 @@ class InterfaceNameValidator:
 class InterfaceIpValidator:
     def __call__(self, form, field):
         try:
-            ipaddress.IPv4Interface(field.data)
+            ip = ipaddress.IPv4Interface(field.data)
+            field.data = ip.exploded
             if Interface.is_ip_in_use(field.data, form.iface):
                 stop_validation(field, "address already in use!")
         except ValueError:

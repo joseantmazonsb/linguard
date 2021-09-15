@@ -4,11 +4,13 @@ import os
 from flask_login import current_user
 
 from linguard.common.models.user import users, User
+from linguard.common.utils.network import get_system_interfaces
 from linguard.core.config.traffic import config as traffic_config
 from linguard.core.config.web import config as web_config
+from linguard.core.config.wireguard import config as wireguard_config
 from linguard.core.managers.config import config_manager
 from linguard.core.managers.cron import cron_manager
-from linguard.core.models import interfaces
+from linguard.core.models import interfaces, Interface
 
 username = "admin"
 password = "admin"
@@ -62,3 +64,19 @@ def get_testing_app():
     app.config["TESTING"] = True
     app.config["WTF_CSRF_ENABLED"] = False
     return app
+
+
+def create_test_iface(name, ipv4, port):
+    gw = list(filter(lambda i: i != "lo", get_system_interfaces().keys()))[1]
+    on_up = [
+        f"{wireguard_config.iptables_bin} -I FORWARD -i {name} -j ACCEPT\n" +
+        f"{wireguard_config.iptables_bin} -I FORWARD -o {name} -j ACCEPT\n" +
+        f"{wireguard_config.iptables_bin} -t nat -I POSTROUTING -o {gw} -j MASQUERADE\n"
+    ]
+    on_down = [
+        f"{wireguard_config.iptables_bin} -D FORWARD -i {name} -j ACCEPT\n" +
+        f"{wireguard_config.iptables_bin} -D FORWARD -o {name} -j ACCEPT\n" +
+        f"{wireguard_config.iptables_bin} -t nat -D POSTROUTING -o {gw} -j MASQUERADE\n"
+    ]
+    return Interface(name=name, description="", gw_iface=gw, ipv4_address=ipv4, listen_port=port, auto=False,
+                     on_up=on_up, on_down=on_down)
