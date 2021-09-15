@@ -7,7 +7,6 @@ from flask import Flask
 from flask_login import LoginManager
 
 from linguard.common.models.user import users
-from linguard.core.config.traffic import config as traffic_config
 from linguard.core.config.web import config as web_config
 from linguard.core.managers.config import config_manager
 from linguard.core.managers.cron import cron_manager
@@ -41,7 +40,6 @@ cron_manager.start()
 def on_exit():
     warning(f"Shutting down {APP_NAME}...")
     cron_manager.stop()
-    traffic_config.driver.save_data()
     wireguard_manager.stop()
 
 
