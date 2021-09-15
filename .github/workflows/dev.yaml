@@ -50,11 +50,9 @@ jobs:
 
       - name: Run tests
         run: |
-          poetry shell
-          poetry add pytest pytest-cov
+          source`poetry env info --path`/bin/activate
           export github_action_hook=True
-          poetry run coverage run -m pytest
-          poetry run coverage xml
+          poetry run coverage run -m pytest && poetry run coverage xml
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v1
