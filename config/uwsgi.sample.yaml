@@ -1,5 +1,6 @@
 uwsgi:
   master: true
+  enable-threads: true
   chdir: /var/www/linguard
   venv: venv
   wsgi-file: linguard/__main__.py
