@@ -97,10 +97,11 @@ if [ "$clone" = true ]; then
     exit 1
   fi
 fi
-
+cwd=$(pwd)
+cd "${INSTALLATION_PATH}"
 info "Setting up virtual environment..."
-python3 -m venv "${INSTALLATION_PATH}/venv"
-source "${INSTALLATION_PATH}/venv/bin/activate"
+python3 -m venv venv
+source venv/bin/activate
 if [ $? -ne 0 ]; then
     fatal "Unable to activate virtual environment."
     exit 1
@@ -124,6 +125,6 @@ useradd -g linguard linguard
 chown -R linguard:linguard "$INSTALLATION_PATH"
 echo "linguard ALL=(ALL) NOPASSWD: /usr/bin/wg" > /etc/sudoers.d/linguard
 echo "linguard ALL=(ALL) NOPASSWD: /usr/bin/wg-quick" >> /etc/sudoers.d/linguard
-chmod +x "${INSTALLATION_PATH}"/scripts/run.sh
-
+chmod +x scripts/run.sh
+cd "$cwd"
 info "DONE!"
