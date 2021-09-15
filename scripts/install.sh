@@ -68,7 +68,7 @@ debug "Git tag set to '$GIT_TAG'."
 info "Installing dependencies..."
 debug "Updating packages list..."
 apt-get -qq update
-dependencies="curl git python3.8 python3-pip python3-venv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3"
+dependencies="curl git python3.9 python3.9-pip python3.9-venv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3"
 debug "The following packages will be installed: $dependencies"
 apt-get -qq install $dependencies
 if [ $? -ne 0 ]; then
