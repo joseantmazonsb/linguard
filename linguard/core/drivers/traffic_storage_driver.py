@@ -82,7 +82,7 @@ class TrafficStorageDriver(YamlAble):
         if len(stored_traffic) > 0:
             for device, traffic in session_traffic.items():
                 # Look for last registered data of device
-                for data in reversed(stored_traffic.values()):
+                for data in reversed(list(stored_traffic.values())):
                     if device in data:
                         traffic.rx += data[device].rx
                         traffic.tx += data[device].tx

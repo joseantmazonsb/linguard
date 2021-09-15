@@ -82,7 +82,7 @@ def index():
 def __get_total_traffic__(name: str, traffic: Dict[datetime, Dict[str, TrafficData]]) -> TrafficData:
     rx = 0
     tx = 0
-    for data in reversed(traffic.values()):
+    for data in reversed(list(traffic.values())):
         # Get only last appearance
         if name in data:
             rx += data[name].rx
