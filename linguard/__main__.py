@@ -1,6 +1,5 @@
 import argparse
 import atexit
-import logging
 import os
 from logging import warning
 
@@ -8,7 +7,6 @@ from flask import Flask
 from flask_login import LoginManager
 
 from linguard.common.models.user import users
-from linguard.core.config.logger import config as logger_config
 from linguard.core.config.traffic import config as traffic_config
 from linguard.core.config.web import config as web_config
 from linguard.core.managers.config import config_manager
@@ -16,26 +14,6 @@ from linguard.core.managers.cron import cron_manager
 from linguard.core.managers.wireguard import wireguard_manager
 from linguard.web.router import router
 from linguard.web.static.assets.resources import APP_NAME
-
-
-def clear_loggers():
-    # Prevent https://github.com/pytest-dev/pytest/issues/5502
-    loggers = [logging.getLogger()] + list(logging.Logger.manager.loggerDict.values())
-    for logger in loggers:
-        handlers = getattr(logger, 'handlers', [])
-        for handler in handlers:
-            logger.removeHandler(handler)
-    logging.basicConfig(format=logger_config.LOG_FORMAT, level=logger_config.LEVELS[logger_config.level])
-
-
-@atexit.register
-def on_exit():
-    clear_loggers()
-    warning(f"Shutting down {APP_NAME}...")
-    cron_manager.stop()
-    traffic_config.driver.save_data()
-    wireguard_manager.stop()
-
 
 login_manager = LoginManager()
 
@@ -57,6 +35,14 @@ app.register_blueprint(router)
 login_manager.init_app(app)
 wireguard_manager.start()
 cron_manager.start()
+
+
+@atexit.register
+def on_exit():
+    warning(f"Shutting down {APP_NAME}...")
+    cron_manager.stop()
+    traffic_config.driver.save_data()
+    wireguard_manager.stop()
 
 
 if __name__ == "__main__":

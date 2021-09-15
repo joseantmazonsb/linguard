@@ -98,13 +98,22 @@ if [ "$clone" = true ]; then
   fi
 fi
 
-info "Setting up virtual environment using Poetry..."
-curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python3 -
-"$HOME/.local/bin/poetry" self update;
-"$HOME/.local/bin/poetry" install --no-interaction;
-"$HOME/.local/bin/poetry" shell;
+info "Setting up virtual environment..."
+python3 -m venv "${INSTALLATION_PATH}/venv"
+source "${INSTALLATION_PATH}/venv/bin/activate"
 if [ $? -ne 0 ]; then
-    fatal "Unable to set up virtual environment."
+    fatal "Unable to activate virtual environment."
+    exit 1
+fi
+debug "Upgrading pip3..."
+pip3 install --upgrade pip
+debug "Installing Poetry..."
+curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python3 -
+export PATH="$HOME/.local/bin:$PATH"
+debug "Installing python requirements..."
+poetry install --no-interaction;
+if [ $? -ne 0 ]; then
+    fatal "Unable to install requirements."
     exit 1
 fi
 deactivate
