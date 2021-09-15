@@ -68,7 +68,7 @@ debug "Git tag set to '$GIT_TAG'."
 info "Installing dependencies..."
 debug "Updating packages list..."
 apt-get -qq update
-dependencies="curl git python3 python3-venv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3"
+dependencies="curl git python3.7 python3.7-venv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3"
 debug "The following packages will be installed: $dependencies"
 apt-get -qq install $dependencies
 if [ $? -ne 0 ]; then
@@ -100,16 +100,16 @@ fi
 cwd=$(pwd)
 cd "${INSTALLATION_PATH}"
 info "Setting up virtual environment..."
-python3 -m venv venv
+python3.7 -m venv venv
 source venv/bin/activate
 if [ $? -ne 0 ]; then
     fatal "Unable to activate virtual environment."
     exit 1
 fi
 debug "Upgrading pip..."
-python3 -m pip install --upgrade pip
+python3.7 -m pip install --upgrade pip
 debug "Installing Poetry..."
-curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python3 -
+curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python3.7 -
 export PATH="$HOME/.local/bin:$PATH"
 debug "Installing python requirements..."
 poetry install --no-interaction;
