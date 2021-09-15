@@ -1,0 +1,23 @@
+{% extends 'main.html' %}
+
+{% block body_content %}
+    {% block top_nav %}
+    {% endblock %}
+    <div id="layoutSidenav">
+        {% block side_nav %}
+        {% endblock %}
+        <div id="layoutSidenav_content">
+            {% block content %}
+            {% endblock %}
+        </div>
+    </div>
+    {% include "footer.html" %}
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <script type="module" src="../../static/js/modules/utils.mjs"></script>
+    {% block additional_scripts %}
+    {% endblock %}
+{% endblock %}

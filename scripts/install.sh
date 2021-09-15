@@ -68,7 +68,7 @@ debug "Git tag set to '$GIT_TAG'."
 info "Installing dependencies..."
 debug "Updating packages list..."
 apt-get -qq update
-dependencies="git python3 python3-pip python3-venv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3"
+dependencies="curl git python3 python3-venv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3"
 debug "The following packages will be installed: $dependencies"
 apt-get -qq install $dependencies
 if [ $? -ne 0 ]; then
@@ -97,18 +97,22 @@ if [ "$clone" = true ]; then
     exit 1
   fi
 fi
-
+cwd=$(pwd)
+cd "${INSTALLATION_PATH}"
 info "Setting up virtual environment..."
-python3 -m venv "${INSTALLATION_PATH}"/venv
-source "${INSTALLATION_PATH}"/venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 if [ $? -ne 0 ]; then
     fatal "Unable to activate virtual environment."
     exit 1
 fi
-debug "Upgrading pip3..."
-pip3 install --upgrade pip
+debug "Upgrading pip..."
+python3 -m pip install --upgrade pip
+debug "Installing Poetry..."
+curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python3 -
+export PATH="$HOME/.local/bin:$PATH"
 debug "Installing python requirements..."
-pip3 install -r "${INSTALLATION_PATH}"/requirements.txt
+poetry install --no-interaction;
 if [ $? -ne 0 ]; then
     fatal "Unable to install requirements."
     exit 1
@@ -118,9 +122,11 @@ deactivate
 info "Settings permissions..."
 groupadd linguard
 useradd -g linguard linguard
-chown -R linguard:linguard "$INSTALLATION_PATH"
+chown -R linguard:linguard .
 echo "linguard ALL=(ALL) NOPASSWD: /usr/bin/wg" > /etc/sudoers.d/linguard
 echo "linguard ALL=(ALL) NOPASSWD: /usr/bin/wg-quick" >> /etc/sudoers.d/linguard
-chmod +x "${INSTALLATION_PATH}"/scripts/run.sh
+chmod +x scripts/run.sh
+chmod +x -R linguard/core/tools
+cd "$cwd"
 
 info "DONE!"

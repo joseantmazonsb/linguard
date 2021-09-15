@@ -1,8 +1,9 @@
 uwsgi:
   master: true
+  enable-threads: true
   chdir: /var/www/linguard
   venv: venv
-  wsgi-file: app.py
+  wsgi-file: linguard/__main__.py
   pyargv: config/linguard.sample.yaml
   need-plugin: python3
   callable: app

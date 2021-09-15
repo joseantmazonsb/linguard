@@ -1,4 +1,4 @@
-linguard: !yamlable/linguard
+wireguard: !yamlable/wireguard
   endpoint: vpn.example.com
   interfaces: !yamlable/interfaces
     39a855187c4c4ca694d8c3f215e76cdc: !yamlable/interface
@@ -38,6 +38,11 @@ logger: !yamlable/logger
   level: debug
   logfile: /var/www/linguard/linguard.log
   overwrite: false
+traffic: !yamlable/traffic
+  driver: !yamlable/traffic_storage_driver_json
+    filepath: /var/www/linguard/traffic.json
+    timestamp_format: '%d/%m/%Y %H:%M:%S'
+  enabled: true
 web: !yamlable/web
   credentials_file: /var/www/linguard/credentials.yaml
   login_attempts: 0

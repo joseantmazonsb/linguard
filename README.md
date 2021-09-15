@@ -10,26 +10,12 @@ Linguard aims to provide an easy way to manage your WireGuard server, and it's w
 Check out [the wiki](https://github.com/joseantmazonsb/linguard/wiki) for additional info!
 
 ## Table of contents
-- [Screenshots](#screenshots)
 - [Installation](#installation)
+- [Screenshots](#screenshots)
     - [Git](#git)
     - [Debian package](#debian-package)
     - [Docker](#docker)
 - [Contributing](#contributing)
-
-## Screenshots
-
-![Signup](images/signup.png)
-![Login](images/login.png)
-![Network interfaces](images/network-section-1.png)
-![Routing information](images/network-section-2.png)
-![Wireguard interfaces section (1)](images/wireguard-section-1.png)
-![Wireguard interfaces section (2)](images/wireguard-section-2.png)
-![Edit wireguard interface configuration (1)](images/wireguard-edit-1.png)
-![Edit wireguard interface configuration (2)](images/wireguard-edit-2.png)
-![Edit wireguard peer configuration](images/peer-edit-1.png)
-![Settings](images/settings.png)
-![Profile](images/profile.png)
 
 ## Installation
 
@@ -37,7 +23,7 @@ Check out [the wiki](https://github.com/joseantmazonsb/linguard/wiki) for additi
 
 1. Download the installation script and run it. You must supply the installation directory (for instance, `/var/www/linguard`) and (optionally) the tag to check out.
     ```bash
-    wget -q https://raw.githubusercontent.com/joseantmazonsb/linguard/main/scripts/install.sh .
+    wget -q https://raw.githubusercontent.com/joseantmazonsb/linguard/main/scripts/install.sh
     chmod +x install.sh
     sudo ./install.sh <install_folder> [git_branch]
     ```
@@ -54,6 +40,22 @@ Check out [the wiki](https://github.com/joseantmazonsb/linguard/wiki) for additi
 ### Debian package
 
 ### Docker
+
+## Screenshots
+
+![Dashboard (1)](images/dashboard-1.png)
+![Dashboard (2)](images/dashboard-2.png)
+![Network interfaces](images/network-section-1.png)
+![Routing information](images/network-section-2.png)
+![Wireguard interfaces section (1)](images/wireguard-section-1.png)
+![Wireguard interfaces section (2)](images/wireguard-section-2.png)
+![Edit wireguard interface configuration (1)](images/wireguard-edit-1.png)
+![Edit wireguard interface configuration (2)](images/wireguard-edit-2.png)
+![Edit wireguard interface configuration (3)](images/wireguard-edit-3.png)
+![Edit wireguard peer configuration (1)](images/peer-edit-1.png)
+![Edit wireguard peer configuration (2)](images/peer-edit-2.png)
+![Settings (1)](images/settings-1.png)
+![Settings (2)](images/settings-2.png)
 
 ## Contributing
 
