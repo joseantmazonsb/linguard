@@ -41,7 +41,6 @@ jobs:
           wget https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py
           python3 install-poetry.py
           poetry self update
-          poetry config virtualenvs.in-project true
           poetry install
 
       - name: Install linux dependencies
