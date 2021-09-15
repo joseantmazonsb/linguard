@@ -122,10 +122,11 @@ deactivate
 info "Settings permissions..."
 groupadd linguard
 useradd -g linguard linguard
-chown -R linguard:linguard "$INSTALLATION_PATH"
+chown -R linguard:linguard .
 echo "linguard ALL=(ALL) NOPASSWD: /usr/bin/wg" > /etc/sudoers.d/linguard
 echo "linguard ALL=(ALL) NOPASSWD: /usr/bin/wg-quick" >> /etc/sudoers.d/linguard
 chmod +x scripts/run.sh
+chmod +x -R linguard/core/tools
 cd "$cwd"
 
 info "DONE!"
