@@ -10,7 +10,8 @@ on:
       - "**.yml"
       - "**.yaml"
       - "**.sh"
-      - "requirements.txt"
+      - "poetry.lock"
+      - "pyproject.toml"
 
 jobs:
   test:
