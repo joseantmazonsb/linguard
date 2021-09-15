@@ -24,7 +24,6 @@ def generate_pubkey(privkey: str) -> str:
 
 
 def get_wg_interface_status(name: str) -> str:
-    from linguard.core.config.wireguard import config
-    if Command(f"{config.wg_bin} show {name}").run_as_root().successful:
+    if is_wg_iface_up(name):
         return "up"
     return "down"

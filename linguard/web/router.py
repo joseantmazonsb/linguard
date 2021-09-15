@@ -314,7 +314,6 @@ def get_wireguard_iface(uuid: str):
     context = {
         "title": "Interface",
         "iface": iface,
-        "iface_status": iface.status,
         "last_update": datetime.now().strftime("%H:%M"),
         "EMPTY_FIELD": EMPTY_FIELD,
         "app_name": APP_NAME,
@@ -335,7 +334,6 @@ def get_wireguard_iface(uuid: str):
         return ViewController(view, **context).load()
     try:
         RestController().apply_iface(iface, form)
-        context["iface_status"] = iface.status
         context["success"] = True
         context["success_details"] = "Interface updated successfully."
     except Exception as e:

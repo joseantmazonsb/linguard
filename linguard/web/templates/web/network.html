@@ -12,6 +12,7 @@
                 <div class="card-body">
                     <div class="row row-cols-1  row-cols-lg-2 row-cols-xl-3">
                         {% for iface in interfaces.values() %}
+                            {% set iface_status = iface.status %}
                             <div class="col mb-4">
                                 <div class="card">
                                     <div class="card-body">
@@ -21,14 +22,14 @@
                                                 <tbody>
                                                     <tr>
                                                         <th>Status</th>
-                                                        {% if iface.status == "up" %}
+                                                        {% if iface_status == "up" %}
                                                             {% set status_color = "bg-success" %}
-                                                        {% elif iface.status == "down" %}
+                                                        {% elif iface_status == "down" %}
                                                             {% set status_color = "bg-danger" %}
                                                         {% else %}
                                                             {% set status_color = "bg-warning" %}
                                                         {% endif %}
-                                                        <td class="{{ status_color }} text-white"> {{ iface.status }}</td>
+                                                        <td class="{{ status_color }} text-white"> {{ iface_status }}</td>
                                                     </tr>
                                                     <tr>
                                                         <th>IPv4</th>

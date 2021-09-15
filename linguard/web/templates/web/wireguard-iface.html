@@ -13,6 +13,7 @@
 {% endblock %}
 
 {% block content %}
+    {% set iface_status = iface.status %}
     <main>
         <div class="container-fluid">
             <div class="my-4">
@@ -55,10 +56,10 @@
                     Actions
                 </div>
                 <div class="card-body">
-                {% if iface.status == "up" %}
+                {% if iface_status == "up" %}
                     {% set button_action = "Stop" %}
                     {% set btn_class = "danger" %}
-                {% elif iface.status == "down" %}
+                {% elif iface_status == "down" %}
                     {% set button_action = "Start" %}
                     {% set btn_class = "success" %}
                 {% endif %}

@@ -22,6 +22,7 @@
                             </div>
                         {% else %}
                             {% for iface in interfaces.values() %}
+                                {% set iface_status = iface.status %}
                                 <div class="col mb-4">
                                     <div class="card">
                                         <div class="card-body">
@@ -31,14 +32,14 @@
                                                     <tbody>
                                                         <tr>
                                                             <th>Status</th>
-                                                            {% if iface.status == "up" %}
+                                                            {% if iface_status == "up" %}
                                                                 {% set status_color = "bg-success" %}
-                                                            {% elif iface.status == "down" %}
+                                                            {% elif iface_status == "down" %}
                                                                 {% set status_color = "bg-danger" %}
                                                             {% else %}
                                                                 {% set status_color = "bg-warning" %}
                                                             {% endif %}
-                                                            <td id="statusIface-{{ iface.uuid }}" class="{{ status_color }} text-white"> {{ iface.status }}</td>
+                                                            <td id="statusIface-{{ iface.uuid }}" class="{{ status_color }} text-white"> {{ iface_status }}</td>
                                                         </tr>
                                                         <tr>
                                                             <th>Description</th>
@@ -71,9 +72,9 @@
                                                     </tbody>
                                                 </table>
                                             </div>
-                                            {% if iface.status == "up" %}
+                                            {% if iface_status == "up" %}
                                                 <button value="{{ iface.uuid }}" class="btn btn-danger startOrStopIfaceBtn">Stop</button>
-                                            {% elif iface.status == "down" %}
+                                            {% elif iface_status == "down" %}
                                                 <button value="{{ iface.uuid }}" class="btn btn-success startOrStopIfaceBtn">Start</button>
                                             {% endif %}
                                             <button value="{{ iface.uuid }}" class="btn btn-outline-info restartIfaceBtn">Restart</button>
