@@ -1,5 +1,6 @@
 import argparse
 import atexit
+import logging
 import os
 from logging import warning
 
@@ -7,6 +8,7 @@ from flask import Flask
 from flask_login import LoginManager
 
 from linguard.common.models.user import users
+from linguard.core.config.logger import config as logger_config
 from linguard.core.config.traffic import config as traffic_config
 from linguard.core.config.web import config as web_config
 from linguard.core.managers.config import config_manager
@@ -18,6 +20,8 @@ from linguard.web.static.assets.resources import APP_NAME
 
 @atexit.register
 def on_exit():
+    # Prevent https://github.com/pytest-dev/pytest/issues/5502
+    logging.basicConfig(format=logger_config.LOG_FORMAT, level=logger_config.LEVELS[logger_config.level], force=True)
     warning(f"Shutting down {APP_NAME}...")
     cron_manager.stop()
     traffic_config.driver.save_data()

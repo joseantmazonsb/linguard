@@ -68,7 +68,7 @@ debug "Git tag set to '$GIT_TAG'."
 info "Installing dependencies..."
 debug "Updating packages list..."
 apt-get -qq update
-dependencies="git python3.8 python3-pip python3-venv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3"
+dependencies="curl git python3.8 python3-pip python3-venv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3"
 debug "The following packages will be installed: $dependencies"
 apt-get -qq install $dependencies
 if [ $? -ne 0 ]; then
@@ -100,12 +100,12 @@ fi
 
 info "Setting up virtual environment using Poetry..."
 curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python3 -
-poetry self update; poetry config virtualenvs.in-project true; poetry install; poetry shell;
+poetry self update; poetry install --no-interactive; poetry shell;
 if [ $? -ne 0 ]; then
     fatal "Unable to set up virtual environment."
     exit 1
 fi
-poetry exit
+deactivate
 
 info "Settings permissions..."
 groupadd linguard
