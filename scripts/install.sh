@@ -100,6 +100,7 @@ fi
 
 info "Setting up virtual environment using Poetry..."
 curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python3 -
+export PATH="/root/.local/bin:$PATH"
 poetry self update; poetry install --no-interactive; poetry shell;
 if [ $? -ne 0 ]; then
     fatal "Unable to set up virtual environment."
