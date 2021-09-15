@@ -12,7 +12,6 @@ on:
       - "**.js"
       - "**.yml"
       - "**.yaml"
-      - "**.sh"
       - "poetry.lock"
       - "pyproject.toml"
 
@@ -36,11 +35,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Upgrade pip
+        run: |
+          pip install --upgrade pip
+
       - name: Set up virtual environment using poetry
         run: |
           wget https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py
           python3 install-poetry.py
-          poetry self update
           poetry config virtualenvs.create false
           poetry install --no-interaction
 
@@ -51,7 +53,6 @@ jobs:
       - name: Run tests
         run: |
           export github_action_hook=True
-          export skip_sample_server=True
           poetry run coverage run -m pytest && poetry run coverage xml
 
       - name: Upload coverage report to Codecov
@@ -59,29 +60,3 @@ jobs:
         if: always()
         with:
           files: coverage.xml
-  deploy:
-    needs: test
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ ubuntu-20.04, ubuntu-18.04 ]
-    steps:
-      - name: Extract branch name
-        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-        id: extract_branch
-
-      - name: Escape branch name
-        run: echo "##[set-output name=branch;]$(echo "${{ steps.extract_branch.outputs.branch }}" | sed 's/#/\%23/g;')"
-        id: escaped_extract_branch
-
-      - name: Download specific branch's installation script and run it
-        run: |
-          wget -q "https://raw.githubusercontent.com/joseantmazonsb/linguard/${{ steps.escaped_extract_branch.outputs.branch }}/scripts/install.sh"
-          chmod +x install.sh
-          sudo ./install.sh /var/www/linguard "${{ steps.extract_branch.outputs.branch }}"
-
-      - name: Briefly test using uWSGI
-        run: |
-          sudo -u linguard uwsgi --yaml /var/www/linguard/config/uwsgi.sample.yaml &
-          sleep 2s
-          sudo pkill -f uwsgi

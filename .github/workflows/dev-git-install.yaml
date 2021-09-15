@@ -1,0 +1,36 @@
+name: (dev) git-install
+
+on:
+  push:
+    branches-ignore:
+      - main
+    paths:
+      - "install.sh"
+      - "dev-git-install.yaml"
+
+jobs:
+  install:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-20.04, ubuntu-18.04 ]
+    steps:
+      - name: Extract branch name
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
+
+      - name: Escape branch name
+        run: echo "##[set-output name=branch;]$(echo "${{ steps.extract_branch.outputs.branch }}" | sed 's/#/\%23/g;')"
+        id: escaped_extract_branch
+
+      - name: Download specific branch's installation script and run it
+        run: |
+          wget -q "https://raw.githubusercontent.com/joseantmazonsb/linguard/${{ steps.escaped_extract_branch.outputs.branch }}/scripts/install.sh"
+          chmod +x install.sh
+          sudo ./install.sh /var/www/linguard "${{ steps.extract_branch.outputs.branch }}"
+
+      - name: Briefly test using uWSGI
+        run: |
+          sudo -u linguard uwsgi --yaml /var/www/linguard/config/uwsgi.sample.yaml &
+          sleep 2s
+          sudo pkill -f uwsgi

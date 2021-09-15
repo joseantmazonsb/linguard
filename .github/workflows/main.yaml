@@ -23,53 +23,37 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v2
 
+      - name: Set permissions
+        run: |
+          chmod +x linguard/core/tools/*
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Set up virtual environment
-        run: |
-          sudo apt-get -qq install python3-venv
-          python3 -m venv ./venv
-
       - name: Upgrade pip
         run: |
-          source ./venv/bin/activate
           pip install --upgrade pip
 
-      - name: Install dependencies
+      - name: Set up virtual environment using poetry
         run: |
-          source ./venv/bin/activate
-          pip install -r requirements.txt
+          wget https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py
+          python3 install-poetry.py
+          poetry config virtualenvs.create false
+          poetry install --no-interaction
+
+      - name: Install linux dependencies
+        run: |
+          sudo apt-get -qq install wireguard iptables
 
       - name: Run tests
         run: |
-          source ./venv/bin/activate
-          pip install pytest pytest-cov
           export github_action_hook=True
-          sudo -E ./venv/bin/python -m pytest -s --cov-report xml:coverage.xml --cov
+          poetry run coverage run -m pytest && poetry run coverage xml
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v1
         if: always()
         with:
           files: coverage.xml
-  deploy:
-    needs: test
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ ubuntu-20.04, ubuntu-18.04 ]
-    steps:
-    - name: Download and install
-      run: |
-        wget -q https://raw.githubusercontent.com/joseantmazonsb/linguard/main/scripts/install.sh
-        chmod +x install.sh
-        sudo ./install.sh /var/www/linguard
-
-    - name: Briefly test using uWSGI
-      run: |
-        sudo -u linguard uwsgi --yaml /var/www/linguard/config/uwsgi.sample.yaml &
-        sleep 2s
-        sudo pkill -f uwsgi
