@@ -53,6 +53,7 @@ jobs:
       - name: Run tests
         run: |
           export github_action_hook=True
+          export skip_sample_server=True
           poetry run coverage run -m pytest && poetry run coverage xml
 
       - name: Upload coverage report to Codecov
