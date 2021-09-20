@@ -6,8 +6,10 @@ on:
       - main
     paths:
       - "**/install.sh"
-      - "**/git-install.yaml"
+      - "**/build.sh"
+      - "**/install.yaml"
       - "**/uwsgi-sample.yaml"
+      - "**/linguard-sample.yaml"
 
 jobs:
   install:

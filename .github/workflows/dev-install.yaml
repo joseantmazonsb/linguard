@@ -1,0 +1,40 @@
+name: (dev) git-install
+
+on:
+  push:
+    branches-ignore:
+      - main
+    paths:
+      - "**/install.sh"
+      - "**/build.sh"
+      - "**/dev-install.yaml"
+      - "**/uwsgi-sample.yaml"
+      - "**/linguard-sample.yaml"
+
+jobs:
+  install:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-20.04 ]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Build release
+        run: |
+          chmod +x build.sh
+          sudo ./build.sh
+
+      - name: Install release
+        run: |
+          cd dist
+          tar -xf *.tar.gz
+          chmod +x install.sh
+          sudo ./install.sh
+
+      - name: Briefly test service
+        run: |
+          sudo systemct start linguard.service
+          sleep 2s
+          sudo systemct stop linguard.service
