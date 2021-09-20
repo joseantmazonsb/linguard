@@ -1,74 +1,76 @@
 #!/bin/bash
 
-bold=$(tput bold)
-default=$(tput sgr0)
-cyan=$(tput setaf 6)
-red=$(tput setaf 1)
-yellow=$(tput setaf 3)
-dark_gray=$(tput setaf 8)
-
-function log() {
-  level=$1
-  if [ $# -gt 2 ]; then
-    options=$2
-    msg=$3
-  else
-    options=""
-    msg=$2
-  fi
-  case $level in
-        DEBUG* ) echo -e $options "${dark_gray}${bold}[DEBUG]${default} ${dark_gray}$msg${default}";;
-        INFO* ) echo -e $options "${cyan}${bold}[INFO]${default} ${cyan}$msg${default}";;
-        WARN* ) echo -e $options "${yellow}${bold}[WARN]${default} ${yellow}$msg${default}";;
-        ERROR* ) echo -e $options "${red}${bold}[ERROR]${default} ${red}$msg${default}";;
-        FATAL* ) echo -e $options "${red}${bold}[FATAL] $msg${default}";;
-        * ) echo "Invalid log level: '$level'";;
-    esac
-}
-
-function debug() {
-  log DEBUG "$@"
-}
-
-function info() {
-  log INFO "$@"
-}
-
-function warn() {
-  log WARN "$@"
-}
-
-function err() {
-  log ERROR "$@"
-}
-
-function fatal() {
-  log FATAL "$@"
-}
+source ./log.sh
 
 if [[ $EUID -ne 0 ]]; then
    fatal "This script must be run as superuser! Try using sudo."
    exit 1
 fi
 
-if [[ $# -gt 2 ]] || [[ $# -lt 1 ]]; then
+if [[ $# -gt 0 ]]; then
   fatal "Invalid arguments."
-  info "Usage: $0 <install_folder> [git_branch]\n\t <install_folder>\t| Path where Linguard will be checked out and installed.\n\t [git_branch]\t\t| Tag to download. Default: main."
+  info "Usage: $0"
   exit 1
 fi
 
-INSTALLATION_PATH=$1
-GIT_TAG=$2
-if [[ $GIT_TAG == "" ]]; then
-  GIT_TAG="main"
+ETC_DIR="/etc/linguard"
+VAR_DIR="/var/www/linguard"
+LOG_DIR="/var/log/linguard"
+
+info "Creating '$ETC_DIR'..."
+
+if [[ -d "$ETC_DIR" ]]; then
+    while true; do
+    warn -n "'$ETC_DIR' already exists. Shall I overwrite it? [y/n] "
+      read yn
+      case $yn in
+          [Yy]* ) rm -rf "$ETC_DIR"; break;;
+          [Nn]* ) info "Aborting..."; exit;;
+          * ) echo "Please answer yes or no.";;
+      esac
+    done
 fi
-debug "Installation path set to '$INSTALLATION_PATH'."
-debug "Git tag set to '$GIT_TAG'."
+CONFIG_DIR="$ETC_DIR/config"
+mkdir -p "$CONFIG_DIR"
+cp config/linguard.sample.yaml "$CONFIG_DIR/linguard.yaml"
+cp config/uwsgi.sample.yaml "$CONFIG_DIR/uwsgi.yaml"
+
+info "Creating '$VAR_DIR'..."
+
+if [[ -d "$VAR_DIR" ]]; then
+    while true; do
+    warn -n "'$VAR_DIR' already exists. Shall I overwrite it? [y/n] "
+      read yn
+      case $yn in
+          [Yy]* ) rm -rf "$VAR_DIR"; break;;
+          [Nn]* ) info "Aborting..."; exit;;
+          * ) echo "Please answer yes or no.";;
+      esac
+    done
+fi
+mkdir -p "$VAR_DIR"
+cp -r linguard "$VAR_DIR"
+cp requirements.txt "$VAR_DIR"
+
+info "Creating '$LOG_DIR'..."
+
+if [[ -d "$LOG_DIR" ]]; then
+    while true; do
+    warn -n "'$LOG_DIR' already exists. Shall I overwrite it? [y/n] "
+      read yn
+      case $yn in
+          [Yy]* ) rm -rf "$LOG_DIR"; mkdir -p "$LOG_DIR"; break;;
+          [Nn]* ) break;;
+          * ) echo "Please answer yes or no.";;
+      esac
+    done
+fi
+
 
 info "Installing dependencies..."
 debug "Updating packages list..."
 apt-get -qq update
-dependencies="curl git python3 python3-venv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3"
+dependencies="python3 python3-venv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3"
 debug "The following packages will be installed: $dependencies"
 apt-get -qq install $dependencies
 if [ $? -ne 0 ]; then
@@ -76,43 +78,17 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-info "Cloning repository in $INSTALLATION_PATH..."
-clone=true
-if [[ -d "$INSTALLATION_PATH" ]]; then
-  while true; do
-  warn -n "$INSTALLATION_PATH already exists. Shall I overwrite it? [y/n] "
-    read yn
-    case $yn in
-        [Yy]* ) rm -rf "$INSTALLATION_PATH"; break;;
-        [Nn]* ) clone=false; break;;
-        * ) echo "Please answer yes or no.";;
-    esac
-  done
-fi
-
-if [ "$clone" = true ]; then
-  git clone --branch "$GIT_TAG" https://github.com/joseantmazonsb/linguard.git "$INSTALLATION_PATH"
-  if [ $? -ne 0 ]; then
-    fatal "Unable to clone repository."
-    exit 1
-  fi
-fi
-cwd=$(pwd)
-cd "${INSTALLATION_PATH}"
 info "Setting up virtual environment..."
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv "$VAR_DIR/venv"
+source "$VAR_DIR/venv/bin/activate"
 if [ $? -ne 0 ]; then
     fatal "Unable to activate virtual environment."
     exit 1
 fi
 debug "Upgrading pip..."
 python3 -m pip install --upgrade pip
-debug "Installing Poetry..."
-curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python3 -
-export PATH="$HOME/.local/bin:$PATH"
 debug "Installing python requirements..."
-poetry install --no-interaction;
+python3 -m pip install -r "$VAR_DIR/requirements.txt"
 if [ $? -ne 0 ]; then
     fatal "Unable to install requirements."
     exit 1
@@ -122,11 +98,15 @@ deactivate
 info "Settings permissions..."
 groupadd linguard
 useradd -g linguard linguard
-chown -R linguard:linguard .
+chown -R linguard:linguard "$VAR_DIR"
+chown -R linguard:linguard "$ETC_DIR"
+chown -R linguard:linguard "$LOG_DIR"
+chmod +x -R "$VAR_DIR/linguard/core/tools"
 echo "linguard ALL=(ALL) NOPASSWD: /usr/bin/wg" > /etc/sudoers.d/linguard
 echo "linguard ALL=(ALL) NOPASSWD: /usr/bin/wg-quick" >> /etc/sudoers.d/linguard
-chmod +x scripts/run.sh
-chmod +x -R linguard/core/tools
-cd "$cwd"
 
-info "DONE!"
+info "Adding linguard service..."
+cp systemd/linguard.service /etc/systemd/system/
+chmod 644 /etc/systemd/system/linguard.service
+
+info "All set! Run 'systemctl start linguard.service' to get started."

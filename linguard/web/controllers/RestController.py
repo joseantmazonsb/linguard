@@ -4,8 +4,9 @@ import json
 from http.client import NO_CONTENT, INTERNAL_SERVER_ERROR
 from logging import debug
 
-from flask import Response, send_file, url_for, redirect, abort
+from flask import Response, url_for, redirect, abort
 from flask_login import login_user
+from werkzeug.wsgi import FileWrapper
 
 from linguard.common.models.user import users, User
 from linguard.common.utils.logs import log_exception
@@ -109,15 +110,11 @@ class RestController:
 
     @staticmethod
     def send_text_as_file(filename: str, text: str):
-        proxy = io.StringIO()
-        proxy.writelines(text)
-        # Creating the byteIO object from the StringIO Object
-        mem = io.BytesIO()
-        mem.write(proxy.getvalue().encode())
-        # seeking was necessary. Python 3.5.2, Flask 0.12.2
-        mem.seek(0)
-        proxy.close()
-        return send_file(mem, as_attachment=True, attachment_filename=filename, mimetype="text/plain")
+        wrapper = FileWrapper(io.BytesIO(text.encode()))
+        headers = {
+            'Content-Disposition': f'attachment; filename={filename}'
+        }
+        return Response(wrapper, mimetype='text/plain', direct_passthrough=True, headers=headers)
 
     @staticmethod
     def save_settings(form):
