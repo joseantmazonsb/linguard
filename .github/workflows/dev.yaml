@@ -75,8 +75,8 @@ jobs:
           chmod +x install.sh
           sudo ./install.sh
 
-      - name: Briefly test service
+      - name: Briefly test uwgsi (can't use service here)
         run: |
-          sudo systemct start linguard.service
+          /usr/bin/uwsgi --yaml /etc/linguard/config/uwsgi.yaml &
           sleep 2s
-          sudo systemct stop linguard.service
+          pkill -f uwsgi
