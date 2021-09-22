@@ -74,6 +74,6 @@ jobs:
 
       - name: Briefly test uwgsi (can't use service here)
         run: |
-          /usr/bin/uwsgi --yaml /etc/linguard/config/uwsgi.yaml &
+          sudo -u linguard /usr/bin/uwsgi --yaml /etc/linguard/config/uwsgi.yaml &
           sleep 2s
           pkill -f uwsgi
