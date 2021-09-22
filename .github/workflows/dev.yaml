@@ -79,4 +79,4 @@ jobs:
         run: |
           sudo -u linguard /usr/bin/uwsgi --yaml /etc/linguard/config/uwsgi.yaml &
           sleep 2s
-          pkill -f uwsgi
+          sudo pkill -f uwsgi
