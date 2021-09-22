@@ -12,6 +12,7 @@ on:
       - "**.js"
       - "**.yml"
       - "**.yaml"
+      - "**.sh"
       - "poetry.lock"
       - "pyproject.toml"
 
