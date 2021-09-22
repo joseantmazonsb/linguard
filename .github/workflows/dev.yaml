@@ -44,7 +44,6 @@ jobs:
           wget https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py
           python3 install-poetry.py
           poetry config virtualenvs.in-project true
-          source ./env/bin/activate
           poetry install --no-interaction
 
       - name: Install linux dependencies
@@ -55,7 +54,7 @@ jobs:
         run: |
           export github_action_hook=True
           export skip_sample_server=True
-          source ./env/bin/activate
+          source .env/bin/activate
           poetry run coverage run -m pytest && poetry run coverage xml
 
       - name: Upload coverage report to Codecov
@@ -66,7 +65,7 @@ jobs:
 
       - name: Build release
         run: |
-          source ./env/bin/activate
+          source .env/bin/activate
           chmod +x build.sh
           sudo ./build.sh
 
