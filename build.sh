@@ -60,6 +60,10 @@ find config -type f | grep -E "[^.]+\.sample\.yaml" | xargs -i cp {} "$CONFIG_DI
 
 info "Exporting python requirements..."
 poetry export --without-hashes -f requirements.txt -o requirements.txt
+if [ $? -ne 0 ]; then
+  fatal "Unable to export requirements."
+  exit 1
+fi
 mv requirements.txt "$DIST_DIR"
 
 info "Copying scripts..."

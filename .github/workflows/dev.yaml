@@ -35,10 +35,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install linux dependencies
-        run: |
-          sudo apt-get -qq install wireguard iptables python3-venv
-
       - name: Upgrade pip
         run: |
           pip install --upgrade pip
@@ -47,10 +43,12 @@ jobs:
         run: |
           wget https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py
           python3 install-poetry.py
-          python3 -m venv venv
-          source ./venv/bin/activate
+          poetry config virtualenvs.create false
           poetry install --no-interaction
 
+      - name: Install linux dependencies
+        run: |
+          sudo apt-get -qq install wireguard iptables
 
       - name: Run tests
         run: |
@@ -66,9 +64,12 @@ jobs:
 
       - name: Build release
         run: |
+          wget https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py
+          python3 install-poetry.py
+          poetry config virtualenvs.create false
+          poetry install --no-interaction
           chmod +x build.sh
           sudo ./build.sh
-          deactivate
 
       - name: Install release
         run: |
