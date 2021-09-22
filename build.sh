@@ -1,56 +1,15 @@
 #!/bin/bash
 
-bold=$(tput bold)
-default=$(tput sgr0)
-cyan=$(tput setaf 6)
-red=$(tput setaf 1)
-yellow=$(tput setaf 3)
-dark_gray=$(tput setaf 8)
-
-function log() {
-  level=$1
-  if [ $# -gt 2 ]; then
-    options=$2
-    msg=$3
-  else
-    options=""
-    msg=$2
-  fi
-  case $level in
-        DEBUG* ) echo -e $options "${dark_gray}${bold}[DEBUG]${default} ${dark_gray}$msg${default}";;
-        INFO* ) echo -e $options "${cyan}${bold}[INFO]${default} ${cyan}$msg${default}";;
-        WARN* ) echo -e $options "${yellow}${bold}[WARN]${default} ${yellow}$msg${default}";;
-        ERROR* ) echo -e $options "${red}${bold}[ERROR]${default} ${red}$msg${default}";;
-        FATAL* ) echo -e $options "${red}${bold}[FATAL] $msg${default}";;
-        * ) echo "Invalid log level: '$level'";;
-    esac
-}
-
-function debug() {
-  log DEBUG "$@"
-}
-
-function info() {
-  log INFO "$@"
-}
-
-function warn() {
-  log WARN "$@"
-}
-
-function err() {
-  log ERROR "$@"
-}
-
-function fatal() {
-  log FATAL "$@"
-}
+source ./scripts/log.sh
 
 if [[ $# -gt 0 ]]; then
   fatal "Invalid arguments."
   info "Usage: $0"
   exit 1
 fi
+
+poetry_path=$(whereis poetry | cut -d " " -f2)
+info "poetry at $poetry_path"
 
 OUT_DIR=$(pwd)
 DIST_DIR="$OUT_DIR/dist"
@@ -98,7 +57,7 @@ mkdir "$CONFIG_DIR"
 find config -type f | grep -E "[^.]+\.sample\.yaml" | xargs -i cp {} "$CONFIG_DIR"
 
 info "Exporting python requirements..."
-poetry export --without-hashes -f requirements.txt -o requirements.txt
+$poetry_path export --without-hashes -f requirements.txt -o requirements.txt
 if [ $? -ne 0 ]; then
   fatal "Unable to export requirements."
   exit 1
@@ -109,7 +68,7 @@ info "Copying scripts..."
 cp scripts/install.sh "$DIST_DIR"
 cp scripts/log.sh "$DIST_DIR"
 
-version=$(poetry version -s)
+version=$($poetry_path version -s)
 zip_name="linguard-$version.tar.gz"
 
 info "Compressing package into '$zip_name'..."
