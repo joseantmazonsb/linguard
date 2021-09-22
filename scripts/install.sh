@@ -43,7 +43,10 @@ if [[ -d "$VAR_DIR" ]]; then
       read yn
       case $yn in
           [Yy]* ) rm -rf "$VAR_DIR"; break;;
-          [Nn]* ) info "Aborting..."; exit;;
+          [Nn]* )
+            info "Aborting...";
+            rm -rf "$ETC_DIR"
+            exit;;
           * ) echo "Please answer yes or no.";;
       esac
     done
@@ -59,12 +62,17 @@ if [[ -d "$LOG_DIR" ]]; then
     warn -n "'$LOG_DIR' already exists. Shall I overwrite it? [y/n] "
       read yn
       case $yn in
-          [Yy]* ) rm -rf "$LOG_DIR"; mkdir -p "$LOG_DIR"; break;;
-          [Nn]* ) break;;
+          [Yy]* ) rm -rf "$LOG_DIR"; break;;
+          [Nn]* )
+            info "Aborting...";
+            rm -rf "$VAR_DIR"
+            rm -rf "$ETC_DIR"
+            exit;;
           * ) echo "Please answer yes or no.";;
       esac
     done
 fi
+mkdir -p "$LOG_DIR"
 
 
 info "Installing dependencies..."
