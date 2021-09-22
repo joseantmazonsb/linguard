@@ -11,33 +11,26 @@ Check out [the wiki](https://github.com/joseantmazonsb/linguard/wiki) for additi
 
 ## Table of contents
 - [Installation](#installation)
-- [Screenshots](#screenshots)
-    - [Git](#git)
-    - [Debian package](#debian-package)
+    - [Release](#release)
     - [Docker](#docker)
+- [Screenshots](#screenshots)
 - [Contributing](#contributing)
 
 ## Installation
 
-### Git
+### Release
 
-1. Download the installation script and run it. You must supply the installation directory (for instance, `/var/www/linguard`) and (optionally) the tag to check out.
+1. Download [any release](https://github.com/joseantmazonsb/linguard/releases).
+    
+2. Extract it and run the installation script:
     ```bash
-    wget -q https://raw.githubusercontent.com/joseantmazonsb/linguard/main/scripts/install.sh
     chmod +x install.sh
-    sudo ./install.sh <install_folder> [git_branch]
+    sudo ./install.sh
     ```
-2. Edit the configuration files located in `/var/www/linguard/config` to fit your needs.
-3. Start linguard:
+3. Run Linguard: 
     ```bash
-    sudo -u linguard /var/www/linguard/scripts/run.sh
+    sudo systemctl start linguard.service
     ```
-    or, if you renamed the uwsgi configuration file: 
-    ```bash
-    sudo -u linguard uwsgi --yaml /path/to/uwsgi/config/file
-    ```
-
-### Debian package
 
 ### Docker
 
