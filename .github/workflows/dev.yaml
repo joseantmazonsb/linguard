@@ -64,7 +64,7 @@ jobs:
 
       - name: Build release
         run: |
-          export PATH="$HOME.local/bin:$PATH"
+          export PATH="$HOME/.local/bin:$PATH"
           chmod +x build.sh
           sudo ./build.sh
 
