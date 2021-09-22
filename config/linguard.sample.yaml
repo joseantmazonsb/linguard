@@ -30,20 +30,20 @@ wireguard: !yamlable/wireguard
       private_key: 4Ob32NhyhwIXbj7od6L5ASWle3vbOjn9g80at/dxPm0=
       public_key: 7NTAVIucHQJsS9Z8eT3lUV8VUoTSFrB6J272F9ox5RQ=
       uuid: 39a855187c4c4ca694d8c3f215e76cdc
-  interfaces_folder: /var/www/linguard/interfaces
+  interfaces_folder: /etc/linguard/interfaces
   iptables_bin: /usr/sbin/iptables
   wg_bin: /usr/bin/wg
   wg_quick_bin: /usr/bin/wg-quick
 logger: !yamlable/logger
-  level: debug
-  logfile: /var/www/linguard/linguard.log
+  level: info
+  logfile: /var/log/linguard/linguard.log
   overwrite: false
 traffic: !yamlable/traffic
   driver: !yamlable/traffic_storage_driver_json
-    filepath: /var/www/linguard/traffic.json
+    filepath: /etc/linguard/traffic.json
     timestamp_format: '%d/%m/%Y %H:%M:%S'
   enabled: true
 web: !yamlable/web
-  credentials_file: /var/www/linguard/credentials.yaml
+  credentials_file: /etc/linguard/credentials.yaml
   login_attempts: 0
   secret_key: G,XhSEIu{>TFu$y?4-kMy+<MN%T*J@/[

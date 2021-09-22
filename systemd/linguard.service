@@ -1,0 +1,12 @@
+[Unit]
+Description=Linguard: Wireguard management made simple
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+User=linguard
+ExecStart=/usr/bin/uwsgi --yaml /etc/linguard/config/uwsgi.yaml
+
+[Install]
+WantedBy=multi-user.target

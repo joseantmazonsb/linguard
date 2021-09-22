@@ -1,10 +1,12 @@
 uwsgi:
   master: true
   enable-threads: true
+  processes: 1
+  threads: 1
   chdir: /var/www/linguard
   venv: venv
   wsgi-file: linguard/__main__.py
-  pyargv: config/linguard.sample.yaml
+  pyargv: /etc/linguard/config/linguard.yaml
   need-plugin: python3
   callable: app
   die-on-term: true

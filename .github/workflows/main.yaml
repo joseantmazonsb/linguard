@@ -59,3 +59,21 @@ jobs:
         if: always()
         with:
           files: coverage.xml
+
+      - name: Build release
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Install release
+        run: |
+          cd dist
+          tar -xf *.tar.gz
+          chmod +x install.sh
+          sudo ./install.sh
+
+      - name: Briefly test uwgsi (can't use service here)
+        run: |
+          sudo -u linguard /usr/bin/uwsgi --yaml /etc/linguard/config/uwsgi.yaml &
+          sleep 2s
+          sudo pkill -f uwsgi
