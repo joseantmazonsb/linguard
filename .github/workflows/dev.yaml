@@ -65,9 +65,8 @@ jobs:
 
       - name: Build release
         run: |
-          poetry version
           chmod +x build.sh
-          sudo ./build.sh
+          ./build.sh
 
       - name: Install release
         run: |

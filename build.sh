@@ -8,14 +8,6 @@ if [[ $# -gt 0 ]]; then
   exit 1
 fi
 
-poetry="$HOME/.local/bin/poetry"
-if [ ! -f "$poetry" ]; then
-  warn "Poetry not found! It will be installed..."
-  wget https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py
-  python3 install-poetry.py
-  rm install-poetry.py
-fi
-
 OUT_DIR=$(pwd)
 DIST_DIR="$OUT_DIR/dist"
 
@@ -62,7 +54,7 @@ mkdir "$CONFIG_DIR"
 find config -type f | grep -E "[^.]+\.sample\.yaml" | xargs -i cp {} "$CONFIG_DIR"
 
 info "Exporting python requirements..."
-"$poetry" export --without-hashes -f requirements.txt -o requirements.txt
+poetry export --without-hashes -f requirements.txt -o requirements.txt
 if [ $? -ne 0 ]; then
   fatal "Unable to export requirements."
   exit 1
@@ -73,7 +65,7 @@ info "Copying scripts..."
 cp scripts/install.sh "$DIST_DIR"
 cp scripts/log.sh "$DIST_DIR"
 
-version=$("$poetry" version -s)
+version=$(poetry version -s)
 zip_name="linguard-$version.tar.gz"
 
 info "Compressing package into '$zip_name'..."
