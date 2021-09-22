@@ -1,8 +1,8 @@
 # Linguard
 
-[![GitHub](https://img.shields.io/github/license/joseantmazonsb/linguard)](LICENSE.md) ![Python version](https://img.shields.io/badge/python-3.7%20%7C%203.8%20%7C%203.9-blue) [![build](https://github.com/joseantmazonsb/linguard/actions/workflows/main.yaml/badge.svg)](https://github.com/joseantmazonsb/linguard/actions/workflows/main.yaml) [![codecov](https://codecov.io/gh/joseantmazonsb/linguard/branch/main/graph/badge.svg)](https://codecov.io/gh/joseantmazonsb/linguard)
+[![GitHub](https://img.shields.io/github/license/joseantmazonsb/linguard)](LICENSE.md) ![Python version](https://img.shields.io/badge/python-3.7%20%7C%203.8%20%7C%203.9-blue?logo=python&logoColor=yellow) [![build](https://github.com/joseantmazonsb/linguard/actions/workflows/main.yaml/badge.svg)](https://github.com/joseantmazonsb/linguard/actions/workflows/main.yaml) [![codecov](https://codecov.io/gh/joseantmazonsb/linguard/branch/main/graph/badge.svg)](https://codecov.io/gh/joseantmazonsb/linguard)
 
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/joseantmazonsb/linguard)](https://github.com/joseantmazonsb/linguard/releases) [![GitHub all releases](https://img.shields.io/github/downloads/joseantmazonsb/linguard/total)](https://github.com/joseantmazonsb/linguard/releases) [![Docker Pulls](https://img.shields.io/docker/pulls/joseantmazonsb/linguard)](https://hub.docker.com/repository/docker/joseantmazonsb/linguard)
+[![GitHub release (latest SemVer including pre-releases)](https://img.shields.io/github/v/release/joseantmazonsb/linguard?color=green&include_prereleases&logo=github)](https://github.com/joseantmazonsb/linguard/releases) [![GitHub all releases](https://img.shields.io/github/downloads/joseantmazonsb/linguard/total?logo=github)](https://github.com/joseantmazonsb/linguard/releases) [![Docker Pulls](https://img.shields.io/docker/pulls/joseantmazonsb/linguard)](https://hub.docker.com/repository/docker/joseantmazonsb/linguard)
 
 
 Linguard aims to provide an easy way to manage your WireGuard server, and it's written in Python3 and powered by Flask.
