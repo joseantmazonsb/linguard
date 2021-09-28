@@ -32,6 +32,8 @@ if [[ -d "$ETC_DIR" ]]; then
 fi
 CONFIG_DIR="$ETC_DIR/config"
 mkdir -p "$CONFIG_DIR"
+
+cp version.yaml "$ETC_DIR/version.yaml"
 cp config/linguard.sample.yaml "$CONFIG_DIR/linguard.yaml"
 cp config/uwsgi.sample.yaml "$CONFIG_DIR/uwsgi.yaml"
 

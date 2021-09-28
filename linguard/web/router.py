@@ -15,6 +15,7 @@ from linguard.common.utils.strings import list_to_str
 from linguard.common.utils.time import get_time_ago
 from linguard.core.config.logger import config as logger_config
 from linguard.core.config.traffic import config as traffic_config
+from linguard.core.config.version import version_info
 from linguard.core.config.web import config as web_config
 from linguard.core.config.wireguard import config as wireguard_config
 from linguard.core.drivers.traffic_storage_driver import TrafficData
@@ -564,6 +565,18 @@ def save_settings():
         log_exception(e)
         context["error"] = True
         context["error_details"] = e
+    return ViewController(view, **context).load()
+
+
+@router.route("/about", methods=['GET'])
+@login_required
+def about():
+    view = "web/about.html"
+    context = {
+        "title": "About",
+        "app_name": APP_NAME,
+        "version_info": version_info,
+    }
     return ViewController(view, **context).load()
 
 

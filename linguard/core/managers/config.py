@@ -8,8 +8,13 @@ from linguard.common.utils.logs import log_exception
 from linguard.common.utils.system import try_makedir
 from linguard.core.config.logger import config as logger_config
 from linguard.core.config.traffic import config as traffic_config
+from linguard.core.config.version import config as version_config
 from linguard.core.config.web import config as web_config
 from linguard.core.config.wireguard import config as wireguard_config
+
+GLOBAL_PROPERTIES = {
+    "dev_env": False
+}
 
 
 class ConfigManager:
@@ -60,6 +65,9 @@ class ConfigManager:
         if "traffic" in config:
             traffic_config.load(config["traffic"])
             traffic_config.apply()
+        if "version" in config:
+            version_config.load(config["version"])
+            version_config.apply()
         info(f"Configuration restored!")
 
     def save(self, apply: bool = True):
@@ -69,6 +77,7 @@ class ConfigManager:
             "web": web_config,
             "wireguard": wireguard_config,
             "traffic": traffic_config,
+            "version": version_config
         }
         try_makedir(os.path.dirname(self.config_filepath))
         with open(self.config_filepath, "w") as file:
