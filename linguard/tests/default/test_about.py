@@ -12,6 +12,7 @@ url = "/about"
 def cleanup():
     yield
     default_cleanup()
+    version_info.load_defaults()
 
 
 @pytest.fixture
