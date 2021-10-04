@@ -1,3 +1,5 @@
+import os
+
 from linguard.core.drivers.traffic_storage_driver_json import TrafficStorageDriverJson
 
 
@@ -9,3 +11,4 @@ class TestTrafficDriver:
         assert driver.get_session_data() is not None
         driver.save_data()
         assert driver.get_session_and_stored_data() is not None
+        os.remove(driver.filepath)

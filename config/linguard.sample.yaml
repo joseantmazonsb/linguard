@@ -47,3 +47,5 @@ web: !yamlable/web
   credentials_file: /etc/linguard/credentials.yaml
   login_attempts: 0
   secret_key: G,XhSEIu{>TFu$y?4-kMy+<MN%T*J@/[
+version: !yamlable/version
+  filepath: /etc/linguard/version.yaml

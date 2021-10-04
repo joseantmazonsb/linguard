@@ -77,3 +77,23 @@ jobs:
           sudo -u linguard /usr/bin/uwsgi --yaml /etc/linguard/config/uwsgi.yaml &
           sleep 2s
           sudo pkill -f uwsgi
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Get version
+        id: get_version
+        run: |
+          - echo "::set-output name=version::$(cat pyproject.toml | grep version | xargs | cut -d " " -f 3)
+      - name: Build artifacts
+        run: |
+          - ./build.sh
+      - uses: ncipollo/release-action@v1
+        with:
+          name: ${{ steps.get_version.outputs.version }}
+          tag: "v${{ steps.get_version.outputs.version }}"
+          commit: "main"
+          artifacts: "dist/*.tar.gz"
+          bodyFile: "changelog.md"
+          discussionCategory: "Announcements"
+          token: ${{ secrets.GITHUB_TOKEN }}

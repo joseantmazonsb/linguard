@@ -8,7 +8,7 @@ from flask_login import LoginManager
 
 from linguard.common.models.user import users
 from linguard.core.config.web import config as web_config
-from linguard.core.managers.config import config_manager
+from linguard.core.managers.config import config_manager, GLOBAL_PROPERTIES
 from linguard.core.managers.cron import cron_manager
 from linguard.core.managers.wireguard import wireguard_manager
 from linguard.web.router import router
@@ -45,4 +45,5 @@ def on_exit():
 
 if __name__ == "__main__":
     warning("Running development server...")
+    GLOBAL_PROPERTIES["dev_env"] = True
     app.run(debug=args.debug, port=8080)
