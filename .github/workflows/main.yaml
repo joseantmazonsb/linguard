@@ -79,6 +79,7 @@ jobs:
           sudo pkill -f uwsgi
   release:
     runs-on: ubuntu-latest
+    needs: test
     steps:
       - uses: actions/checkout@v2
       - name: Get version

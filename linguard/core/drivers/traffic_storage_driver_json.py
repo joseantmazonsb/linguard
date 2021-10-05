@@ -33,7 +33,7 @@ class TrafficStorageDriverJson(TrafficStorageDriver):
             for timestamp, data in merged_data.items():
                 device_data = {}
                 for device, traffic_data in data.items():
-                    if interfaces.get_value_by_attr("name", device):
+                    if device in interfaces.keys():
                         # Do not store interface data, since it will be calculated from peers data
                         break
                     device_data[device] = {"rx": traffic_data.rx, "tx": traffic_data.tx}
@@ -56,17 +56,17 @@ class TrafficStorageDriverJson(TrafficStorageDriver):
         data_with_interfaces = copy.deepcopy(data)
         peers = get_all_peers()
         for timestamp, peer in data.items():
-            for name, peer_data in peer.items():
-                peer = peers.get_value_by_attr("name", name)
+            for uuid, peer_data in peer.items():
+                peer = peers.get(uuid, None)
                 if not peer:
                     continue
                 iface = peer.interface
-                if iface.name not in data_with_interfaces[timestamp]:
-                    data_with_interfaces[timestamp][iface.name] = TrafficData(rx_bytes=peer_data.tx,
+                if iface.uuid not in data_with_interfaces[timestamp]:
+                    data_with_interfaces[timestamp][iface.uuid] = TrafficData(rx_bytes=peer_data.tx,
                                                                               tx_bytes=peer_data.rx)
                     continue
-                data_with_interfaces[timestamp][iface.name].tx += peer_data.rx
-                data_with_interfaces[timestamp][iface.name].rx += peer_data.tx
+                data_with_interfaces[timestamp][iface.uuid].tx += peer_data.rx
+                data_with_interfaces[timestamp][iface.uuid].rx += peer_data.tx
         return data_with_interfaces
 
     def __to_yaml_dict__(self):  # type: (...) -> Dict[str, Any]

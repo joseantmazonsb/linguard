@@ -295,7 +295,7 @@ def load_traffic_data(item: Union[Peer, Interface]):
     for timestamp, traffic_data in traffic_config.driver.load_data().items():
         labels.append(str(timestamp))
         for device, data in traffic_data.items():
-            if device == item.name:
+            if device == item.uuid:
                 datasets["rx"].append(data.rx)
                 datasets["tx"].append(data.tx)
                 break
@@ -311,7 +311,7 @@ def get_wireguard_iface(uuid: str):
     view = "web/wireguard-iface.html"
     data = load_traffic_data(iface)
     session_data = traffic_config.driver.get_session_data()
-    iface_traffic = session_data.get(iface.name, TrafficData(0, 0))
+    iface_traffic = session_data.get(iface.uuid, TrafficData(0, 0))
     context = {
         "title": "Interface",
         "iface": iface,
@@ -458,7 +458,7 @@ def get_wireguard_peer(uuid: str):
         raise WireguardError(f"Unknown peer '{uuid}'.", NOT_FOUND)
     view = "web/wireguard-peer.html"
     data = load_traffic_data(peer)
-    session_data = traffic_config.driver.get_session_data().get(peer.name, TrafficData(0, 0))
+    session_data = traffic_config.driver.get_session_data().get(peer.uuid, TrafficData(0, 0))
     handshake_ago = None
     if session_data.last_handshake:
         handshake_ago = get_time_ago(session_data.last_handshake)
