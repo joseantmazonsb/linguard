@@ -219,6 +219,11 @@
                         <div class="form-row">
                             <div class="form-group col-md-4">
                                 {{ form.log_file.label() }}
+                                <span type="button" class="ml-1" data-toggle="popover"
+                                    data-placement="top"
+                                    data-content="Leave empty to log to the standard output.">
+                                    <i class="fas fa-question-circle"></i>
+                                </span>
                                 {{ form.log_file(class="form-control") }}
                             </div>
                             <div class="form-group col-md-4">
