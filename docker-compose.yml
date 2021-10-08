@@ -1,0 +1,15 @@
+version: "3.6"
+
+services:
+  linguard:
+    build: . 
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    volumes:
+      - ./data:/etc/linguard/
+      - ./logs:/var/log/linguard/
+    restart: unless-stopped
+    ports: 
+      - 8080:8080
+      - 52123:52123/udp

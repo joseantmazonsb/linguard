@@ -34,6 +34,16 @@ Check out [the wiki](https://github.com/joseantmazonsb/linguard/wiki) for additi
 
 ### Docker
 
+1. Clone the current repo
+
+2. Create a folder called `data` in the repo folder. Create subfolder named `config` inside of `data`.
+
+3. Copy `uwsgi.sample.yaml` and `linguard.sample.yaml` as `uwsgi.yaml` and `linguard.yaml` into `data/config`.
+
+4. Run `docker-compose up -d`
+
+5. Change the mode of the automatically created folder `data/interfaces` to `600`.
+
 ## Screenshots
 
 ![Dashboard (1)](images/dashboard-1.png)

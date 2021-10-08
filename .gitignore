@@ -132,3 +132,4 @@ credentials.yaml
 logs/
 traffic.*
 interfaces/
+data/
