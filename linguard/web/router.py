@@ -190,6 +190,7 @@ def login_post():
 
 @router.route("/network")
 @login_required
+@setup_required
 def network():
     wg_ifaces = list(interfaces.values())
     ifaces = get_network_ifaces(wg_ifaces)
