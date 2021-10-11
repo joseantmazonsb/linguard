@@ -1,6 +1,5 @@
 import http
 import os
-import shutil
 import sys
 
 from flask_login import current_user
@@ -38,7 +37,9 @@ def exists_log_file() -> bool:
 
 
 def default_cleanup():
-    shutil.rmtree(global_properties.workdir, ignore_errors=True)
+    for root, dirs, files in os.walk(global_properties.workdir):
+        for f in files:
+            os.remove(os.path.join(root, f))
     users.clear()
     interfaces.clear()
     cron_manager.stop()
