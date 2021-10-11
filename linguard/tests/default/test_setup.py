@@ -44,8 +44,8 @@ def remove_setup_file():
 def test_post_ok(client):
     login(client)
     response = client.post(url, data={
-        "app_endpoint": "vpn.example.com", "app_iptables_bin": "/usr/sbin/iptables", "app_wg_bin": "/usr/bin/wg",
-        "app_wg_quick_bin": "/usr/bin/wg-quick", "log_overwrite": False, "traffic_enabled": True
+        "app_endpoint": "vpn.example.com", "app_iptables_bin": "/dev/null", "app_wg_bin": "/dev/null",
+        "app_wg_quick_bin": "/dev/null", "log_overwrite": False, "traffic_enabled": True
     })
     assert is_http_success(response.status_code)
     assert "Setup".encode() not in response.data
@@ -53,8 +53,8 @@ def test_post_ok(client):
     remove_setup_file()
 
     response = client.post(url, data={
-        "app_endpoint": "10.0.0.1", "app_iptables_bin": "/usr/sbin/iptables", "app_wg_bin": "/usr/bin/wg",
-        "app_wg_quick_bin": "/usr/bin/wg-quick", "log_overwrite": False, "traffic_enabled": True
+        "app_endpoint": "10.0.0.1", "app_iptables_bin": "/dev/null", "app_wg_bin": "/dev/null",
+        "app_wg_quick_bin": "/dev/null", "log_overwrite": False, "traffic_enabled": True
     })
     assert is_http_success(response.status_code)
     assert "Setup".encode() not in response.data
@@ -64,70 +64,70 @@ def test_post_ko(client):
     login(client)
 
     response = client.post(url, data={
-        "app_endpoint": "", "app_iptables_bin": "/usr/sbin/iptables", "app_wg_bin": "/usr/bin/wg",
-        "app_wg_quick_bin": "/usr/bin/wg-quick", "log_overwrite": False, "traffic_enabled": True
+        "app_endpoint": "", "app_iptables_bin": "/dev/null", "app_wg_bin": "/dev/null",
+        "app_wg_quick_bin": "/dev/null", "log_overwrite": False, "traffic_enabled": True
     })
     assert is_http_success(response.status_code)
     assert "Setup".encode() in response.data
 
     response = client.post(url, data={
-        "app_endpoint": 100, "app_iptables_bin": "/usr/sbin/iptables", "app_wg_bin": "/usr/bin/wg",
-        "app_wg_quick_bin": "/usr/bin/wg-quick", "log_overwrite": False, "traffic_enabled": True
+        "app_endpoint": 100, "app_iptables_bin": "/dev/null", "app_wg_bin": "/dev/null",
+        "app_wg_quick_bin": "/dev/null", "log_overwrite": False, "traffic_enabled": True
     })
     assert is_http_success(response.status_code)
     assert "Setup".encode() in response.data
 
     response = client.post(url, data={
-        "app_endpoint": "vpn.example.com", "app_iptables_bin": "/usr/sbin/iptabless", "app_wg_bin": "/usr/bin/wg",
-        "app_wg_quick_bin": "/usr/bin/wg-quick", "log_overwrite": False, "traffic_enabled": True
+        "app_endpoint": "vpn.example.com", "app_iptables_bin": "/dev/nulls", "app_wg_bin": "/dev/null",
+        "app_wg_quick_bin": "/dev/null", "log_overwrite": False, "traffic_enabled": True
     })
     assert is_http_success(response.status_code)
     assert "Setup".encode() in response.data
 
     response = client.post(url, data={
-        "app_endpoint": "vpn.example.com", "app_iptables_bin": "/usr/sbin/iptables", "app_wg_bin": "/usr/bin/wgg",
-        "app_wg_quick_bin": "/usr/bin/wg-quick", "log_overwrite": False, "traffic_enabled": True
+        "app_endpoint": "vpn.example.com", "app_iptables_bin": "/dev/null", "app_wg_bin": "/dev/nullg",
+        "app_wg_quick_bin": "/dev/null", "log_overwrite": False, "traffic_enabled": True
     })
     assert is_http_success(response.status_code)
     assert "Setup".encode() in response.data
 
     response = client.post(url, data={
-        "app_endpoint": "vpn.example.com", "app_iptables_bin": "/usr/sbin/iptables", "app_wg_bin": "/usr/bin/wg",
-        "app_wg_quick_bin": "/usr/bin/wg-quickk", "log_overwrite": False, "traffic_enabled": True
+        "app_endpoint": "vpn.example.com", "app_iptables_bin": "/dev/null", "app_wg_bin": "/dev/null",
+        "app_wg_quick_bin": "/dev/nullk", "log_overwrite": False, "traffic_enabled": True
     })
     assert is_http_success(response.status_code)
     assert "Setup".encode() in response.data
 
     response = client.post(url, data={
-        "app_endpoint": "vpn.example.com", "app_iptables_bin": "", "app_wg_bin": "/usr/bin/wg",
-        "app_wg_quick_bin": "/usr/bin/wg-quick", "log_overwrite": False, "traffic_enabled": True
+        "app_endpoint": "vpn.example.com", "app_iptables_bin": "", "app_wg_bin": "/dev/null",
+        "app_wg_quick_bin": "/dev/null", "log_overwrite": False, "traffic_enabled": True
     })
     assert is_http_success(response.status_code)
     assert "Setup".encode() in response.data
 
     response = client.post(url, data={
-        "app_endpoint": "vpn.example.com", "app_iptables_bin": "/usr/sbin/iptables", "app_wg_bin": "",
-        "app_wg_quick_bin": "/usr/bin/wg-quick", "log_overwrite": False, "traffic_enabled": True
+        "app_endpoint": "vpn.example.com", "app_iptables_bin": "/dev/null", "app_wg_bin": "",
+        "app_wg_quick_bin": "/dev/null", "log_overwrite": False, "traffic_enabled": True
     })
     assert is_http_success(response.status_code)
     assert "Setup".encode() in response.data
 
     response = client.post(url, data={
-        "app_endpoint": "vpn.example.com", "app_iptables_bin": "/usr/sbin/iptables", "app_wg_bin": "/usr/bin/wg",
+        "app_endpoint": "vpn.example.com", "app_iptables_bin": "/dev/null", "app_wg_bin": "/dev/null",
         "app_wg_quick_bin": "", "log_overwrite": False, "traffic_enabled": True
     })
     assert is_http_success(response.status_code)
     assert "Setup".encode() in response.data
 
     response = client.post(url, data={
-        "app_endpoint": 1, "app_iptables_bin": "/usr/sbin/iptables", "app_wg_bin": "/usr/bin/wg",
+        "app_endpoint": 1, "app_iptables_bin": "/dev/null", "app_wg_bin": "/dev/null",
         "app_wg_quick_bin": "", "log_overwrite": False, "traffic_enabled": True
     })
     assert is_http_success(response.status_code)
     assert "Setup".encode() in response.data
 
     response = client.post(url, data={
-        "app_endpoint": "vpn.example.com", "app_iptables_bin": 1231, "app_wg_bin": "/usr/bin/wg",
+        "app_endpoint": "vpn.example.com", "app_iptables_bin": 1231, "app_wg_bin": "/dev/null",
         "app_wg_quick_bin": "", "log_overwrite": False, "traffic_enabled": True
     })
     assert is_http_success(response.status_code)
