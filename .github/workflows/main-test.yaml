@@ -1,17 +1,9 @@
-name: main
+name: Test main branch
 
 on:
-  push:
+  pull_request:
     branches:
       - main
-    paths:
-      - "**.py"
-      - "**.js"
-      - "**.yml"
-      - "**.yaml"
-      - "**.sh"
-      - "poetry.lock"
-      - "pyproject.toml"
 
 jobs:
   test:
@@ -50,8 +42,6 @@ jobs:
 
       - name: Run tests
         run: |
-          export github_action_hook=True
-          export skip_sample_server=True
           poetry run coverage run -m pytest && poetry run coverage xml
 
       - name: Upload coverage report to Codecov
@@ -74,27 +64,6 @@ jobs:
 
       - name: Briefly test uwgsi (can't use service here)
         run: |
-          sudo -u linguard /usr/bin/uwsgi --yaml /etc/linguard/config/uwsgi.yaml &
+          sudo -u linguard /usr/bin/uwsgi --yaml /var/www/linguard/config/uwsgi.yaml &
           sleep 2s
           sudo pkill -f uwsgi
-  release:
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - uses: actions/checkout@v2
-      - name: Get version
-        id: get_version
-        run: |
-          - echo "::set-output name=version::$(cat pyproject.toml | grep version | xargs | cut -d " " -f 3)
-      - name: Build artifacts
-        run: |
-          - ./build.sh
-      - uses: ncipollo/release-action@v1
-        with:
-          name: ${{ steps.get_version.outputs.version }}
-          tag: "v${{ steps.get_version.outputs.version }}"
-          commit: "main"
-          artifacts: "dist/*.tar.gz"
-          bodyFile: "changelog.md"
-          discussionCategory: "Announcements"
-          token: ${{ secrets.GITHUB_TOKEN }}
