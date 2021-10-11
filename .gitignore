@@ -134,4 +134,4 @@ logs/
 traffic.*
 interfaces/
 data/
-.version
+__version__.py
