@@ -86,7 +86,7 @@ class SettingsForm(FlaskForm):
 
 class SetupForm(FlaskForm):
     app_endpoint = StringField("Endpoint", render_kw={"placeholder": "vpn.example.com"},
-                               default=wireguard_config.endpoint)
+                               default=wireguard_config.endpoint, validators=[DataRequired(), EndpointValidator()])
     app_wg_bin = StringField("wg bin", render_kw={"placeholder": "path/to/file"}, default=wireguard_config.wg_bin,
                              validators=[DataRequired(), PathExistsValidator()])
     app_wg_quick_bin = StringField("wg-quick bin", render_kw={"placeholder": "path/to/file"},
