@@ -120,7 +120,6 @@ class RestController:
     def save_settings(form):
         sample_logger = LoggerConfig()
 
-        logger_config.logfile = form.log_file.data or sample_logger.logfile
         logger_config.overwrite = form.log_overwrite.data
         logger_config.level = form.log_level.data or sample_logger.level
 
@@ -128,7 +127,6 @@ class RestController:
 
         web_config.login_attempts = form.web_login_attempts.data or sample_web.login_attempts
         web_config.secret_key = form.web_secret_key.data or sample_web.secret_key
-        web_config.credentials_file = form.web_credentials_file.data or sample_web.credentials_file
 
         sample_wireguard = WireguardConfig()
 
@@ -136,7 +134,6 @@ class RestController:
         wireguard_config.wg_bin = form.app_wg_bin.data or sample_wireguard.wg_bin
         wireguard_config.wg_quick_bin = form.app_wg_quick_bin.data or sample_wireguard.wg_quick_bin
         wireguard_config.iptables_bin = form.app_iptables_bin.data or sample_wireguard.iptables_bin
-        wireguard_config.interfaces_folder = form.app_interfaces_folder.data or sample_wireguard.interfaces_folder
 
         traffic_config.enabled = form.traffic_enabled.data
         driver_name = form.traffic_driver.data

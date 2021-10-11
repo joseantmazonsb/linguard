@@ -80,12 +80,12 @@ def index():
     ]
     for iface in interfaces.values():
         iface_names.append(iface.name)
-        iface_traffic = __get_total_traffic__(iface.name, traffic)
+        iface_traffic = __get_total_traffic__(iface.uuid, traffic)
         ifaces_traffic[0]["data"].append(iface_traffic.rx)
         ifaces_traffic[1]["data"].append(iface_traffic.tx)
         for peer in iface.peers.values():
             peer_names.append(peer.name)
-            peer_traffic = __get_total_traffic__(peer.name, traffic)
+            peer_traffic = __get_total_traffic__(peer.uuid, traffic)
             peers_traffic[0]["data"].append(peer_traffic.rx)
             peers_traffic[1]["data"].append(peer_traffic.tx)
 
@@ -101,14 +101,14 @@ def index():
     return ViewController("web/index.html", **context).load()
 
 
-def __get_total_traffic__(name: str, traffic: Dict[datetime, Dict[str, TrafficData]]) -> TrafficData:
+def __get_total_traffic__(uuid: str, traffic: Dict[datetime, Dict[str, TrafficData]]) -> TrafficData:
     rx = 0
     tx = 0
     for data in reversed(list(traffic.values())):
         # Get only last appearance
-        if name in data:
-            rx += data[name].rx
-            tx += data[name].tx
+        if uuid in data:
+            rx += data[uuid].rx
+            tx += data[uuid].tx
             break
     return TrafficData(rx, tx)
 
