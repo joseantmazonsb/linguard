@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 Restart=always
 User=linguard
-ExecStart=/usr/bin/uwsgi --yaml /etc/linguard/config/uwsgi.yaml
+ExecStart=/usr/bin/uwsgi --yaml /var/www/linguard/data/uwsgi.yaml
 
 [Install]
 WantedBy=multi-user.target

@@ -68,7 +68,7 @@ cp scripts/log.sh "$DIST_DIR"
 
 info "Adding version information..."
 source ./gen_version_file.sh
-cp "$version_file" "$DIST_DIR"
+cp "$version_file" "$CODE_DIR"
 
 zip_name="linguard-$version.tar.gz"
 info "Compressing package into '$zip_name'..."

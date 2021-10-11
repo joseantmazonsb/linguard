@@ -4,27 +4,26 @@ from logging import info, warning, error
 import yaml
 
 from linguard.common.models.user import UserDict, users
+from linguard.common.properties import global_properties
 from linguard.common.utils.logs import log_exception
 from linguard.common.utils.system import try_makedir
 from linguard.core.config.logger import config as logger_config
 from linguard.core.config.traffic import config as traffic_config
-from linguard.core.config.version import config as version_config
 from linguard.core.config.web import config as web_config
 from linguard.core.config.wireguard import config as wireguard_config
-
-GLOBAL_PROPERTIES = {
-    "dev_env": False
-}
+from linguard.web.static.assets.resources import APP_NAME
 
 
 class ConfigManager:
 
+    CONFIG_FILENAME = f"{APP_NAME.lower()}.yaml"
+
     def __init__(self):
         self.config_filepath = None
 
-    def load(self, config_filepath: str):
+    def load(self):
         try:
-            self.config_filepath = os.path.abspath(config_filepath)
+            self.config_filepath = global_properties.join_workdir(self.CONFIG_FILENAME)
             self.__load_config__()
             self.save(apply=False)
         except Exception as e:
@@ -65,9 +64,6 @@ class ConfigManager:
         if "traffic" in config:
             traffic_config.load(config["traffic"])
             traffic_config.apply()
-        if "version" in config:
-            version_config.load(config["version"])
-            version_config.apply()
         info(f"Configuration restored!")
 
     def save(self, apply: bool = True):
@@ -77,7 +73,6 @@ class ConfigManager:
             "web": web_config,
             "wireguard": wireguard_config,
             "traffic": traffic_config,
-            "version": version_config
         }
         try_makedir(os.path.dirname(self.config_filepath))
         with open(self.config_filepath, "w") as file:

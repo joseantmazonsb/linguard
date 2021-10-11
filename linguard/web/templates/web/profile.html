@@ -39,7 +39,7 @@
             </div>
 
             <!-- User info -->
-            <form action="{{ url_for(request.endpoint) }}" method="post" novalidate>
+            <form action="{{ request.url }}" method="post" novalidate>
                 {{ profile_form.hidden_tag() }}
 
                 <div class="card mb-4">
@@ -70,7 +70,7 @@
             </form>
 
             <!-- Password reset -->
-            <form action="{{ url_for(request.endpoint) }}" method="post" novalidate>
+            <form action="{{ request.url }}" method="post" novalidate>
                 {{ password_reset_form.hidden_tag() }}
 
                 <div class="card mb-4">
