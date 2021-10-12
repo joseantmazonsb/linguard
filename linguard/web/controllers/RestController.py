@@ -4,7 +4,7 @@ import json
 from http.client import NO_CONTENT, INTERNAL_SERVER_ERROR
 from logging import debug
 
-from flask import Response, url_for, redirect, abort
+from flask import Response, url_for, redirect, abort, request
 from flask_login import login_user
 from werkzeug.wsgi import FileWrapper
 
@@ -120,7 +120,6 @@ class RestController:
     def save_settings(form):
         sample_logger = LoggerConfig()
 
-        logger_config.logfile = form.log_file.data or sample_logger.logfile
         logger_config.overwrite = form.log_overwrite.data
         logger_config.level = form.log_level.data or sample_logger.level
 
@@ -128,21 +127,34 @@ class RestController:
 
         web_config.login_attempts = form.web_login_attempts.data or sample_web.login_attempts
         web_config.secret_key = form.web_secret_key.data or sample_web.secret_key
-        web_config.credentials_file = form.web_credentials_file.data or sample_web.credentials_file
 
-        sample_linguard = WireguardConfig()
+        sample_wireguard = WireguardConfig()
 
-        wireguard_config.endpoint = form.app_endpoint.data or sample_linguard.endpoint
-        wireguard_config.wg_bin = form.app_wg_bin.data or sample_linguard.wg_bin
-        wireguard_config.wg_quick_bin = form.app_wg_quick_bin.data or sample_linguard.wg_quick_bin
-        wireguard_config.iptables_bin = form.app_iptables_bin.data or sample_linguard.iptables_bin
-        wireguard_config.interfaces_folder = form.app_interfaces_folder.data or sample_linguard.interfaces_folder
+        wireguard_config.endpoint = form.app_endpoint.data or sample_wireguard.endpoint
+        wireguard_config.wg_bin = form.app_wg_bin.data or sample_wireguard.wg_bin
+        wireguard_config.wg_quick_bin = form.app_wg_quick_bin.data or sample_wireguard.wg_quick_bin
+        wireguard_config.iptables_bin = form.app_iptables_bin.data or sample_wireguard.iptables_bin
 
         traffic_config.enabled = form.traffic_enabled.data
         driver_name = form.traffic_driver.data
         driver = traffic_storage.registered_drivers[driver_name]
         options = json.loads(form.traffic_driver_options.data.replace("\'", "\""))
         traffic_config.driver = driver.__from_yaml_dict__(options)
+
+        config_manager.save()
+
+    @staticmethod
+    def apply_setup(form):
+        logger_config.overwrite = form.log_overwrite.data
+
+        sample_wireguard = WireguardConfig()
+
+        wireguard_config.endpoint = form.app_endpoint.data or sample_wireguard.endpoint
+        wireguard_config.wg_bin = form.app_wg_bin.data or sample_wireguard.wg_bin
+        wireguard_config.wg_quick_bin = form.app_wg_quick_bin.data or sample_wireguard.wg_quick_bin
+        wireguard_config.iptables_bin = form.app_iptables_bin.data or sample_wireguard.iptables_bin
+
+        traffic_config.enabled = form.traffic_enabled.data
 
         config_manager.save()
 
@@ -162,5 +174,6 @@ class RestController:
         debug(f"Logging in user '{u.id}'...")
 
         if u.login(form.password.data) and login_user(u):
-            return redirect(form.next.data or url_for("router.index"))
+            return redirect(url_for("router.setup", next=request.args.get("next", None)))
         abort(http.HTTPStatus.INTERNAL_SERVER_ERROR)
+

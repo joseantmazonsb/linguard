@@ -1,19 +1,20 @@
 import pytest
 
 from linguard.core.models import interfaces, get_all_peers, Peer
-from linguard.tests.default.utils import get_default_app
-from linguard.tests.utils import default_cleanup, is_http_success, login, create_test_iface
+from linguard.tests.utils import default_cleanup, is_http_success, login, create_test_iface, get_testing_app
 
 url = "/dashboard"
 
 
+@pytest.fixture(autouse=True)
 def cleanup():
+    yield
     default_cleanup()
 
 
 @pytest.fixture
 def client():
-    with get_default_app().test_client() as client:
+    with get_testing_app().test_client() as client:
         yield client
 
 
@@ -28,10 +29,8 @@ def test_get(client):
     interfaces[iface1.uuid] = iface1
     interfaces[iface2.uuid] = iface2
     response = client.get(url)
-    assert is_http_success(response.status_code), cleanup()
+    assert is_http_success(response.status_code)
     for iface in interfaces.values():
-        assert iface.name.encode() in response.data, cleanup()
+        assert iface.name.encode() in response.data
     for peer in get_all_peers().values():
-        assert peer.name.encode() in response.data, cleanup()
-
-    cleanup()
+        assert peer.name.encode() in response.data

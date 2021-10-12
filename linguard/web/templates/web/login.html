@@ -13,7 +13,7 @@
                                 <div class="card shadow-lg border-0 rounded-lg mt-5">
                                     <div class="card-header"><h3 class="text-center font-weight-light my-4">Login</h3></div>
                                     <div class="card-body">
-                                        <form action="{{ url_for(request.endpoint) }}" method="post" novalidate>
+                                        <form action="{{ request.url }}" method="post" novalidate>
                                             {{ form.hidden_tag() }}
                                             <div class="form-group">
                                                 {{ form.username.label(class="small") }}

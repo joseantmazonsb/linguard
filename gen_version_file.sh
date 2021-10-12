@@ -1,4 +1,4 @@
-version_file="version.yaml"
+version_file="linguard/__version__.py"
 version=$(poetry version -s)
 commit=$(git rev-parse HEAD)
-echo -e "!yamlable/version_info\nrelease: $version\ncommit: $commit" > "$version_file"
+echo -e "release = '$version'\ncommit = '$commit'" > "$version_file"

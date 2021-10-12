@@ -39,18 +39,18 @@
             <form novalidate>
                 <div class="card mb-4">
                     <div class="card-header">
-                        <i class="fas fa-info-circle mr-1"></i>
+                        <i class="fas fa-code-branch mr-1"></i>
                         Version
                     </div>
                     <div class="card-body">
                         <div class="form-row">
                             <div class="form-group col-md-4">
                                 <label>Release</label>
-                                <input disabled type="text" class="form-control" value="{{ version_info.release }}">
+                                <input disabled type="text" class="form-control" value="{{ version_info["release"] }}">
                             </div>
                             <div class="form-group col-md-4">
                                 <label>Commit</label>
-                                <input disabled type="text" class="form-control" value="{{ version_info.commit }}">
+                                <input disabled type="text" class="form-control" value="{{ version_info["commit"] }}">
                             </div>
                         </div>
                     </div>

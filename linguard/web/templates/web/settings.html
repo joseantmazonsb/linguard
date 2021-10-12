@@ -9,6 +9,7 @@
                 </a>
                 <h1 class="my-4">{{ title }}</h1>
             </div>
+            <div id="global-alerts">
             {% if success %}
                 <div class="alert alert-success alert-dismissible fade show" role="alert">
                     <strong>Done!</strong> {{ success_details }}
@@ -32,7 +33,8 @@
                   </button>
                 </div>
             {% endif %}
-            <form action="{{ url_for(request.endpoint) }}" method="post" novalidate>
+            </div>
+            <form action="{{ request.url }}" method="post" novalidate>
                 {{ form.hidden_tag() }}
 
                 <!-- Web config -->
@@ -87,8 +89,7 @@
                             {{ form.web_credentials_file.label() }}
                             <span type="button" class="ml-1" data-toggle="popover"
                                         data-placement="top"
-                                        data-content="Storages the credentials of {{ app_name }}'s users.
-                                        A restart is required to apply this setting.">
+                                        data-content="Stores the credentials of {{ app_name }}'s users.">
                                         <i class="fas fa-question-circle"></i>
                             </span>
                             {{ form.web_credentials_file(class="form-control") }}
@@ -108,32 +109,32 @@
                         <div id="alerts">
                             {% for error in form.app_endpoint.errors %}
                                 <div class="alert alert-danger" role="alert">
-                                  Error in field <strong>{{ form.app_endpoint.label }}</strong>: {{ error }}
+                                  Error in field <strong>{{ form.app_endpoint.label.text }}</strong>: {{ error }}
                                 </div>
                             {% endfor %}
                             {% for error in form.app_interfaces_folder.errors %}
                                 <div class="alert alert-danger" role="alert">
-                                  Error in field <strong>{{ form.app_interfaces_folder.label }}</strong>: {{ error }}
+                                  Error in field <strong>{{ form.app_interfaces_folder.label.text }}</strong>: {{ error }}
                                 </div>
                             {% endfor %}
                             {% for error in form.app_config_file.errors %}
                                 <div class="alert alert-danger" role="alert">
-                                  Error in field <strong>{{ form.app_config_file.label }}</strong>: {{ error }}
+                                  Error in field <strong>{{ form.app_config_file.label.text }}</strong>: {{ error }}
                                 </div>
                             {% endfor %}
                             {% for error in form.app_wg_bin.errors %}
                                 <div class="alert alert-danger" role="alert">
-                                  Error in field <strong>{{ form.app_wg_bin.label }}</strong>: {{ error }}
+                                  Error in field <strong>{{ form.app_wg_bin.label.text }}</strong>: {{ error }}
                                 </div>
                             {% endfor %}
                             {% for error in form.app_wg_quick_bin.errors %}
                                 <div class="alert alert-danger" role="alert">
-                                  Error in field <strong>{{ form.app_wg_quick_bin.label }}</strong>: {{ error }}
+                                  Error in field <strong>{{ form.app_wg_quick_bin.label.text }}</strong>: {{ error }}
                                 </div>
                             {% endfor %}
                             {% for error in form.app_iptables_bin.errors %}
                                 <div class="alert alert-danger" role="alert">
-                                  Error in field <strong>{{ form.app_iptables_bin.label }}</strong>: {{ error }}
+                                  Error in field <strong>{{ form.app_iptables_bin.label.text }}</strong>: {{ error }}
                                 </div>
                             {% endfor %}
                         </div>
@@ -141,25 +142,16 @@
                             <div class="form-group col-md-4">
                                 {{ form.app_endpoint.label() }}
                                 <br>
-                                {% for error in form.app_endpoint.errors %}
-                                    <span class="small" style="color: red;">{{ error }}</span>
-                                {% endfor %}
                                 {{ form.app_endpoint(class="form-control") }}
                             </div>
                             <div class="form-group col-md-4">
                                 {{ form.app_interfaces_folder.label() }}
                                 <br>
-                                {% for error in form.app_interfaces_folder.errors %}
-                                    <span class="small" style="color: red;">{{ error }}</span>
-                                {% endfor %}
                                 {{ form.app_interfaces_folder(class="form-control") }}
                             </div>
                             <div class="form-group col-md-4">
                                 {{ form.app_config_file.label() }}
                                 <br>
-                                {% for error in form.app_config_file.errors %}
-                                    <span class="small" style="color: red;">{{ error }}</span>
-                                {% endfor %}
                                 {{ form.app_config_file(class="form-control") }}
                             </div>
                         </div>
@@ -167,25 +159,16 @@
                             <div class="form-group col-md-4">
                                 {{ form.app_wg_bin.label() }}
                                 <br>
-                                {% for error in form.app_wg_bin.errors %}
-                                    <span class="small" style="color: red;">{{ error }}</span>
-                                {% endfor %}
                                 {{ form.app_wg_bin(class="form-control") }}
                             </div>
                             <div class="form-group col-md-4">
                                 {{ form.app_wg_quick_bin.label() }}
                                 <br>
-                                {% for error in form.app_wg_quick_bin.errors %}
-                                    <span class="small" style="color: red;">{{ error }}</span>
-                                {% endfor %}
                                 {{ form.app_wg_quick_bin(class="form-control") }}
                             </div>
                             <div class="form-group col-md-4">
                                 {{ form.app_iptables_bin.label() }}
                                 <br>
-                                {% for error in form.app_iptables_bin.errors %}
-                                    <span class="small" style="color: red;">{{ error }}</span>
-                                {% endfor %}
                                 {{ form.app_iptables_bin(class="form-control") }}
                             </div>
                         </div>
@@ -202,17 +185,17 @@
                         <div id="alerts">
                             {% for error in form.log_overwrite.errors %}
                                 <div class="alert alert-danger" role="alert">
-                                  Error in field <strong>{{ form.log_overwrite.label }}</strong>: {{ error }}
+                                  Error in field <strong>{{ form.log_overwrite.label.text }}</strong>: {{ error }}
                                 </div>
                             {% endfor %}
                             {% for error in form.log_file.errors %}
                                 <div class="alert alert-danger" role="alert">
-                                  Error in field <strong>{{ form.log_file.label }}</strong>: {{ error }}
+                                  Error in field <strong>{{ form.log_file.label.text }}</strong>: {{ error }}
                                 </div>
                             {% endfor %}
                             {% for error in form.log_level.errors %}
                                 <div class="alert alert-danger" role="alert">
-                                  Error in field <strong>{{ form.log_level.label }}</strong>: {{ error }}
+                                  Error in field <strong>{{ form.log_level.label.text }}</strong>: {{ error }}
                                 </div>
                             {% endfor %}
                         </div>
@@ -253,17 +236,17 @@
                         <div id="alerts">
                             {% for error in form.traffic_enabled.errors %}
                                 <div class="alert alert-danger" role="alert">
-                                  Error in field <strong>{{ form.traffic_enabled.label }}</strong>: {{ error }}
+                                  Error in field <strong>{{ form.traffic_enabled.label.text }}</strong>: {{ error }}
                                 </div>
                             {% endfor %}
                             {% for error in form.traffic_driver.errors %}
                                 <div class="alert alert-danger" role="alert">
-                                  Error in field <strong>{{ form.traffic_driver.label }}</strong>: {{ error }}
+                                  Error in field <strong>{{ form.traffic_driver.label.text }}</strong>: {{ error }}
                                 </div>
                             {% endfor %}
                             {% for error in form.traffic_driver_options.errors %}
                                 <div class="alert alert-danger" role="alert">
-                                  Error in field <strong>{{ form.traffic_driver_options.label }}</strong>: {{ error }}
+                                  Error in field <strong>{{ form.traffic_driver_options.label.text }}</strong>: {{ error }}
                                 </div>
                             {% endfor %}
                         </div>
@@ -274,7 +257,7 @@
                                     {{ form.traffic_enabled.label(class="custom-control-label") }}
                                     <span type="button" class="ml-1" data-toggle="popover"
                                         data-placement="top"
-                                        data-content="Collect peer's traffic data (received and transmitted bytes).">
+                                        data-content="Collect peer's traffic data (received and transmitted bytes only).">
                                         <i class="fas fa-question-circle"></i>
                                     </span>
                                 </div>

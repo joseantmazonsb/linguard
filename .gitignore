@@ -133,3 +133,5 @@ version.yaml
 logs/
 traffic.*
 interfaces/
+data/
+__version__.py

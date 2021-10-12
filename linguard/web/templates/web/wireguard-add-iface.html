@@ -17,7 +17,7 @@
                   </button>
                 </div>
             {% endif %}
-            <form action="{{ url_for(request.endpoint) }}" method="post" novalidate>
+            <form action="{{ request.url }}" method="post" novalidate>
                 {{ form.hidden_tag() }}
                 <div class="card mb-4">
                     <div class="card-header">

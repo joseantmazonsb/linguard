@@ -20,7 +20,8 @@ from linguard.web.utils import fake
 from linguard.web.validators import LoginUsernameValidator, LoginPasswordValidator, SignupPasswordValidator, \
     SignupUsernameValidator, SettingsSecretKeyValidator, SettingsLoginAttemptsValidator, \
     InterfaceIpValidator, InterfaceNameValidator, InterfacePortValidator, PeerIpValidator, PeerPrimaryDnsValidator, \
-    PeerSecondaryDnsValidator, PeerNameValidator, NewPasswordValidator, OldPasswordValidator, JsonDataValidator
+    PeerSecondaryDnsValidator, PeerNameValidator, NewPasswordValidator, OldPasswordValidator, JsonDataValidator, \
+    PathExistsValidator, EndpointValidator
 
 
 class LoginForm(FlaskForm):
@@ -51,23 +52,29 @@ class SettingsForm(FlaskForm):
     web_secret_key = StringField("Secret key", validators=[SettingsSecretKeyValidator()],
                                  render_kw={"placeholder": f'A {CryptoUtils.KEY_LEN} characters long secret key'},
                                  default=web_config.secret_key)
-    web_credentials_file = StringField("Credentials file", render_kw={"placeholder": "path/to/file"},
-                                       default=web_config.credentials_file)
+    web_credentials_file = StringField("Credentials file",
+                                       render_kw={"placeholder": "path/to/file", "disabled": "disabled"},
+                                       default=web_config.credentials_file, validators=[DataRequired()])
 
     app_config_file = StringField("Configuration file", render_kw={"disabled": "disabled"},
-                                  default=config_manager.config_filepath)
+                                  default=config_manager.config_filepath, validators=[DataRequired()])
     app_endpoint = StringField("Endpoint", render_kw={"placeholder": "vpn.example.com"},
-                               default=wireguard_config.endpoint)
-    app_interfaces_folder = StringField("Interfaces' directory", render_kw={"placeholder": "path/to/folder"},
-                                        default=wireguard_config.interfaces_folder)
-    app_wg_bin = StringField("wg bin", render_kw={"placeholder": "path/to/file", "value": wireguard_config.wg_bin})
+                               default=wireguard_config.endpoint, validators=[DataRequired(), EndpointValidator()])
+    app_interfaces_folder = StringField("Interfaces' directory",
+                                        render_kw={"placeholder": "path/to/folder", "disabled": "disabled"},
+                                        default=wireguard_config.interfaces_folder, validators=[DataRequired()])
+    app_wg_bin = StringField("wg bin", render_kw={"placeholder": "path/to/file"}, default=wireguard_config.wg_bin,
+                             validators=[DataRequired(), PathExistsValidator()])
     app_wg_quick_bin = StringField("wg-quick bin", render_kw={"placeholder": "path/to/file"},
-                                   default=wireguard_config.wg_quick_bin)
+                                   default=wireguard_config.wg_quick_bin,
+                                   validators=[DataRequired(), PathExistsValidator()])
     app_iptables_bin = StringField("iptables bin", render_kw={"placeholder": "path/to/file"},
-                                   default=wireguard_config.iptables_bin)
+                                   default=wireguard_config.iptables_bin,
+                                   validators=[DataRequired(), PathExistsValidator()])
 
     log_overwrite = BooleanField("Overwrite", default=logger_config.overwrite)
-    log_file = StringField("Logfile", render_kw={"placeholder": "path/to/file"}, default=logger_config.logfile)
+    log_file = StringField("Logfile", render_kw={"placeholder": "path/to/file", "disabled": "disabled"},
+                           default=logger_config.logfile)
     log_level = SelectField(choices=logger_config.LEVELS.keys(), default=logger_config.level)
 
     traffic_enabled = BooleanField("Enabled", default=traffic_config.enabled)
@@ -75,6 +82,25 @@ class SettingsForm(FlaskForm):
     traffic_driver_options = TextAreaField("Driver configuration", validators=[DataRequired(), JsonDataValidator()])
 
     submit = SubmitField('Save')
+
+
+class SetupForm(FlaskForm):
+    app_endpoint = StringField("Endpoint", render_kw={"placeholder": "vpn.example.com"},
+                               default=wireguard_config.endpoint, validators=[DataRequired(), EndpointValidator()])
+    app_wg_bin = StringField("wg bin", render_kw={"placeholder": "path/to/file"}, default=wireguard_config.wg_bin,
+                             validators=[DataRequired(), PathExistsValidator()])
+    app_wg_quick_bin = StringField("wg-quick bin", render_kw={"placeholder": "path/to/file"},
+                                   default=wireguard_config.wg_quick_bin,
+                                   validators=[DataRequired(), PathExistsValidator()])
+    app_iptables_bin = StringField("iptables bin", render_kw={"placeholder": "path/to/file"},
+                                   default=wireguard_config.iptables_bin,
+                                   validators=[DataRequired(), PathExistsValidator()])
+
+    log_overwrite = BooleanField("Overwrite", default=logger_config.overwrite)
+
+    traffic_enabled = BooleanField("Enabled", default=traffic_config.enabled)
+
+    submit = SubmitField('Next')
 
 
 class AddInterfaceForm(FlaskForm):

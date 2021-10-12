@@ -1,5 +1,7 @@
 import ipaddress
 import json
+import os.path
+import re
 from logging import error
 
 from flask_login import current_user
@@ -149,14 +151,13 @@ class NewPasswordValidator:
             msg = "passwords do not match"
             raise StopValidation(msg)
         if current_user.check_password(field.data):
-            raise StopValidation("the new password cannot be the same as the old one!")
+            stop_validation(field, "the new password cannot be the same as the old one!")
 
 
 class OldPasswordValidator:
     def __call__(self, form, field):
         if not current_user.check_password(field.data):
-            msg = "wrong password"
-            raise StopValidation(msg)
+            stop_validation(field, "wrong password")
 
 
 class JsonDataValidator:
@@ -164,4 +165,24 @@ class JsonDataValidator:
         try:
             json.loads(field.data.replace("\'", "\""))
         except Exception:
-            raise StopValidation("invalid format, must be JSON data")
+            stop_validation(field, "invalid format, must be JSON data")
+
+
+class PathExistsValidator:
+    def __call__(self, form, field):
+        if not os.path.exists(field.data):
+            stop_validation(field, f"{field.data} does not exist")
+
+
+# https://stackoverflow.com/a/3809435
+URL_REGEX = re.compile(r"[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)")
+
+
+class EndpointValidator:
+    def __call__(self, form, field):
+        try:
+            ipaddress.IPv4Address(field.data)
+        except ValueError:
+            if not URL_REGEX.match(field.data):
+                stop_validation(field, "must be valid url or IPv4 address. "
+                                       "Follow the format 'X.X.X.X' or 'vpn.example.com'.")
