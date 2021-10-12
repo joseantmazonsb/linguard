@@ -6,7 +6,7 @@ uwsgi:
   chdir: /var/www/linguard
   venv: venv
   wsgi-file: linguard/__main__.py
-  pyargv: /etc/linguard/config/linguard.yaml
+  pyargv: data
   need-plugin: python3
   callable: app
   die-on-term: true

@@ -7,6 +7,7 @@ from typing import Dict, Any, Type
 
 from yamlable import yaml_info, Y
 
+from linguard.common.properties import global_properties
 from linguard.core.drivers.traffic_storage_driver import TrafficStorageDriver, TrafficData
 from linguard.core.models import interfaces, get_all_peers
 
@@ -14,12 +15,14 @@ from linguard.core.models import interfaces, get_all_peers
 @yaml_info(yaml_tag='traffic_storage_driver_json')
 class TrafficStorageDriverJson(TrafficStorageDriver):
 
-    DEFAULT_FILEPATH = "traffic.json"
+    FILENAME = "traffic.json"
 
-    def __init__(self, filepath: str = DEFAULT_FILEPATH,
-                 timestamp_format: str = TrafficStorageDriver.DEFAULT_TIMESTAMP_FORMAT):
+    def __init__(self, timestamp_format: str = TrafficStorageDriver.DEFAULT_TIMESTAMP_FORMAT):
         super().__init__(timestamp_format)
-        self.filepath = os.path.abspath(filepath)
+
+    @property
+    def filepath(self):
+        return global_properties.join_workdir(self.FILENAME)
 
     @classmethod
     def get_name(cls) -> str:
@@ -33,7 +36,7 @@ class TrafficStorageDriverJson(TrafficStorageDriver):
             for timestamp, data in merged_data.items():
                 device_data = {}
                 for device, traffic_data in data.items():
-                    if interfaces.get_value_by_attr("name", device):
+                    if device in interfaces.keys():
                         # Do not store interface data, since it will be calculated from peers data
                         break
                     device_data[device] = {"rx": traffic_data.rx, "tx": traffic_data.tx}
@@ -56,22 +59,21 @@ class TrafficStorageDriverJson(TrafficStorageDriver):
         data_with_interfaces = copy.deepcopy(data)
         peers = get_all_peers()
         for timestamp, peer in data.items():
-            for name, peer_data in peer.items():
-                peer = peers.get_value_by_attr("name", name)
+            for uuid, peer_data in peer.items():
+                peer = peers.get(uuid, None)
                 if not peer:
                     continue
                 iface = peer.interface
-                if iface.name not in data_with_interfaces[timestamp]:
-                    data_with_interfaces[timestamp][iface.name] = TrafficData(rx_bytes=peer_data.tx,
+                if iface.uuid not in data_with_interfaces[timestamp]:
+                    data_with_interfaces[timestamp][iface.uuid] = TrafficData(rx_bytes=peer_data.tx,
                                                                               tx_bytes=peer_data.rx)
                     continue
-                data_with_interfaces[timestamp][iface.name].tx += peer_data.rx
-                data_with_interfaces[timestamp][iface.name].rx += peer_data.tx
+                data_with_interfaces[timestamp][iface.uuid].tx += peer_data.rx
+                data_with_interfaces[timestamp][iface.uuid].rx += peer_data.tx
         return data_with_interfaces
 
     def __to_yaml_dict__(self):  # type: (...) -> Dict[str, Any]
         dct = super(TrafficStorageDriverJson, self).__to_yaml_dict__()
-        dct["filepath"] = self.filepath
         return dct
 
     @classmethod
@@ -80,5 +82,4 @@ class TrafficStorageDriverJson(TrafficStorageDriver):
                            yaml_tag=""
                            ):  # type: (...) -> Y
         timestamp_format = dct.get("timestamp_format", None)
-        filepath = dct.get("filepath", None)
-        return TrafficStorageDriverJson(filepath, timestamp_format)
+        return TrafficStorageDriverJson(timestamp_format)

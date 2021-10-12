@@ -1,17 +1,12 @@
 name: main
 
 on:
-  push:
+  pull_request:
     branches:
       - main
-    paths:
-      - "**.py"
-      - "**.js"
-      - "**.yml"
-      - "**.yaml"
-      - "**.sh"
-      - "poetry.lock"
-      - "pyproject.toml"
+    paths-ignore:
+      - "*.md"
+      - "*.rst"
 
 jobs:
   test:
@@ -48,10 +43,13 @@ jobs:
         run: |
           sudo apt-get -qq install wireguard iptables
 
+      - name: Set version file
+        run: |
+          chmod +x gen_version_file.sh
+          ./gen_version_file.sh
+
       - name: Run tests
         run: |
-          export github_action_hook=True
-          export skip_sample_server=True
           poetry run coverage run -m pytest && poetry run coverage xml
 
       - name: Upload coverage report to Codecov
@@ -74,6 +72,6 @@ jobs:
 
       - name: Briefly test uwgsi (can't use service here)
         run: |
-          sudo -u linguard /usr/bin/uwsgi --yaml /etc/linguard/config/uwsgi.yaml &
+          sudo -u linguard /usr/bin/uwsgi --yaml /var/www/linguard/data/uwsgi.yaml &
           sleep 2s
           sudo pkill -f uwsgi

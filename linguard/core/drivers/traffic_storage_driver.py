@@ -67,8 +67,8 @@ class TrafficStorageDriver(YamlAble):
                     last_handshake = datetime.fromtimestamp(int(peer_data["latestHandshake"]))
                 iface_tx += peer_rx
                 iface_rx += peer_tx
-                dct[peer.name] = TrafficData(peer_rx, peer_tx, last_handshake)
-            dct[iface.name] = TrafficData(iface_rx, iface_tx)
+                dct[peer.uuid] = TrafficData(peer_rx, peer_tx, last_handshake)
+            dct[iface.uuid] = TrafficData(iface_rx, iface_tx)
         return dct
 
     def get_session_and_stored_data(self) -> Dict[datetime, Dict[str, TrafficData]]:

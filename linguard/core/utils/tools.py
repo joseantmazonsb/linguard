@@ -1,14 +1,14 @@
-import os
+from os.path import join, dirname, abspath
 
 from linguard.common.utils.system import Command, CommandResult
 
 
 def get_tools_folder():
-    return os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools")
+    return join(dirname(dirname(abspath(__file__))), "tools")
 
 
 def get_tool_path(name: str):
-    return os.path.join(get_tools_folder(), name)
+    return join(get_tools_folder(), name)
 
 
 def run_tool(name: str, as_root: bool = False) -> CommandResult:

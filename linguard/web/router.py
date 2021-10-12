@@ -1,14 +1,16 @@
-import http
 import json
 from datetime import datetime, timedelta
+from functools import wraps
 from http.client import BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR, UNAUTHORIZED, NO_CONTENT
 from logging import warning, debug, error, info
 from typing import List, Dict, Any, Union
+from urllib.parse import parse_qs, urlparse
 
 from flask import Blueprint, abort, request, Response, redirect, url_for
 from flask_login import current_user, login_required, login_user
 
 from linguard.common.models.user import users
+from linguard.common.properties import global_properties
 from linguard.common.utils.logs import log_exception
 from linguard.common.utils.network import get_routing_table, get_system_interfaces
 from linguard.common.utils.strings import list_to_str
@@ -27,6 +29,13 @@ from linguard.web.controllers.ViewController import ViewController
 from linguard.web.static.assets.resources import EMPTY_FIELD, APP_NAME
 
 
+def get_referrer_next_value():
+    next_url = parse_qs(urlparse(request.referrer).query).get("next", None)
+    if not next_url or len(next_url) < 1:
+        return None
+    return next_url[0]
+
+
 class Router(Blueprint):
 
     def __init__(self, name, import_name):
@@ -38,9 +47,22 @@ class Router(Blueprint):
 router = Router("router", __name__)
 
 
+config_manager.load()
+
+
+def setup_required(f):
+    @wraps(f)
+    def wrapped(*args, **kwargs):
+        if global_properties.setup_required and not global_properties.setup_file_exists():
+            return redirect(url_for("router.setup", next=request.args.get("next", get_referrer_next_value())))
+        return f(*args, **kwargs)
+    return wrapped
+
+
 @router.route("/")
 @router.route("/dashboard")
 @login_required
+@setup_required
 def index():
     if traffic_config.enabled:
         traffic = traffic_config.driver.get_session_and_stored_data()
@@ -58,12 +80,12 @@ def index():
     ]
     for iface in interfaces.values():
         iface_names.append(iface.name)
-        iface_traffic = __get_total_traffic__(iface.name, traffic)
+        iface_traffic = __get_total_traffic__(iface.uuid, traffic)
         ifaces_traffic[0]["data"].append(iface_traffic.rx)
         ifaces_traffic[1]["data"].append(iface_traffic.tx)
         for peer in iface.peers.values():
             peer_names.append(peer.name)
-            peer_traffic = __get_total_traffic__(peer.name, traffic)
+            peer_traffic = __get_total_traffic__(peer.uuid, traffic)
             peers_traffic[0]["data"].append(peer_traffic.rx)
             peers_traffic[1]["data"].append(peer_traffic.tx)
 
@@ -79,20 +101,21 @@ def index():
     return ViewController("web/index.html", **context).load()
 
 
-def __get_total_traffic__(name: str, traffic: Dict[datetime, Dict[str, TrafficData]]) -> TrafficData:
+def __get_total_traffic__(uuid: str, traffic: Dict[datetime, Dict[str, TrafficData]]) -> TrafficData:
     rx = 0
     tx = 0
     for data in reversed(list(traffic.values())):
         # Get only last appearance
-        if name in data:
-            rx += data[name].rx
-            tx += data[name].tx
+        if uuid in data:
+            rx += data[uuid].rx
+            tx += data[uuid].tx
             break
     return TrafficData(rx, tx)
 
 
 @router.route("/logout")
 @login_required
+@setup_required
 def logout():
     current_user.logout()
     return redirect(url_for("router.index"))
@@ -113,7 +136,7 @@ def signup():
 @router.route("/signup", methods=["POST"])
 def signup_post():
     if len(users) > 0:
-        abort(http.HTTPStatus.UNAUTHORIZED)
+        abort(UNAUTHORIZED)
     from linguard.web.forms import SignupForm
     form = SignupForm(request.form)
     return RestController().signup(form)
@@ -159,14 +182,15 @@ def login_post():
     u = users.get_value_by_attr("name", form.username.data)
     if not login_user(u, form.remember_me.data):
         error(f"Unable to log user in.")
-        abort(http.HTTPStatus.INTERNAL_SERVER_ERROR)
+        abort(INTERNAL_SERVER_ERROR)
     info(f"Successfully logged user '{u.name}' in!")
     router.web_login_attempts = 1
-    return redirect(form.next.data or url_for("router.index"))
+    return redirect(request.args.get("next", url_for("router.index")))
 
 
 @router.route("/network")
 @login_required
+@setup_required
 def network():
     wg_ifaces = list(interfaces.values())
     ifaces = get_network_ifaces(wg_ifaces)
@@ -241,6 +265,7 @@ def get_system_interfaces_summary() -> Dict[str, Dict[str, Any]]:
 
 @router.route("/wireguard")
 @login_required
+@setup_required
 def wireguard():
     context = {
         "title": "Wireguard",
@@ -253,6 +278,7 @@ def wireguard():
 
 @router.route("/wireguard/interfaces/add", methods=['GET'])
 @login_required
+@setup_required
 def create_wireguard_iface():
     from linguard.web.forms import AddInterfaceForm
     form = AddInterfaceForm.populate(AddInterfaceForm())
@@ -266,6 +292,7 @@ def create_wireguard_iface():
 
 @router.route("/wireguard/interfaces/add", methods=['POST'])
 @login_required
+@setup_required
 def add_wireguard_iface():
     from linguard.web.forms import AddInterfaceForm
     form = AddInterfaceForm.from_form(AddInterfaceForm(request.form))
@@ -294,7 +321,7 @@ def load_traffic_data(item: Union[Peer, Interface]):
     for timestamp, traffic_data in traffic_config.driver.load_data().items():
         labels.append(str(timestamp))
         for device, data in traffic_data.items():
-            if device == item.name:
+            if device == item.uuid:
                 datasets["rx"].append(data.rx)
                 datasets["tx"].append(data.tx)
                 break
@@ -303,6 +330,7 @@ def load_traffic_data(item: Union[Peer, Interface]):
 
 @router.route("/wireguard/interfaces/<uuid>", methods=['GET', "POST"])
 @login_required
+@setup_required
 def get_wireguard_iface(uuid: str):
     if uuid not in interfaces:
         abort(NOT_FOUND, f"Unknown interface '{uuid}'.")
@@ -310,7 +338,7 @@ def get_wireguard_iface(uuid: str):
     view = "web/wireguard-iface.html"
     data = load_traffic_data(iface)
     session_data = traffic_config.driver.get_session_data()
-    iface_traffic = session_data.get(iface.name, TrafficData(0, 0))
+    iface_traffic = session_data.get(iface.uuid, TrafficData(0, 0))
     context = {
         "title": "Interface",
         "iface": iface,
@@ -345,6 +373,7 @@ def get_wireguard_iface(uuid: str):
 
 @router.route("/wireguard/interfaces/<uuid>", methods=['DELETE'])
 @login_required
+@setup_required
 def remove_wireguard_iface(uuid: str):
     if uuid not in interfaces:
         abort(NOT_FOUND, f"Interface {uuid} not found.")
@@ -353,6 +382,7 @@ def remove_wireguard_iface(uuid: str):
 
 @router.route("/wireguard/interfaces/<uuid>/<action>", methods=['POST'])
 @login_required
+@setup_required
 def operate_wireguard_iface(uuid: str, action: str):
     action = action.lower()
     try:
@@ -372,6 +402,7 @@ def operate_wireguard_iface(uuid: str, action: str):
 
 @router.route("/wireguard/<action>", methods=['POST'])
 @login_required
+@setup_required
 def operate_wireguard_ifaces(action: str):
     action = action.lower()
     try:
@@ -394,6 +425,7 @@ def operate_wireguard_ifaces(action: str):
 
 @router.route("/wireguard/interfaces/<uuid>/download", methods=['GET'])
 @login_required
+@setup_required
 def download_wireguard_iface(uuid: str):
     if uuid not in interfaces.keys():
         error(f"Unknown interface {uuid}")
@@ -403,6 +435,7 @@ def download_wireguard_iface(uuid: str):
 
 @router.route("/wireguard/peers/add", methods=['GET'])
 @login_required
+@setup_required
 def create_wireguard_peer():
     iface_uuid = request.args.get("interface", None)
     iface = interfaces.get(iface_uuid, None)
@@ -418,6 +451,7 @@ def create_wireguard_peer():
 
 @router.route("/wireguard/peers/add", methods=['POST'])
 @login_required
+@setup_required
 def add_wireguard_peer():
     from linguard.web.forms import AddPeerForm
     form = AddPeerForm.from_form(AddPeerForm(request.form))
@@ -442,6 +476,7 @@ def add_wireguard_peer():
 
 @router.route("/wireguard/peers/<uuid>", methods=['DELETE'])
 @login_required
+@setup_required
 def remove_wireguard_peer(uuid: str):
     peer = get_all_peers().get(uuid, None)
     if not peer:
@@ -451,13 +486,14 @@ def remove_wireguard_peer(uuid: str):
 
 @router.route("/wireguard/peers/<uuid>", methods=['GET', "POST"])
 @login_required
+@setup_required
 def get_wireguard_peer(uuid: str):
     peer = get_all_peers().get(uuid, None)
     if not peer:
         raise WireguardError(f"Unknown peer '{uuid}'.", NOT_FOUND)
     view = "web/wireguard-peer.html"
     data = load_traffic_data(peer)
-    session_data = traffic_config.driver.get_session_data().get(peer.name, TrafficData(0, 0))
+    session_data = traffic_config.driver.get_session_data().get(peer.uuid, TrafficData(0, 0))
     handshake_ago = None
     if session_data.last_handshake:
         handshake_ago = get_time_ago(session_data.last_handshake)
@@ -495,6 +531,7 @@ def get_wireguard_peer(uuid: str):
 
 @router.route("/wireguard/peers/<uuid>/download", methods=['GET'])
 @login_required
+@setup_required
 def download_wireguard_peer(uuid: str):
     peer = get_all_peers().get(uuid, None)
     if not peer:
@@ -506,6 +543,7 @@ def download_wireguard_peer(uuid: str):
 
 @router.route("/themes")
 @login_required
+@setup_required
 def themes():
     context = {
         "title": "Themes"
@@ -515,6 +553,7 @@ def themes():
 
 @router.route("/settings")
 @login_required
+@setup_required
 def settings():
     from linguard.web.forms import SettingsForm
     form = SettingsForm()
@@ -531,6 +570,7 @@ def settings():
 
 @router.route("/settings", methods=['POST'])
 @login_required
+@setup_required
 def save_settings():
     from linguard.web.forms import SettingsForm
     form = SettingsForm(request.form)
@@ -567,8 +607,65 @@ def save_settings():
     return ViewController(view, **context).load()
 
 
+@router.route("/setup")
+@login_required
+def setup():
+    if global_properties.setup_file_exists():
+        return redirect(request.args.get("next", url_for("router.index")))
+    from linguard.web.forms import SetupForm
+    form = SetupForm()
+    wireguard_config.set_default_endpoint()
+    form.app_endpoint.data = wireguard_config.endpoint
+    context = {
+        "title": "Setup",
+        "form": form,
+        "app_name": APP_NAME
+    }
+    return ViewController("web/setup.html", **context).load()
+
+
+@router.route("/setup", methods=['POST'])
+@login_required
+def apply_setup():
+    if global_properties.setup_file_exists():
+        abort(BAD_REQUEST, "Setup already performed!")
+    from linguard.web.forms import SetupForm
+    form = SetupForm(request.form)
+    view = "web/setup.html"
+    context = {
+        "title": "Setup",
+        "form": form
+    }
+    if not form.validate():
+        error("Unable to validate form")
+        return ViewController(view, **context).load()
+    try:
+        RestController().apply_setup(form)
+        with open(global_properties.setup_filepath, "w") as f:
+            f.write("")
+        return redirect(request.args.get("next", url_for("router.index")))
+    except Exception as e:
+        log_exception(e)
+        context["error"] = True
+        context["error_details"] = e
+    return ViewController(view, **context).load()
+
+
+@router.route("/about", methods=['GET'])
+@login_required
+@setup_required
+def about():
+    view = "web/about.html"
+    context = {
+        "title": "About",
+        "app_name": APP_NAME
+    }
+    return ViewController(view, **context).load()
+
+
 @router.route("/profile", methods=['GET'])
 @login_required
+@setup_required
 def profile():
     from linguard.web.forms import ProfileForm, PasswordResetForm
     profile_form = ProfileForm()
@@ -591,6 +688,7 @@ def profile():
 
 @router.route("/profile", methods=['POST'])
 @login_required
+@setup_required
 def save_profile():
     if "new_password" in request.form:
         return password_reset()
@@ -661,11 +759,11 @@ def unauthorized(err):
     if request.method == "GET":
         debug(f"Redirecting to login...")
         try:
-            next = url_for(request.endpoint)
+            next_url = url_for(request.endpoint)
         except Exception:
             uuid = request.path.rsplit("/", 1)[-1]
-            next = url_for(request.endpoint, uuid=uuid)
-        return redirect(url_for("router.login", next=next))
+            next_url = url_for(request.endpoint, uuid=uuid)
+        return redirect(url_for("router.login", next=next_url))
     error_code = int(UNAUTHORIZED)
     context = {
         "title": error_code,

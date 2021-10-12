@@ -129,6 +129,9 @@ dmypy.yaml
 uwsgi.yaml
 linguard.yaml
 credentials.yaml
+version.yaml
 logs/
 traffic.*
 interfaces/
+data/
+__version__.py

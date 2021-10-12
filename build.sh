@@ -65,9 +65,12 @@ info "Copying scripts..."
 cp scripts/install.sh "$DIST_DIR"
 cp scripts/log.sh "$DIST_DIR"
 
-version=$(poetry version -s)
-zip_name="linguard-$version.tar.gz"
 
+info "Adding version information..."
+source ./gen_version_file.sh
+cp "$version_file" "$CODE_DIR"
+
+zip_name="linguard-$version.tar.gz"
 info "Compressing package into '$zip_name'..."
 cd "$DIST_DIR"
 tar -czf "$zip_name" *

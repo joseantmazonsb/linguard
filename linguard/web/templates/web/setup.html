@@ -1,0 +1,164 @@
+{% extends "main.html" %}
+
+{% block body_content %}
+    <div class="bg-primary">
+        <div id="layoutAuthentication">
+            <div id="layoutAuthentication_content">
+                <main>
+                    <div class="container">
+                        <div class="row justify-content-center">
+                            <div class="col">
+                                <div class="card shadow-lg border-0 rounded-lg mt-5">
+                                    <div class="card-header"><h3 class="text-center font-weight-light my-4">{{ title }}</h3></div>
+                                    <div class="card-body">
+                                        <div id="global-alerts">
+                                        {% if error %}
+                                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                              <strong>Unexpected error:</strong> {{ error_details }}
+                                              <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                                <span aria-hidden="true">&times;</span>
+                                              </button>
+                                            </div>
+                                        {% endif %}
+                                        </div>
+                                        <form action="{{ request.url }}" method="post" novalidate>
+                                            {{ form.hidden_tag() }}
+                                            <!-- App config -->
+                                            <div class="card mb-4">
+                                                <div class="card-header">
+                                                    <i class="fas fa-cog mr-1"></i>
+                                                    Wireguard
+                                                </div>
+                                                <div class="card-body">
+                                                    <div id="alerts">
+                                                        {% for error in form.app_endpoint.errors %}
+                                                            <div class="alert alert-danger" role="alert">
+                                                              Error in field <strong>{{ form.app_endpoint.label.text }}</strong>: {{ error }}
+                                                            </div>
+                                                        {% endfor %}
+                                                        {% for error in form.app_wg_bin.errors %}
+                                                            <div class="alert alert-danger" role="alert">
+                                                              Error in field <strong>{{ form.app_wg_bin.label.text }}</strong>: {{ error }}
+                                                            </div>
+                                                        {% endfor %}
+                                                        {% for error in form.app_wg_quick_bin.errors %}
+                                                            <div class="alert alert-danger" role="alert">
+                                                              Error in field <strong>{{ form.app_wg_quick_bin.label.text }}</strong>: {{ error }}
+                                                            </div>
+                                                        {% endfor %}
+                                                        {% for error in form.app_iptables_bin.errors %}
+                                                            <div class="alert alert-danger" role="alert">
+                                                              Error in field <strong>{{ form.app_iptables_bin.label.text }}</strong>: {{ error }}
+                                                            </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                    <div class="form-row">
+                                                        <div class="form-group col-md-4">
+                                                            {{ form.app_endpoint.label() }}
+                                                            <br>
+                                                            {{ form.app_endpoint(class="form-control") }}
+                                                        </div>
+                                                    </div>
+                                                    <div class="form-row">
+                                                        <div class="form-group col-md-4">
+                                                            {{ form.app_wg_bin.label() }}
+                                                            <br>
+                                                            {{ form.app_wg_bin(class="form-control") }}
+                                                        </div>
+                                                        <div class="form-group col-md-4">
+                                                            {{ form.app_wg_quick_bin.label() }}
+                                                            <br>
+                                                            {{ form.app_wg_quick_bin(class="form-control") }}
+                                                        </div>
+                                                        <div class="form-group col-md-4">
+                                                            {{ form.app_iptables_bin.label() }}
+                                                            <br>
+                                                            {{ form.app_iptables_bin(class="form-control") }}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Logger config -->
+                                            <div class="card mb-4">
+                                                <div class="card-header">
+                                                    <i class="fas fa-cog mr-1"></i>
+                                                    Logging
+                                                </div>
+                                                <div class="card-body">
+                                                    <div id="alerts">
+                                                        {% for error in form.log_overwrite.errors %}
+                                                            <div class="alert alert-danger" role="alert">
+                                                              Error in field <strong>{{ form.log_overwrite.label.text }}</strong>: {{ error }}
+                                                            </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                    <div class="form-row">
+                                                        <div class="form-group col-md-4">
+                                                            <div class="custom-control custom-checkbox">
+                                                                {{ form.log_overwrite(class="custom-control-input") }}
+                                                                {{ form.log_overwrite.label(class="custom-control-label") }}
+                                                                <span type="button" class="ml-1" data-toggle="popover"
+                                                                    data-placement="top"
+                                                                    data-content="Whether to overwrite the log file each time {{ app_name }} boots up,
+                                                                    discarding its previous content, or to append the new logs to the file.">
+                                                                    <i class="fas fa-question-circle"></i>
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Traffic config -->
+                                            <div class="card mb-4">
+                                                <div class="card-header">
+                                                    <i class="fas fa-cog mr-1"></i>
+                                                    Traffic data collection
+                                                </div>
+                                                <div class="card-body">
+                                                    <div id="alerts">
+                                                        {% for error in form.traffic_enabled.errors %}
+                                                            <div class="alert alert-danger" role="alert">
+                                                              Error in field <strong>{{ form.traffic_enabled.label.text }}</strong>: {{ error }}
+                                                            </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                    <div class="form-row">
+                                                        <div class="form-group col-md-4">
+                                                            <div class="custom-control custom-checkbox">
+                                                                {{ form.traffic_enabled(class="custom-control-input") }}
+                                                                {{ form.traffic_enabled.label(class="custom-control-label") }}
+                                                                <span type="button" class="ml-1" data-toggle="popover"
+                                                                    data-placement="top"
+                                                                    data-content="Collect peer's traffic data (received and transmitted bytes only).">
+                                                                    <i class="fas fa-question-circle"></i>
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="form-group mt-4 mb-0">
+                                                {{ form.submit(class="btn btn-warning") }}
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    <br>
+    </div>
+    {% include "footer.html" %}
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <script type="module" src="../../static/js/modules/utils.mjs"></script>
+{% endblock %}

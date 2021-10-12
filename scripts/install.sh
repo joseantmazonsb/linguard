@@ -13,36 +13,16 @@ if [[ $# -gt 0 ]]; then
   exit 1
 fi
 
-ETC_DIR="/etc/linguard"
-VAR_DIR="/var/www/linguard"
-LOG_DIR="/var/log/linguard"
+INSTALL_DIR="/var/www/linguard"
 
-info "Creating '$ETC_DIR'..."
+info "Creating '$INSTALL_DIR'..."
 
-if [[ -d "$ETC_DIR" ]]; then
+if [[ -d "$INSTALL_DIR" ]]; then
     while true; do
-    warn -n "'$ETC_DIR' already exists. Shall I overwrite it? [y/n] "
+    warn -n "'$INSTALL_DIR' already exists. Shall I overwrite it? [y/n] "
       read yn
       case $yn in
-          [Yy]* ) rm -rf "$ETC_DIR"; break;;
-          [Nn]* ) info "Aborting..."; exit;;
-          * ) echo "Please answer yes or no.";;
-      esac
-    done
-fi
-CONFIG_DIR="$ETC_DIR/config"
-mkdir -p "$CONFIG_DIR"
-cp config/linguard.sample.yaml "$CONFIG_DIR/linguard.yaml"
-cp config/uwsgi.sample.yaml "$CONFIG_DIR/uwsgi.yaml"
-
-info "Creating '$VAR_DIR'..."
-
-if [[ -d "$VAR_DIR" ]]; then
-    while true; do
-    warn -n "'$VAR_DIR' already exists. Shall I overwrite it? [y/n] "
-      read yn
-      case $yn in
-          [Yy]* ) rm -rf "$VAR_DIR"; break;;
+          [Yy]* ) rm -rf "$INSTALL_DIR"; break;;
           [Nn]* )
             info "Aborting...";
             rm -rf "$ETC_DIR"
@@ -51,29 +31,15 @@ if [[ -d "$VAR_DIR" ]]; then
       esac
     done
 fi
-mkdir -p "$VAR_DIR"
-cp -r linguard "$VAR_DIR"
-cp requirements.txt "$VAR_DIR"
+mkdir -p "$INSTALL_DIR"
+cp -a linguard "$INSTALL_DIR"
+SOURCE_DIR="$INSTALL_DIR/linguard"
+DATA_DIR="$INSTALL_DIR/data"
+mkdir -p "$DATA_DIR"
 
-info "Creating '$LOG_DIR'..."
+cp config/uwsgi.sample.yaml "$DATA_DIR/uwsgi.yaml"
 
-if [[ -d "$LOG_DIR" ]]; then
-    while true; do
-    warn -n "'$LOG_DIR' already exists. Shall I overwrite it? [y/n] "
-      read yn
-      case $yn in
-          [Yy]* ) rm -rf "$LOG_DIR"; break;;
-          [Nn]* )
-            info "Aborting...";
-            rm -rf "$VAR_DIR"
-            rm -rf "$ETC_DIR"
-            exit;;
-          * ) echo "Please answer yes or no.";;
-      esac
-    done
-fi
-mkdir -p "$LOG_DIR"
-
+cp requirements.txt "$INSTALL_DIR"
 
 info "Installing dependencies..."
 debug "Updating packages list..."
@@ -87,8 +53,8 @@ if [ $? -ne 0 ]; then
 fi
 
 info "Setting up virtual environment..."
-python3 -m venv "$VAR_DIR/venv"
-source "$VAR_DIR/venv/bin/activate"
+python3 -m venv "$INSTALL_DIR/venv"
+source "$INSTALL_DIR/venv/bin/activate"
 if [ $? -ne 0 ]; then
     fatal "Unable to activate virtual environment."
     exit 1
@@ -96,7 +62,7 @@ fi
 debug "Upgrading pip..."
 python3 -m pip install --upgrade pip
 debug "Installing python requirements..."
-python3 -m pip install -r "$VAR_DIR/requirements.txt"
+python3 -m pip install -r "$INSTALL_DIR/requirements.txt"
 if [ $? -ne 0 ]; then
     fatal "Unable to install requirements."
     exit 1
@@ -106,10 +72,8 @@ deactivate
 info "Settings permissions..."
 groupadd linguard
 useradd -g linguard linguard
-chown -R linguard:linguard "$VAR_DIR"
-chown -R linguard:linguard "$ETC_DIR"
-chown -R linguard:linguard "$LOG_DIR"
-chmod +x -R "$VAR_DIR/linguard/core/tools"
+chown -R linguard:linguard "$INSTALL_DIR"
+chmod +x -R "$SOURCE_DIR/core/tools"
 echo "linguard ALL=(ALL) NOPASSWD: /usr/bin/wg" > /etc/sudoers.d/linguard
 echo "linguard ALL=(ALL) NOPASSWD: /usr/bin/wg-quick" >> /etc/sudoers.d/linguard
 
