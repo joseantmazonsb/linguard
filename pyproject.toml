@@ -24,6 +24,7 @@ yamlable = "^1.0.4"
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
 coverage = "^5.5"
+Sphinx = "^4.2.0"
 
 [tool.coverage.run]
 omit = ["*/site-packages/*"]

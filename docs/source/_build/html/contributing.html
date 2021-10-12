@@ -1,0 +1,148 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>&lt;no title&gt; &#8212; Linguard 0.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Changelog" href="changelog.html" />
+    <link rel="prev" title="&lt;no title&gt;" href="screenshots.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <p># Contributing</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Linguard is and will always be open source.</p>
+</div>
+<p>You may contribute by opening new issues, commenting on existent ones and creating pull requests with new features and bugfixes.
+Any help is welcome, just make sure you read the following sections, which will guide you to set up the development environment.
+..
+## Git flow</p>
+<p>You should never work directly on the <cite>main</cite> branch. This branch is only used to gather new features and bugfixes previously merged to the <cite>dev</cite> branch and publish them in a single package. In other words, its purpose is to release new versions of Linguard.</p>
+<p>Hence, the <cite>dev</cite> branch <strong>should always be your starting point and the target of your pull requests.</strong></p>
+<p>## Dependency management</p>
+<p>[Poetry](<a class="reference external" href="https://python-poetry.org/">https://python-poetry.org/</a>) is used to handle packaging and dependencies. You will need to install it before getting started to code:</p>
+<p><code class="docutils literal notranslate"><span class="pre">`bash</span>
+<span class="pre">curl</span> <span class="pre">-sSL</span> <span class="pre">https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py</span> <span class="pre">|</span> <span class="pre">python3</span> <span class="pre">-</span>
+<span class="pre">`</span></code></p>
+<p>Once you have checked out the repository, you’d install the python requirements this way:</p>
+<p><code class="docutils literal notranslate"><span class="pre">`bash</span>
+<span class="pre">poetry</span> <span class="pre">config</span> <span class="pre">virtualenvs.in-project</span> <span class="pre">true</span>
+<span class="pre">poetry</span> <span class="pre">install</span>
+<span class="pre">`</span></code></p>
+<p>## Configuration files</p>
+<p>Linguard has a setup assistant and does not require you to have an existing configuration file in its working directory. However, it does require that your configuration file is a valid YAML file named <cite>linguard.yaml</cite>.</p>
+<p>As for the UWSGI configuration, Linguard provides a sample file (<cite>uwsgi.sample.yaml</cite>) for you to play around with it. Just make sure you run UWSGI using a valid file!</p>
+<p>## Testing</p>
+<p>[PyTest](<a class="reference external" href="https://docs.pytest.org/en/6.2.x">https://docs.pytest.org/en/6.2.x</a>) and [Coverage](<a class="reference external" href="https://coverage.readthedocs.io/en/coverage-5.5">https://coverage.readthedocs.io/en/coverage-5.5</a>) are used to test Linguard and generate coverage reports, which are uploaded to [Codecov](<a class="reference external" href="https://about.codecov.io">https://about.codecov.io</a>).</p>
+<p>TDD is enforced. Make sure your code passes the existing tests and provide new ones to prove your new features/bugfixes actually work when making pull requests.</p>
+<p>All tests should be anywhere under <cite>linguard/tests</cite>, and you can run them all using Poetry:</p>
+<p><code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">poetry</span> <span class="pre">run</span> <span class="pre">pytest</span>
+<span class="pre">`</span></code></p>
+<p>You may as well generate a coverage report using poetry:
+<code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">poetry</span> <span class="pre">run</span> <span class="pre">coverage</span> <span class="pre">report</span>
+<span class="pre">`</span></code></p>
+<p>## Building</p>
+<p>To build Linguard you may use the <cite>build.sh</cite> script, which automatically generates a <cite>dist</cite> folder containing a compressed file with all you need to publish a release.</p>
+<p>## CI/CD</p>
+<p>Github Workflows are used to implement a CI/CD pipeline. When code is pushed to any branch, it will be automatically tested to ensure everything is working properly.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <cite>main</cite> branch is used to automatically deploy new releases, and <strong>should never be the target of external pull requests</strong>.</p>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Linguard</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="screenshots.html" title="previous chapter">&lt;no title&gt;</a></li>
+      <li>Next: <a href="changelog.html" title="next chapter">Changelog</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, José Antonio Mazón San Bartolomé.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/contributing.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
