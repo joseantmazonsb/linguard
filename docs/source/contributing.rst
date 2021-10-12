@@ -11,7 +11,7 @@ Any help is welcome, just make sure you read the following sections, which will 
 Git flow
 ----
 
-You should never work directly on the ``main`` branch. This branch is only used to gather new features and bugfixes previously merged to the `dev` branch and publish them in a single package. In other words, its purpose is to release new versions of Linguard.
+You should never work directly on the ``main`` branch. This branch is only used to gather new features and bugfixes previously merged to the ``dev`` branch and publish them in a single package. In other words, its purpose is to release new versions of Linguard.
 
 Hence, the ``dev`` branch **should always be your starting point and the target of your pull requests.**
 
@@ -40,7 +40,7 @@ Once you have checked out the repository, you'd install the python requirements 
 Configuration files
 ----
 
-Linguard has a setup assistant and does not require you to have an existing configuration file in its working directory. However, it does require that your configuration file is a valid YAML file named ``linguard.yaml``.
+Linguard has a setup assistant and does not require you to have an existing configuration file in its working directory. Nonetheless, you may use your own as long as it is valid and named ``linguard.yaml``.
 
 As for the UWSGI configuration, Linguard provides a sample file (``uwsgi.sample.yaml``) for you to play around with it. Just make sure you run UWSGI using a valid file!
 
