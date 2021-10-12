@@ -8,7 +8,7 @@ Linguard
 .. image:: https://img.shields.io/badge/python-3.7%20%7C%203.8%20%7C%203.9-blue?logo=python&logoColor=yellow
     :alt: Supported python versions: 3.7, 3.8, 3.9
 
-.. image:: https://github.com/joseantmazonsb/linguard/actions/workflows/main.yaml/badge.svg
+.. image:: https://github.com/joseantmazonsb/linguard/actions/workflows/main-test.yaml/badge.svg
     :target: https://github.com/joseantmazonsb/linguard/actions/workflows/main-test.yaml
     :alt: Main workflow status
 
