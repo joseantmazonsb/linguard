@@ -77,7 +77,10 @@ if __name__ == "__main__":
     app.run(debug=args.debug, port=8080)
 else:
     if not release or not commit:
-        fatal("!! No versioning information provided !!")
-        exit(1)
+        if global_properties.dev_env:
+            warning("!! No versioning information provided !!")
+        else:
+            fatal("!! No versioning information provided !!")
+            exit(1)
     info(f"Running {APP_NAME} {release}")
     debug(f"Commit hash: {commit}")

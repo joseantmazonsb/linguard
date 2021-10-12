@@ -66,6 +66,7 @@ def get_testing_app():
     workdir = "data"
     sys.argv = [sys.argv[0], workdir]
     global_properties.setup_required = False
+    global_properties.dev_env = True
     from linguard.__main__ import app
     app.config["TESTING"] = True
     app.config["WTF_CSRF_ENABLED"] = False
