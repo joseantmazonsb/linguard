@@ -1,4 +1,4 @@
-name: Test main branch
+name: main
 
 on:
   pull_request:
