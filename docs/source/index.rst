@@ -35,7 +35,7 @@ Linguard
 Linguard aims to provide a clean, simple yet powerful web GUI to manage your WireGuard server, and it's powered by Flask.
 
 Key features
---------
+------------
 
 * Management of Wireguard interfaces and peers via web. Interfaces can be created, removed, edited, exported and brought up and down directly from the web GUI. Peers can be created, removed, edited and downloaded at anytime as well.
 * Display stored and real time traffic data using charts (storage of traffic data may be manually disabled).
