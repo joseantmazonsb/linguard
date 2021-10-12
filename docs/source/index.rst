@@ -9,7 +9,7 @@ Linguard
     :alt: Supported python versions: 3.7, 3.8, 3.9
 
 .. image:: https://github.com/joseantmazonsb/linguard/actions/workflows/main.yaml/badge.svg
-    :target: https://github.com/joseantmazonsb/linguard/actions/workflows/main.yaml
+    :target: https://github.com/joseantmazonsb/linguard/actions/workflows/main-test.yaml
     :alt: Main workflow status
 
 .. image:: https://codecov.io/gh/joseantmazonsb/linguard/branch/main/graph/badge.svg
