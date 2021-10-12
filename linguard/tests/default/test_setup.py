@@ -37,8 +37,7 @@ def test_redirect(client):
 
 
 def remove_setup_file():
-    from linguard.web.router import setup_filepath
-    os.remove(setup_filepath)
+    os.remove(global_properties.setup_filepath)
 
 
 def test_post_ok(client):

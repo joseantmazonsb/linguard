@@ -1,5 +1,4 @@
 import json
-import os.path
 from datetime import datetime, timedelta
 from functools import wraps
 from http.client import BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR, UNAUTHORIZED, NO_CONTENT
@@ -11,7 +10,7 @@ from flask import Blueprint, abort, request, Response, redirect, url_for
 from flask_login import current_user, login_required, login_user
 
 from linguard.common.models.user import users
-from linguard.common.properties import global_properties, SETUP_FILENAME
+from linguard.common.properties import global_properties
 from linguard.common.utils.logs import log_exception
 from linguard.common.utils.network import get_routing_table, get_system_interfaces
 from linguard.common.utils.strings import list_to_str
@@ -46,14 +45,15 @@ class Router(Blueprint):
 
 
 router = Router("router", __name__)
-setup_filepath = global_properties.join_workdir(SETUP_FILENAME)
+
+
 config_manager.load()
 
 
 def setup_required(f):
     @wraps(f)
     def wrapped(*args, **kwargs):
-        if global_properties.setup_required and not os.path.exists(setup_filepath):
+        if global_properties.setup_required and not global_properties.setup_file_exists():
             return redirect(url_for("router.setup", next=request.args.get("next", get_referrer_next_value())))
         return f(*args, **kwargs)
     return wrapped
@@ -610,7 +610,7 @@ def save_settings():
 @router.route("/setup")
 @login_required
 def setup():
-    if os.path.exists(setup_filepath):
+    if global_properties.setup_file_exists():
         return redirect(request.args.get("next", url_for("router.index")))
     from linguard.web.forms import SetupForm
     form = SetupForm()
@@ -627,7 +627,7 @@ def setup():
 @router.route("/setup", methods=['POST'])
 @login_required
 def apply_setup():
-    if os.path.exists(setup_filepath):
+    if global_properties.setup_file_exists():
         abort(BAD_REQUEST, "Setup already performed!")
     from linguard.web.forms import SetupForm
     form = SetupForm(request.form)
@@ -641,7 +641,7 @@ def apply_setup():
         return ViewController(view, **context).load()
     try:
         RestController().apply_setup(form)
-        with open(setup_filepath, "w") as f:
+        with open(global_properties.setup_filepath, "w") as f:
             f.write("")
         return redirect(request.args.get("next", url_for("router.index")))
     except Exception as e:
@@ -759,11 +759,11 @@ def unauthorized(err):
     if request.method == "GET":
         debug(f"Redirecting to login...")
         try:
-            next = url_for(request.endpoint)
+            next_url = url_for(request.endpoint)
         except Exception:
             uuid = request.path.rsplit("/", 1)[-1]
-            next = url_for(request.endpoint, uuid=uuid)
-        return redirect(url_for("router.login", next=next))
+            next_url = url_for(request.endpoint, uuid=uuid)
+        return redirect(url_for("router.login", next=next_url))
     error_code = int(UNAUTHORIZED)
     context = {
         "title": error_code,

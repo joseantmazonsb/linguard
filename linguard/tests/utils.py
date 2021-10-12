@@ -1,5 +1,6 @@
 import http
 import os
+import shutil
 import sys
 
 from flask_login import current_user
@@ -40,6 +41,8 @@ def default_cleanup():
     for root, dirs, files in os.walk(global_properties.workdir):
         for f in files:
             os.remove(os.path.join(root, f))
+        for d in dirs:
+            shutil.rmtree(os.path.join(root, d))
     users.clear()
     interfaces.clear()
     cron_manager.stop()
