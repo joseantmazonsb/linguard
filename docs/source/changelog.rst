@@ -1,7 +1,7 @@
 Changelog
 =========
 
-All notable changes to this project will be documented in this file.
+All notable changes to this project will be documented here.
 
 .. note::
     Linguard is adhered to `Semantic Versioning <https://semver.org/>`__.

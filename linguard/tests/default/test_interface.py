@@ -28,7 +28,6 @@ def test_get_edit(client):
     iface.add_peer(peer1)
     iface.add_peer(peer2)
     interfaces[iface.uuid] = iface
-    interfaces[iface.uuid] = iface
     response = client.get(f"{url}/{iface.uuid}")
     assert is_http_success(response.status_code)
     assert iface.name.encode() in response.data
@@ -44,7 +43,6 @@ def test_post_edit_ok(client):
     iface.add_peer(peer1)
     iface.add_peer(peer2)
     interfaces[iface.uuid] = iface
-    interfaces[iface.uuid] = iface
 
     response = client.post(f"{url}/{iface.uuid}", data={
         "name": iface.name, "auto": iface.auto, "description": iface.description, "gateway": iface.gw_iface,
@@ -52,7 +50,7 @@ def test_post_edit_ok(client):
         "on_down": list_to_str(iface.on_down)
     })
     assert is_http_success(response.status_code)
-    assert interfaces.get_value_by_attr("name", iface.name) is not None
+    assert "Error".encode() not in response.data
 
     response = client.post(f"{url}/{iface.uuid}", data={
         "name": iface.name, "auto": iface.auto, "description": iface.description, "gateway": iface.gw_iface,
@@ -60,7 +58,7 @@ def test_post_edit_ok(client):
         "on_down": list_to_str(iface.on_down)
     })
     assert is_http_success(response.status_code)
-    assert interfaces.get_value_by_attr("name", iface.name) is not None
+    assert "Error".encode() not in response.data
 
     response = client.post(f"{url}/{iface.uuid}", data={
         "name": "iface2", "auto": iface.auto, "description": iface.description, "gateway": iface.gw_iface,
@@ -68,18 +66,19 @@ def test_post_edit_ok(client):
         "on_down": list_to_str(iface.on_down)
     })
     assert is_http_success(response.status_code)
-    assert interfaces.get_value_by_attr("name", iface.name) is not None
+    assert "Error".encode() not in response.data
 
 
 def test_post_edit_ko(client):
     login(client)
     iface = create_test_iface("iface1", "10.0.0.1/24", 50000)
+    iface2 = create_test_iface("iface1", "10.0.1.1/24", 50000)
     peer1 = Peer(name="peer1", description="", ipv4_address="10.0.0.2/24", nat=False, interface=iface, dns1="8.8.8.8")
     peer2 = Peer(name="peer2", description="", ipv4_address="10.0.0.3/24", nat=False, interface=iface, dns1="8.8.8.8")
     iface.add_peer(peer1)
     iface.add_peer(peer2)
     interfaces[iface.uuid] = iface
-    interfaces[iface.uuid] = iface
+    interfaces[iface2.uuid] = iface2
 
     response = client.post(f"{url}/{iface.uuid}", data={
         "name": iface.name, "auto": iface.auto, "description": iface.description, "gateway": iface.gw_iface,
@@ -87,7 +86,55 @@ def test_post_edit_ko(client):
         "on_down": list_to_str(iface.on_down)
     })
     assert is_http_success(response.status_code)
-    assert interfaces.get_value_by_attr("name", iface.name) is not None
+    assert "Error".encode() in response.data
+
+    response = client.post(f"{url}/{iface.uuid}", data={
+        "name": iface.name, "auto": iface.auto, "description": iface.description, "gateway": iface.gw_iface,
+        "ipv4": "10.0.0.3/24", "port": iface.listen_port, "on_up": list_to_str(iface.on_up),
+        "on_down": list_to_str(iface.on_down)
+    })
+    assert is_http_success(response.status_code)
+    assert "Error".encode() in response.data
+
+    response = client.post(f"{url}/{iface.uuid}", data={
+        "name": iface.name, "auto": iface.auto, "description": iface.description, "gateway": iface.gw_iface,
+        "ipv4": "10.0.0.255/24", "port": iface.listen_port, "on_up": list_to_str(iface.on_up),
+        "on_down": list_to_str(iface.on_down)
+    })
+    assert is_http_success(response.status_code)
+    assert "Error".encode() in response.data
+
+    response = client.post(f"{url}/{iface.uuid}", data={
+        "name": iface.name, "auto": iface.auto, "description": iface.description, "gateway": iface.gw_iface,
+        "ipv4": "10.0.1.1/24", "port": iface.listen_port, "on_up": list_to_str(iface.on_up),
+        "on_down": list_to_str(iface.on_down)
+    })
+    assert is_http_success(response.status_code)
+    assert "Error".encode() in response.data
+
+    response = client.post(f"{url}/{iface.uuid}", data={
+        "name": iface.name, "auto": iface.auto, "description": iface.description, "gateway": iface.gw_iface,
+        "ipv4": "aaaaa", "port": iface.listen_port, "on_up": list_to_str(iface.on_up),
+        "on_down": list_to_str(iface.on_down)
+    })
+    assert is_http_success(response.status_code)
+    assert "Error".encode() in response.data
+
+    response = client.post(f"{url}/{iface.uuid}", data={
+        "name": iface.name, "auto": iface.auto, "description": iface.description, "gateway": iface.gw_iface,
+        "ipv4": "10.0.0.1/38", "port": iface.listen_port, "on_up": list_to_str(iface.on_up),
+        "on_down": list_to_str(iface.on_down)
+    })
+    assert is_http_success(response.status_code)
+    assert "Error".encode() in response.data
+
+    response = client.post(f"{url}/{iface.uuid}", data={
+        "name": iface.name, "auto": iface.auto, "description": iface.description, "gateway": iface.gw_iface,
+        "ipv4": "10.0.0.1", "port": iface.listen_port, "on_up": list_to_str(iface.on_up),
+        "on_down": list_to_str(iface.on_down)
+    })
+    assert is_http_success(response.status_code)
+    assert "Error".encode() in response.data
 
     response = client.post(f"{url}/{iface.uuid}", data={
         "name": iface.name, "auto": iface.auto, "description": iface.description, "gateway": iface.gw_iface,
@@ -95,15 +142,15 @@ def test_post_edit_ko(client):
         "on_down": list_to_str(iface.on_down)
     })
     assert is_http_success(response.status_code)
-    assert interfaces.get_value_by_attr("name", iface.name) is not None
+    assert "Error".encode() in response.data
 
     response = client.post(f"{url}/{iface.uuid}", data={
         "name": iface.name, "auto": iface.auto, "description": iface.description, "gateway": iface.gw_iface,
-        "ipv4": iface.ipv4_address, "port": str(iface.listen_port), "on_up": list_to_str(iface.on_up),
+        "ipv4": iface.ipv4_address, "port": "aaaaa", "on_up": list_to_str(iface.on_up),
         "on_down": list_to_str(iface.on_down)
     })
     assert is_http_success(response.status_code)
-    assert interfaces.get_value_by_attr("name", iface.name) is not None
+    assert "Error".encode() in response.data
 
     response = client.post(f"{url}/{iface.uuid}", data={
         "name": "iface&1", "auto": iface.auto, "description": iface.description, "gateway": iface.gw_iface,
@@ -111,7 +158,7 @@ def test_post_edit_ko(client):
         "on_down": list_to_str(iface.on_down)
     })
     assert is_http_success(response.status_code)
-    assert interfaces.get_value_by_attr("name", iface.name) is not None
+    assert "Error".encode() in response.data
 
 
 def test_get_add(client):

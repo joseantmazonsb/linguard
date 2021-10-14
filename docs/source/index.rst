@@ -51,7 +51,7 @@ Contents
 
     installation
     screenshots
-    in-deep
+    in-depth
     contributing
     changelog
 

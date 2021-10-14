@@ -1,4 +1,4 @@
-In deep
+In depth
 =======
 
 Arguments
@@ -67,8 +67,6 @@ These options must be specified inside a ``traffic`` node.
 |           |                                               | ``TrafficStorageDriver``. Further information will be available through the code documentation |                                                           |
 +-----------+-----------------------------------------------+------------------------------------------------------------------------------------------------+-----------------------------------------------------------+
 | *enabled* | Whether the data collection is enabled or not | ``true``, ``false``                                                                            | ``true``                                                  |
-+-----------+-----------------------------------------------+------------------------------------------------------------------------------------------------+-----------------------------------------------------------+
-| *--debug* | Optional                                      | Start the Flask backend in debug mode                                                          | Default value is ``False``                                |
 +-----------+-----------------------------------------------+------------------------------------------------------------------------------------------------+-----------------------------------------------------------+
 
 .. note::
@@ -177,7 +175,7 @@ uWSGI with HTTPS socket
       enable-threads: true
       chdir: /var/www/linguard
       venv: venv
-      wsgi-file: linguard/*_main_*.py
+      wsgi-file: linguard/__main__.py
       pyargv: data
       need-plugin: python3
       callable: app
