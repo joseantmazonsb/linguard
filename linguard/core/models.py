@@ -1,4 +1,5 @@
 import http
+import ipaddress
 import os
 import re
 from logging import info, warning, error, debug
@@ -223,7 +224,17 @@ class Interface(YamlAble):
     def is_ip_in_use(cls, ip: str, interface_to_exclude: "Interface" = None) -> bool:
         ip = ip.split("/")[0]
         for iface in filter(lambda i: i != interface_to_exclude, interfaces.values()):
-            if iface.ipv4_address == ip:
+            if iface.ipv4_address.split("/")[0] == ip:
+                return True
+        for peer in get_all_peers().values():
+            if peer.ipv4_address.split("/")[0] == ip:
+                return True
+        return False
+
+    @classmethod
+    def is_network_in_use(cls, interface: ipaddress.IPv4Interface, interface_to_exclude: "Interface" = None) -> bool:
+        for iface in filter(lambda i: i != interface_to_exclude, interfaces.values()):
+            if interface in ipaddress.IPv4Interface(iface.ipv4_address).network:
                 return True
         return False
 
@@ -346,8 +357,11 @@ class Peer(YamlAble):
     @classmethod
     def is_ip_in_use(cls, ip: str, peer_to_exclude: "Peer" = None) -> bool:
         ip = ip.split("/")[0]
+        for iface in interfaces.values():
+            if iface.ipv4_address.split("/")[0] == ip:
+                return True
         for peer in filter(lambda p: p != peer_to_exclude, get_all_peers().values()):
-            if peer.ipv4_address == ip:
+            if peer.ipv4_address.split("/")[0] == ip:
                 return True
         return False
 

@@ -1,21 +1,30 @@
 import {postJSON, prependAlert} from "./utils.mjs";
 
+const ifaceName = $("#name");
 const gwIface = $("#gateway");
 const onUp = $("#on_up")
 const onDown = $("#on_down")
 const alertContainer = "alerts";
 
+let oldName = ifaceName.val();
 let oldGw = gwIface.val();
 
 function replaceOnUpDownComands(oldVal, newVal) {
     let value = onUp.val();
-    value = value.replace(new RegExp(oldVal), newVal);
+    value = value.replaceAll(oldVal, newVal);
     onUp.val(value);
 
     value = onDown.val();
-    value = value.replace(new RegExp(oldVal), newVal);
+    value = value.replaceAll(oldVal, newVal);
     onDown.val(value);
 }
+
+ifaceName.focusout(function () {
+    const newName = ifaceName.val();
+    if (!newName) return;
+    replaceOnUpDownComands(oldName, newName);
+    oldName = newName;
+});
 
 gwIface.change(function () {
     const newGw = gwIface.val();

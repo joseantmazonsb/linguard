@@ -437,6 +437,8 @@ def download_wireguard_iface(uuid: str):
 @login_required
 @setup_required
 def create_wireguard_peer():
+    if len(interfaces) < 1:
+        abort(BAD_REQUEST, "There are no wireguard interfaces!")
     iface_uuid = request.args.get("interface", None)
     iface = interfaces.get(iface_uuid, None)
     from linguard.web.forms import AddPeerForm
@@ -453,6 +455,8 @@ def create_wireguard_peer():
 @login_required
 @setup_required
 def add_wireguard_peer():
+    if len(interfaces) < 1:
+        abort(BAD_REQUEST, "There are no wireguard interfaces!")
     from linguard.web.forms import AddPeerForm
     form = AddPeerForm.from_form(AddPeerForm(request.form))
     view = "web/wireguard-add-peer.html"

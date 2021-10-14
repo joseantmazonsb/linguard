@@ -10,7 +10,7 @@ from wtforms.validators import StopValidation
 from linguard.common.models.user import users
 from linguard.common.utils.encryption import CryptoUtils
 from linguard.core.config.web import config
-from linguard.core.models import Interface, Peer
+from linguard.core.models import Interface, Peer, interfaces
 
 
 def stop_validation(field, error_msg):
@@ -84,14 +84,18 @@ class InterfaceNameValidator:
 
 class InterfaceIpValidator:
     def __call__(self, form, field):
+        if len(field.data.split("/")) != 2:
+            return stop_validation(field, "must be valid IPv4 interface. Follow the format 'X.X.X.X/Y'.")
         try:
             ip = ipaddress.IPv4Interface(field.data)
-            field.data = ip.exploded
-            if Interface.is_ip_in_use(field.data, form.iface):
-                stop_validation(field, "address already in use!")
         except ValueError:
-            msg = "must be valid IPv4 interface. Follow the format 'X.X.X.X/Y'."
-            stop_validation(field, msg)
+            return stop_validation(field, "must be valid IPv4 interface. Follow the format 'X.X.X.X/Y'.")
+        if Interface.is_ip_in_use(str(ip), form.iface):
+            return stop_validation(field, "address already in use!")
+        if Interface.is_network_in_use(ip, form.iface):
+            return stop_validation(field, f"network {ip.network} already has a wireguard interface!")
+        if ip.ip == ip.network.broadcast_address or ip.ip == ip.network.network_address:
+            return stop_validation(field, f"unable to use a reserved address")
 
 
 class InterfacePortValidator:
@@ -118,11 +122,20 @@ class PeerIpValidator:
     def __call__(self, form, field):
         try:
             ipaddress.IPv4Interface(field.data)
-            if Peer.is_ip_in_use(field.data, form.peer):
-                stop_validation(field, "address already in use!")
         except ValueError:
-            msg = "must be valid IPv4 interface. Follow the format 'X.X.X.X/Y'."
-            stop_validation(field, msg)
+            msg = "must be valid IPv4 address. Follow the format 'X.X.X.X'."
+            return stop_validation(field, msg)
+        iface = interfaces.get_value_by_attr("name", form.interface.data)
+        if not iface:
+            return stop_validation(field, "unknown interface")
+        iface_network = ipaddress.IPv4Interface(iface.ipv4_address).network
+        peer_ip = ipaddress.IPv4Interface(f"{field.data.split('/')[0]}/{iface_network.prefixlen}")
+        if Peer.is_ip_in_use(str(peer_ip), form.peer):
+            return stop_validation(field, "address already in use!")
+        if peer_ip not in iface_network:
+            return stop_validation(field, f"address must belong to network {iface_network}")
+        if peer_ip.ip == iface_network.broadcast_address or peer_ip.ip == iface_network.network_address:
+            return stop_validation(field, f"unable to use a reserved address")
 
 
 class PeerPrimaryDnsValidator:
