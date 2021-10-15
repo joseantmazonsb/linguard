@@ -25,6 +25,6 @@ jobs:
           tag: "v${{ steps.get_version.outputs.version }}"
           commit: "main"
           artifacts: "dist/*.tar.gz"
-          bodyFile: "changelog.md"
+          bodyFile: "release-notes.md"
           discussionCategory: "Announcements"
           token: ${{ secrets.GITHUB_TOKEN }}
