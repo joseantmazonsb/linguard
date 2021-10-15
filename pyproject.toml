@@ -20,6 +20,7 @@ PyYAML = "^5.4.1"
 schedule = "^1.1.0"
 WTForms = "^2.3.3"
 yamlable = "^1.0.4"
+Flask-QRcode = "^3.0.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"

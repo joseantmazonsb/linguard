@@ -195,32 +195,28 @@
                     <div class="form-group mt-4 mb-0">
                         {{ form.submit(class="btn btn-warning") }}
                         <a href="{{ request.path }}/download" type="button" class="btn btn-outline-info">Download</a>
-                        <button type="button" id="removeIfaceBtn" class="btn btn-danger float-right"
-                                data-toggle="modal" data-target="#removeModal-{{ iface.uuid }}">Delete</button>
-                        <!-- Modal -->
-                        <div class="modal fade" id="removeModal-{{ iface.uuid }}" tabindex="-1" role="dialog"
-                             aria-labelledby="removeModalTitle" aria-hidden="true">
+                        <button type="button" class="btn btn-outline-secondary"
+                        data-toggle="modal" data-target="#qrModal">QR</button>
+                        <div class="modal fade" id="qrModal" tabindex="-1" role="dialog"
+                             aria-labelledby="qrModalTitle" aria-hidden="true">
                           <div class="modal-dialog" role="document">
                             <div class="modal-content">
                               <div class="modal-header">
-                                <h5 class="modal-title" id="removeModalTitle">Delete interface</h5>
+                                <h5 class="modal-title" id="qrModalTitle">Interface's configuration</h5>
                                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                                   <span aria-hidden="true">&times;</span>
                                 </button>
                               </div>
                               <div class="modal-body">
-                                  Do you really want to remove <strong>{{ iface.name }}</strong>?
-                                  This cannot be undone.
+                                  Scan this QR code to get the WireGuard configuration for <strong>{{ iface.name }}</strong>
+                                  <img class="mt-3 img-fluid" src="{{ qrcode(iface.generate_conf()) }}" alt="QR code">
                               </div>
                               <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                                <button type="button" id="removeIfaceBtn-{{ iface.uuid }}"
-                                        class="btn btn-danger removeIfaceBtn">Remove</button>
+                                <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
                               </div>
                             </div>
                           </div>
                         </div>
-                        <br>
                     </div>
                 </div>
                 <div class="card-footer">
@@ -499,6 +495,31 @@
                         {% endif %}
                     </div>
                 </div>
+            </div>
+            <!-- Danger zone -->
+            <button type="button" id="removeIfaceBtn" class="btn btn-danger mb-2"
+                data-toggle="modal" data-target="#removeModal-{{ iface.uuid }}">Delete</button>
+            <div class="modal fade" id="removeModal-{{ iface.uuid }}" tabindex="-1" role="dialog"
+                 aria-labelledby="removeModalTitle" aria-hidden="true">
+              <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title" id="removeModalTitle">Delete interface</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                  </div>
+                  <div class="modal-body">
+                      Do you really want to remove <strong>{{ iface.name }}</strong>?
+                      This cannot be undone.
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" id="removeIfaceBtn-{{ iface.uuid }}"
+                            class="btn btn-danger removeIfaceBtn">Remove</button>
+                  </div>
+                </div>
+              </div>
             </div>
         </div>
     </main>
