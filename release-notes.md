@@ -2,10 +2,11 @@
 
 ## What's new
 
-* QR codes! You can scan a QR code to get the WireGuard configuration of any peer.
+* QR codes! You can scan a QR code to get the WireGuard configuration of any peer or interface.
 * Docker is finally here! For now on, there will be official docker images available for every release.
 * Display the IP address of the interface to be used when adding or editing a peer.
 * Updating the name of an interface also updates all references inside the "On up" and "On down" text areas.
+* Delete buttons have been relocated in the Interface and Peer views.
 
 ## Fixes
 

@@ -5,6 +5,7 @@ from logging import warning, fatal, info, debug
 
 from flask import Flask
 from flask_login import LoginManager
+from flask_qrcode import QRcode
 
 from linguard.__version__ import commit, release
 from linguard.common.models.user import users
@@ -51,6 +52,7 @@ if log_config.overwrite:
 
 app.config['SECRET_KEY'] = web_config.secret_key
 app.register_blueprint(router)
+QRcode(app)
 login_manager.init_app(app)
 wireguard_manager.start()
 cron_manager.start()
