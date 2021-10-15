@@ -66,12 +66,12 @@ class LoggerConfig(BaseConfig):
 
     def apply(self):
         super(LoggerConfig, self).apply()
-        if self.overwrite:
-            filemode = "w"
-        else:
-            filemode = "a"
-        handlers = [logging.FileHandler(self.logfile, filemode, "utf-8")]
+        handlers = [logging.FileHandler(self.logfile, "a", "utf-8")]
         logging.basicConfig(format=self.LOG_FORMAT, level=self.LEVELS[self.level], handlers=handlers, force=True)
+
+    def reset_logfile(self):
+        with open(self.logfile, "w") as f:
+            f.write("")
 
 
 config = LoggerConfig()
