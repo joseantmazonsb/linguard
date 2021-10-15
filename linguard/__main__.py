@@ -44,13 +44,16 @@ from linguard.core.managers.config import config_manager
 from linguard.web.router import router
 
 app = Flask(__name__, template_folder="web/templates", static_folder="web/static")
+info(f"Logging to '{log_config.logfile}'...")
 config_manager.load()
+if log_config.overwrite:
+    log_config.reset_logfile()
+
 app.config['SECRET_KEY'] = web_config.secret_key
 app.register_blueprint(router)
 login_manager.init_app(app)
 wireguard_manager.start()
 cron_manager.start()
-info(f"Logging to '{log_config.logfile}'...")
 
 
 @atexit.register
