@@ -62,14 +62,12 @@ jobs:
 
       - name: Build release
         run: |
-          chmod +x build.sh
           ./build.sh
 
       - name: Install release
         run: |
           cd dist
           tar -xf *.tar.gz
-          chmod +x install.sh
           sudo ./install.sh
 
       - name: Briefly test uwgsi (can't use service here)
