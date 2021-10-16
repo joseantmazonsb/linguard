@@ -41,11 +41,6 @@ jobs:
         run: |
           sudo apt-get -qq install wireguard iptables
 
-      - name: Set version file
-        run: |
-          chmod +x gen_version_file.sh
-          ./gen_version_file.sh
-
       - name: Run tests
         run: |
           poetry run coverage run -m pytest && poetry run coverage xml --fail-under=80

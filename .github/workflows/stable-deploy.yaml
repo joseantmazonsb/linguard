@@ -15,10 +15,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upgrade pip
+        run: |
+          pip install --upgrade pip
+
+      - name: Set up virtual environment using poetry
+        run: |
+          wget https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py
+          python3 install-poetry.py
+          poetry config virtualenvs.create false
+          poetry install --no-interaction
+
       - name: Get version
         id: get_version
         run: |
-          echo "::set-output name=version::$(cat pyproject.toml | grep version | xargs | cut -d ' ' -f 3)"
+          echo "::set-output name=version::$(poetry version -s)"
+
       - name: Build artifacts
         run: |
           ./build.sh
