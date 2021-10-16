@@ -1,12 +1,9 @@
-name: main
-
 on:
   pull_request:
     branches:
-      - main
+      - dev
     paths-ignore:
       - "*.md"
-      - "*.rst"
 
 jobs:
   test:
@@ -50,7 +47,11 @@ jobs:
 
       - name: Run tests
         run: |
-          poetry run coverage run -m pytest && poetry run coverage xml
+          poetry run pytest && poetry run coverage xml
+
+      - name: Check docs are compiled successfully
+        run: |
+          cd docs && make html && cd ..
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v1

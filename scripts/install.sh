@@ -44,7 +44,7 @@ cp requirements.txt "$INSTALL_DIR"
 info "Installing dependencies..."
 debug "Updating packages list..."
 apt-get -qq update
-dependencies="python3 python3-venv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3"
+dependencies="sudo python3 python3-venv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3 iproute2"
 debug "The following packages will be installed: $dependencies"
 apt-get -qq install $dependencies
 if [ $? -ne 0 ]; then
