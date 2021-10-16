@@ -18,10 +18,10 @@ jobs:
       - name: Get version
         id: get_version
         run: |
-          - echo "::set-output name=version::$(cat pyproject.toml | grep version | xargs | cut -d ' ' -f 3)"
+          echo "::set-output name=version::$(cat pyproject.toml | grep version | xargs | cut -d ' ' -f 3)"
       - name: Build artifacts
         run: |
-          - ./build.sh
+          ./build.sh
       - name: Create GH release
         uses: ncipollo/release-action@v1
         with:
