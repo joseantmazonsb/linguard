@@ -4,6 +4,10 @@ on:
     types: [closed]
     branches:
       - main
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+      - "*.test.yaml"
 
 env:
   REGISTRY: ghcr.io
