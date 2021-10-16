@@ -5,6 +5,7 @@ on:
       - main
     paths-ignore:
       - "*.md"
+      - "*.deploy.yaml"
 
 jobs:
   test:
