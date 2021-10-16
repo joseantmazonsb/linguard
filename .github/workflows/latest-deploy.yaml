@@ -1,5 +1,5 @@
 # This will only deploy docker images to GHCR
-
+name: latest-deploy
 on:
   pull_request:
     types: [closed]

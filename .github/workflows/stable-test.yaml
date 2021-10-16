@@ -1,3 +1,4 @@
+name: stable-test
 on:
   pull_request:
     branches:
@@ -47,7 +48,7 @@ jobs:
 
       - name: Run tests
         run: |
-          poetry run pytest && poetry run coverage xml
+          poetry run coverage run -m pytest && poetry run coverage xml --fail-under=80
 
       - name: Check docs are compiled successfully
         run: |

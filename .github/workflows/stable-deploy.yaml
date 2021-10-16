@@ -1,3 +1,4 @@
+name: stable-deploy
 on:
   pull_request:
     types: [closed]
