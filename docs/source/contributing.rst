@@ -1,5 +1,5 @@
 Contributing
-====
+============
 
 .. note::
 
@@ -9,7 +9,7 @@ You may contribute by opening new issues, commenting on existent ones and creati
 Any help is welcome, just make sure you read the following sections, which will guide you to set up the development environment.
 
 Git flow
-----
+--------
 
 You should never work directly on the ``main`` branch. This branch is only used to gather new features and bugfixes previously merged to the ``dev`` branch and publish them in a single package. In other words, its purpose is to release new versions of Linguard.
 
@@ -29,11 +29,11 @@ You will need to install the following Linux packages:
 
 .. code-block::
 
-    python3 python3-venv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3
+    sudo iproute2 python3 python3-venv wireguard iptables libpcre3 libpcre3-dev uwsgi uwsgi-plugin-python3
 
 
 Dependency management
-----
+---------------------
 
 `Poetry <https://python-poetry.org/>`__ is used to handle packaging and dependencies. You will need to install it before getting started to code:
 
@@ -55,14 +55,14 @@ Then, you would only need to run ``poetry shell`` and voilà, ready to code!
     that everything's all right.
 
 Configuration files
-----
+-------------------
 
 Linguard has a setup assistant and does not require you to have an existing configuration file in its working directory. Nonetheless, you may use your own existing file as long as it is valid and named ``linguard.yaml``.
 
 As for the UWSGI configuration, Linguard provides a sample file (``uwsgi.sample.yaml``) for you to play around with it. Just make sure you run UWSGI using a valid file!
 
 Testing
-----
+-------
 
 `PyTest <https://docs.pytest.org/en/6.2.x>`__ and `Coverage <https://coverage.readthedocs.io/en/coverage-5.5>`__ are used to test Linguard and generate coverage reports, which are uploaded to `Codecov <https://about.codecov.io>`__.
 

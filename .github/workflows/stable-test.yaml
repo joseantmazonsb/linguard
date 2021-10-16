@@ -1,20 +1,10 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
-
-name: Test development branchs
-
+name: stable-test
 on:
-  push:
-    branches-ignore:
+  pull_request:
+    branches:
       - main
-    paths:
-      - "**.py"
-      - "**.js"
-      - "**.yml"
-      - "**.yaml"
-      - "**.sh"
-      - "poetry.lock"
-      - "pyproject.toml"
+    paths-ignore:
+      - "*.md"
 
 jobs:
   test:
@@ -44,7 +34,7 @@ jobs:
         run: |
           wget https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py
           python3 install-poetry.py
-          poetry config virtualenvs.in-project true
+          poetry config virtualenvs.create false
           poetry install --no-interaction
 
       - name: Install linux dependencies
@@ -58,10 +48,14 @@ jobs:
 
       - name: Run tests
         run: |
-          poetry run coverage run -m pytest && poetry run coverage xml
+          poetry run coverage run -m pytest && poetry run coverage xml --fail-under=80
+
+      - name: Check docs are compiled successfully
+        run: |
+          cd docs && make html && cd ..
 
       - name: Upload coverage report to Codecov
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v1
         if: always()
         with:
           files: coverage.xml
