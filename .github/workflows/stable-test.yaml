@@ -1,12 +1,11 @@
-name: main
-
+name: stable-test
 on:
   pull_request:
     branches:
       - main
     paths-ignore:
       - "*.md"
-      - "*.rst"
+      - "*-deploy.yaml"
 
 jobs:
   test:
@@ -43,14 +42,13 @@ jobs:
         run: |
           sudo apt-get -qq install wireguard iptables
 
-      - name: Set version file
-        run: |
-          chmod +x gen_version_file.sh
-          ./gen_version_file.sh
-
       - name: Run tests
         run: |
-          poetry run coverage run -m pytest && poetry run coverage xml
+          poetry run coverage run -m pytest && poetry run coverage xml --fail-under=80
+
+      - name: Check docs are compiled successfully
+        run: |
+          cd docs && make html && cd ..
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v1
@@ -60,14 +58,12 @@ jobs:
 
       - name: Build release
         run: |
-          chmod +x build.sh
           ./build.sh
 
       - name: Install release
         run: |
           cd dist
           tar -xf *.tar.gz
-          chmod +x install.sh
           sudo ./install.sh
 
       - name: Briefly test uwgsi (can't use service here)

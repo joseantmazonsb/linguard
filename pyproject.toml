@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "linguard"
-version = "0.2.0"
+version = "1.0.0"
 description = "Wireguard management made simple"
 authors = ["Jose <joseantoniomazon@gmail.com>"]
 license = "GPL-3.0"
@@ -20,12 +20,13 @@ PyYAML = "^5.4.1"
 schedule = "^1.1.0"
 WTForms = "^2.3.3"
 yamlable = "^1.0.4"
-sphinx-rtd-theme = "^1.0.0"
+Flask-QRcode = "^3.0.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
 coverage = "^5.5"
 Sphinx = "^4.2.0"
+sphinx-rtd-theme = "^1.0.0"
 
 [tool.coverage.run]
 omit = ["*/site-packages/*"]

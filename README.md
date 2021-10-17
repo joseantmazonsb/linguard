@@ -1,13 +1,13 @@
 # Linguard
 
-[![GitHub](https://img.shields.io/github/license/joseantmazonsb/linguard)](LICENSE.md) ![Python version](https://img.shields.io/badge/python-3.7%20%7C%203.8%20%7C%203.9-blue?logo=python&logoColor=yellow) [![build](https://github.com/joseantmazonsb/linguard/actions/workflows/main-test.yaml/badge.svg)](https://github.com/joseantmazonsb/linguard/actions/workflows/main.yaml) [![codecov](https://codecov.io/gh/joseantmazonsb/linguard/branch/main/graph/badge.svg)](https://codecov.io/gh/joseantmazonsb/linguard) [![Documentation Status](https://readthedocs.org/projects/linguard/badge/?version=latest)](https://linguard.readthedocs.io/en/latest/?badge=latest)
+[![GitHub](https://img.shields.io/github/license/joseantmazonsb/linguard)](LICENSE.md) ![Python version](https://img.shields.io/badge/python-3.7%20%7C%203.8%20%7C%203.9-blue?logo=python&logoColor=yellow) [![Stable workflow status](https://github.com/joseantmazonsb/linguard/actions/workflows/stable-test.yaml/badge.svg)](https://github.com/joseantmazonsb/linguard/actions/workflows/stable-test.yaml) [![Latest workflow status](https://github.com/joseantmazonsb/linguard/actions/workflows/latest-test.yaml/badge.svg)](https://github.com/joseantmazonsb/linguard/actions/workflows/latest-test.yaml) [![Stable Documentation Status](https://readthedocs.org/projects/linguard/badge/?version=stable)](https://linguard.readthedocs.io/en/stable/?badge=stable) [![codecov](https://codecov.io/gh/joseantmazonsb/linguard/branch/main/graph/badge.svg)](https://codecov.io/gh/joseantmazonsb/linguard)
 
-[![GitHub release (latest SemVer including pre-releases)](https://img.shields.io/github/v/release/joseantmazonsb/linguard?color=green&include_prereleases&logo=github)](https://github.com/joseantmazonsb/linguard/releases) [![GitHub all releases](https://img.shields.io/github/downloads/joseantmazonsb/linguard/total?logo=github)](https://github.com/joseantmazonsb/linguard/releases) [![Docker Pulls](https://img.shields.io/docker/pulls/joseantmazonsb/linguard)](https://hub.docker.com/repository/docker/joseantmazonsb/linguard)
+[![GitHub release (latest SemVer including pre-releases)](https://img.shields.io/github/v/release/joseantmazonsb/linguard?color=green&include_prereleases&logo=github)](https://github.com/joseantmazonsb/linguard/releases) [![GitHub all releases](https://img.shields.io/github/downloads/joseantmazonsb/linguard/total?logo=github)](https://github.com/joseantmazonsb/linguard/releases)
 
 
 Linguard aims to provide a clean, simple yet powerful web GUI to manage your WireGuard server, and it's powered by Flask.
 
-**Check [the docs](https://linguard.readthedocs.io/en/latest/) for additional info!**
+**[Read the docs](https://linguard.readthedocs.io) for further information!**
 
 ## Key features
 
@@ -35,4 +35,9 @@ Linguard aims to provide a clean, simple yet powerful web GUI to manage your Wir
 
 ### Docker
 
-Not available yet.
+1. Download the [`docker-compose.yaml` file](https://raw.githubusercontent.com/joseantmazonsb/linguard/main/docker/docker-compose.yaml).
+2. Run Linguard: 
+   ```bash
+   sudo docker-compose up -d
+   ```
+NOTE: You can check all available tags [here](https://github.com/joseantmazonsb/linguard/pkgs/container/linguard/versions>).

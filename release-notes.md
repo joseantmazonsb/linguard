@@ -1,16 +1,6 @@
-Changelog
-=========
+# Release notes
 
-All notable changes to this project will be documented here.
-
-.. note::
-    Linguard is adhered to `Semantic Versioning <https://semver.org/>`__.
-
-1.0.0
------
-
-What's new
-~~~~~~~~~~
+## What's new
 
 * QR codes! You can scan a QR code to get the WireGuard configuration of any peer or interface.
 * Docker is finally here! For now on, there will be official docker images available for every release.
@@ -18,8 +8,7 @@ What's new
 * Updating the name of an interface also updates all references inside the "On up" and "On down" text areas.
 * Delete buttons have been relocated in the Interface and Peer views.
 
-Fixes
-~~~~~
+## Fixes
 
 * Fixed a bug when updating the username or password which made the "Logged in {time} ago" sign show no time at all.
 * Removed the possibility to add peers if there are no WireGuard interfaces.
@@ -32,19 +21,8 @@ Fixes
 * Fixed the behaviour of the ``overwrite`` flag regarding the logging settings which was causing to overwrite the log
   file each time the settings were saved instead of every time Linguard boots up.
 
-Docs
-~~~~
+## Docs
 
 * Improved documentation about the development environment.
 * Fixed a bunch of typos.
 * Fixed the Traffic Data Driver table.
-
-0.2.0
------
-
-* Easy first time setup, which automatically detects the location of the required binaries and sets the public IP as endpoint by default.
-* Everything in one place: workdir-based architecture.
-* Removed option to log to standard output.
-* Includes a ready-to-go uWSGI configuration file.
-* Removed the ``linguard.sample.yaml`` file in favour of the first time setup.
-* Settings are now accessible through the side navbar.

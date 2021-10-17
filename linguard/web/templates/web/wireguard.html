@@ -138,7 +138,9 @@
                 <div class="card-header">
                     <i class="fas fa-user-friends mr-1"></i>
                     Peers
-                    <a href="/wireguard/peers/add" class="float-right" title="Add"><i class="fas fa-plus mr-1"></i></a>
+                    {% if interfaces | length > 0 %}
+                        <a href="/wireguard/peers/add" class="float-right" title="Add"><i class="fas fa-plus mr-1"></i></a>
+                    {% endif %}
                 </div>
                 <div class="card-body">
                     <div id="wgIfacePeers">

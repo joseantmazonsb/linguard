@@ -285,7 +285,7 @@ def create_wireguard_iface():
     context = {
         "title": "Add interface",
         "form": form,
-        "app_name": APP_NAME
+        
     }
     return ViewController("web/wireguard-add-iface.html", **context).load()
 
@@ -300,7 +300,7 @@ def add_wireguard_iface():
     context = {
         "title": "Add interface",
         "form": form,
-        "app_name": APP_NAME
+        
     }
     if not form.validate():
         error("Unable to validate form")
@@ -344,7 +344,6 @@ def get_wireguard_iface(uuid: str):
         "iface": iface,
         "last_update": datetime.now().strftime("%H:%M"),
         "EMPTY_FIELD": EMPTY_FIELD,
-        "app_name": APP_NAME,
         "chart": {"labels": data["labels"], "datasets": data["datasets"]},
         "iface_traffic": TrafficData(iface_traffic.rx, iface_traffic.tx),
         "session_traffic": session_data,
@@ -437,6 +436,8 @@ def download_wireguard_iface(uuid: str):
 @login_required
 @setup_required
 def create_wireguard_peer():
+    if len(interfaces) < 1:
+        abort(BAD_REQUEST, "There are no wireguard interfaces!")
     iface_uuid = request.args.get("interface", None)
     iface = interfaces.get(iface_uuid, None)
     from linguard.web.forms import AddPeerForm
@@ -444,7 +445,7 @@ def create_wireguard_peer():
     context = {
         "title": "Add peer",
         "form": form,
-        "app_name": APP_NAME
+        
     }
     return ViewController("web/wireguard-add-peer.html", **context).load()
 
@@ -453,13 +454,15 @@ def create_wireguard_peer():
 @login_required
 @setup_required
 def add_wireguard_peer():
+    if len(interfaces) < 1:
+        abort(BAD_REQUEST, "There are no wireguard interfaces!")
     from linguard.web.forms import AddPeerForm
     form = AddPeerForm.from_form(AddPeerForm(request.form))
     view = "web/wireguard-add-peer.html"
     context = {
         "title": "Add Peer",
         "form": form,
-        "app_name": APP_NAME
+        
     }
     if not form.validate():
         error("Unable to validate form")
@@ -502,7 +505,6 @@ def get_wireguard_peer(uuid: str):
         "peer": peer,
         "last_update": datetime.now().strftime("%H:%M"),
         "EMPTY_FIELD": EMPTY_FIELD,
-        "APP_NAME": APP_NAME,
         "chart": {"labels": data["labels"], "datasets": data["datasets"]},
         "session_traffic": TrafficData(session_data.rx, session_data.tx),
         "handshake_ago": handshake_ago,
@@ -563,7 +565,7 @@ def settings():
     context = {
         "title": "Settings",
         "form": form,
-        "app_name": APP_NAME
+        
     }
     return ViewController("web/settings.html", **context).load()
 
@@ -619,7 +621,6 @@ def setup():
     context = {
         "title": "Setup",
         "form": form,
-        "app_name": APP_NAME
     }
     return ViewController("web/setup.html", **context).load()
 
@@ -658,7 +659,6 @@ def about():
     view = "web/about.html"
     context = {
         "title": "About",
-        "app_name": APP_NAME
     }
     return ViewController(view, **context).load()
 
@@ -675,13 +675,11 @@ def profile():
     else:
         password_reset_form = PasswordResetForm()
     view = "web/profile.html"
-    login_ago = get_time_ago(current_user.login_date)
     context = {
         "title": "Profile",
         "profile_form": profile_form,
         "password_reset_form": password_reset_form,
-        "login_ago": login_ago,
-        "app_name": APP_NAME
+        "login_ago": get_time_ago(current_user.login_date),
     }
     return ViewController(view, **context).load()
 
@@ -700,7 +698,7 @@ def save_profile():
         "title": "Profile",
         "profile_form": profile_form,
         "password_reset_form": password_reset_form,
-        "app_name": APP_NAME
+        "login_ago": get_time_ago(current_user.login_date),
     }
     if not profile_form.validate():
         error("Unable to validate form")
@@ -726,7 +724,7 @@ def password_reset():
         "title": "Profile",
         "profile_form": profile_form,
         "password_reset_form": password_reset_form,
-        "app_name": APP_NAME
+        "login_ago": get_time_ago(current_user.login_date),
     }
     if not password_reset_form.validate():
         error("Unable to validate form")

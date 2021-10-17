@@ -1,3 +1,4 @@
+import ipaddress
 from random import randint
 from typing import List, Tuple
 
@@ -144,7 +145,17 @@ class AddInterfaceForm(FlaskForm):
         form.gateway.choices = cls.get_choices(exclusions=["lo"])
         gw = get_default_gateway()
         form.gateway.data = gw
-        form.ipv4.data = f"{fake.ipv4_private()}/{randint(8, 30)}"
+
+        tries = 0
+        max_tries = 100
+        ip = ipaddress.IPv4Interface(f"{fake.ipv4_private()}/{randint(8, 30)}")
+        while tries < max_tries and Interface.is_ip_in_use(str(ip)) or Interface.is_network_in_use(ip):
+            ip = ipaddress.IPv4Interface(f"{fake.ipv4_private()}/{randint(8, 30)}")
+            tries += 1
+        if tries < max_tries:
+            form.ipv4.data = str(ip)
+        else:
+            form.ipv4.data = "No addresses available!"
         form.port.data = Interface.get_unused_port()
         form.on_up.data = list_to_str([
             f"{wireguard_config.iptables_bin} -I FORWARD -i {name} -j ACCEPT\n" +
@@ -215,7 +226,7 @@ class AddPeerForm(FlaskForm):
     def get_choices(cls) -> List[Tuple[str, str]]:
         choices = []
         for iface in interfaces.values():
-            choices.append((iface.name, iface.name))
+            choices.append((iface.name, f"{iface.name} ({iface.ipv4_address})"))
         return choices
 
     @classmethod
@@ -229,10 +240,18 @@ class AddPeerForm(FlaskForm):
     @classmethod
     def populate(cls, form: "AddPeerForm", iface: Interface = None) -> "AddPeerForm":
         form.name.data = Peer.generate_valid_name()
-        form.ipv4.data = f"{fake.ipv4_private()}/{randint(8, 30)}"
         form.interface.choices = cls.get_choices()
         if iface:
             form.interface.data = iface.name
+        else:
+            iface = interfaces.get_value_by_attr("name", form.interface.choices[0][0])
+        iface_network = ipaddress.IPv4Interface(iface.ipv4_address).network
+        peer_ip = "No addresses available for this network!"
+        for host in iface_network.hosts():
+            if not Peer.is_ip_in_use(str(host)):
+                peer_ip = host
+                break
+        form.ipv4.data = peer_ip
         return form
 
 

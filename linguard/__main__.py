@@ -5,6 +5,7 @@ from logging import warning, fatal, info, debug
 
 from flask import Flask
 from flask_login import LoginManager
+from flask_qrcode import QRcode
 
 from linguard.__version__ import commit, release
 from linguard.common.models.user import users
@@ -44,13 +45,17 @@ from linguard.core.managers.config import config_manager
 from linguard.web.router import router
 
 app = Flask(__name__, template_folder="web/templates", static_folder="web/static")
+info(f"Logging to '{log_config.logfile}'...")
 config_manager.load()
+if log_config.overwrite:
+    log_config.reset_logfile()
+
 app.config['SECRET_KEY'] = web_config.secret_key
 app.register_blueprint(router)
+QRcode(app)
 login_manager.init_app(app)
 wireguard_manager.start()
 cron_manager.start()
-info(f"Logging to '{log_config.logfile}'...")
 
 
 @atexit.register
@@ -82,5 +87,7 @@ else:
         else:
             fatal("!! No versioning information provided !!")
             exit(1)
+    if "-" or "+" in release:
+        global_properties.dev_env = True
     info(f"Running {APP_NAME} {release}")
     debug(f"Commit hash: {commit}")
