@@ -5,7 +5,7 @@ on:
       - dev
     paths-ignore:
       - "*.md"
-      - "*.deploy.yaml"
+      - "*-deploy.yaml"
 
 jobs:
   test:

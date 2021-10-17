@@ -24,6 +24,5 @@
 ## Docs
 
 * Improved documentation about the development environment.
-* The badge linked to the main Github Workflow has been corrected.
 * Fixed a bunch of typos.
 * Fixed the Traffic Data Driver table.

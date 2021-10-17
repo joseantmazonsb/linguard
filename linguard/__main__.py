@@ -87,5 +87,7 @@ else:
         else:
             fatal("!! No versioning information provided !!")
             exit(1)
+    if "-" or "+" in release:
+        global_properties.dev_env = True
     info(f"Running {APP_NAME} {release}")
     debug(f"Commit hash: {commit}")

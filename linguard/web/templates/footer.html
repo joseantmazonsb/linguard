@@ -5,7 +5,7 @@
                 {% if version_info["release"] %}
                     {% if dev_env and version_info["commit"] %}
                     <div class="text-muted">
-                        {{ app_name }} <a href="https://github.com/joseantmazonsb/linguard/releases/tag/v{{ version_info["release"] }}">{{ version_info["release"] }}</a> ({{ version_info["commit"][:7] }})
+                        {{ app_name }} {{ version_info["release"] }} ({{ version_info["commit"][:7] }})
                     </div>
                     {% else %}
                     <div class="text-muted">

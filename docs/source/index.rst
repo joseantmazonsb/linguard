@@ -43,6 +43,11 @@ Key features
 * Encrypted user credentials (AES).
 * Easy management through the ``linguard`` systemd service.
 
+Versions
+--------
+
+
+
 Contents
 --------
 

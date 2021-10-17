@@ -8,7 +8,7 @@ on:
     paths-ignore:
       - "docs/**"
       - "*.md"
-      - "*.test.yaml"
+      - "*-test.yaml"
 
 env:
   REGISTRY: ghcr.io

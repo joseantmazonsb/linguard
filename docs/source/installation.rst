@@ -28,4 +28,4 @@ Using docker
         sudo docker-compose up -d
 
 .. note::
-    You can customize the path in which Linguard's data will be stored in the host.
+    You can check all available tags `here <https://github.com/joseantmazonsb/linguard/pkgs/container/linguard/versions>`__.
