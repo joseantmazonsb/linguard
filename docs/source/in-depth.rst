@@ -20,7 +20,7 @@ Configuration
 -------------
 
 Two sample configuration files are provided, ``uwsgi.sample.yaml`` and ``linguard.sample.yaml``, although the most interesting one is the second, since the first only contains options for a third party software,
-`UWSGI <https://uwsgi-docs.readthedocs.io/en/latest/>`__.
+`UWSGI <https://uwsgi-docs.readthedocs.io>`__.
 
 Nonetheless, it is worth noting that the path to the Linguard's working directory (which will be used by Linguard to store stuff) needs to be provided through uwsgi's configuration, using the field ``pyargv``. Moreover, to edit the port and/or the interface in which the web server is running you will need to edit the field ``http-socket`` of uwsgi's configuration file.
 

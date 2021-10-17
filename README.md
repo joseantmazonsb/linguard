@@ -7,7 +7,7 @@
 
 Linguard aims to provide a clean, simple yet powerful web GUI to manage your WireGuard server, and it's powered by Flask.
 
-**Check [the docs](https://linguard.readthedocs.io/en/latest/) for additional info!**
+**[Read the docs](https://linguard.readthedocs.io) for further information!**
 
 ## Key features
 
@@ -40,4 +40,4 @@ Linguard aims to provide a clean, simple yet powerful web GUI to manage your Wir
    ```bash
    sudo docker-compose up -d
    ```
-NOTE: You can customize the path in which Linguard's data will be stored in the host.
+NOTE: You can check all available tags [here](https://github.com/joseantmazonsb/linguard/pkgs/container/linguard/versions>).

@@ -78,7 +78,7 @@ You may as well generate a coverage report using poetry:
 
 .. code-block:: bash
 
-    poetry run coverage report
+    poetry run coverage run -m pytest && poetry run coverage report
 
 Building
 --------
@@ -97,7 +97,8 @@ to releases must follow the format ``v{MAJOR}.{MINOR}.{PATCH}``. Thus, release
 CI/CD
 -----
 
-Github Workflows are used to implement a CI/CD pipeline. When code is pushed to any branch, it will be automatically tested to ensure everything is working properly.
+Github Workflows are used to implement a CI/CD pipeline. When pull requests targeting the ``main`` or ``dev``
+branches are opened, a series of tests will automatically be ran to ensure everything is working properly.
 
 .. warning::
 

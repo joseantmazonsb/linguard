@@ -74,6 +74,9 @@ jobs:
         with:
           context: .
           file: docker/Dockerfile
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get_version.outputs.version }}, ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:stable
+          tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get_version.outputs.version }},
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:stable,
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           platforms: "linux/amd64, linux/arm64"
           push: true
