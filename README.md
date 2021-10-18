@@ -40,4 +40,4 @@ Linguard aims to provide a clean, simple yet powerful web GUI to manage your Wir
    ```bash
    sudo docker-compose up -d
    ```
-NOTE: You can check all available tags [here](https://github.com/joseantmazonsb/linguard/pkgs/container/linguard/versions>).
+NOTE: You can check all available tags [here](https://github.com/joseantmazonsb/linguard/pkgs/container/linguard/versions).
