@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "linguard"
-version = "1.0.0"
+version = "1.0.1"
 description = "Wireguard management made simple"
 authors = ["Jose <joseantoniomazon@gmail.com>"]
 license = "GPL-3.0"
