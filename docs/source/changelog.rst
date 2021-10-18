@@ -6,6 +6,20 @@ All notable changes to this project will be documented here.
 .. note::
     Linguard is adhered to `Semantic Versioning <https://semver.org/>`__.
 
+1.0.1
+-----
+
+Fixes
+~~~~~
+
+* Fixed a bug related to versioning which caused the app to start in dev mode.
+
+Docs
+~~~~
+
+* Removed "Versions" empty section from index.
+
+
 1.0.0
 -----
 

@@ -55,6 +55,7 @@ jobs:
         if: always()
         with:
           files: coverage.xml
+          override-branch: main
 
       - name: Build release
         run: |
