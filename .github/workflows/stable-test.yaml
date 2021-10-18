@@ -56,6 +56,7 @@ jobs:
         with:
           files: coverage.xml
           override_branch: main
+          override_pr: 0
 
       - name: Build release
         run: |
