@@ -20,7 +20,7 @@ Linguard
     :target: https://linguard.readthedocs.io/en/stable/?badge=latest
     :alt: Stable Documentation Status
 
-.. image:: https://codecov.io/gh/joseantmazonsb/linguard/branch/main/graph/badge.svg
+.. image:: https://codecov.io/gh/joseantmazonsb/linguard/branch/dev/graph/badge.svg
     :target: https://codecov.io/gh/joseantmazonsb/linguard
     :alt: Code coverage status
 
