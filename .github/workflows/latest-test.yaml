@@ -51,7 +51,7 @@ jobs:
           cd docs && make html && cd ..
 
       - name: Upload coverage report to Codecov
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v2.1.0
         if: always()
         with:
           files: coverage.xml
