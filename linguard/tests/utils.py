@@ -46,6 +46,8 @@ def default_cleanup():
     users.clear()
     interfaces.clear()
     cron_manager.stop()
+    if current_user:
+        current_user.logout()
 
 
 def is_http_success(code: int):

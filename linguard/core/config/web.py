@@ -13,10 +13,12 @@ class WebConfig(BaseConfig):
     MAX_PORT = 65535
     MIN_PORT = 1
     DEFAULT_LOGIN_ATTEMPTS = 0
+    DEFAULT_BAN_SECONDS = 120
     CREDENTIALS_FILENAME = ".credentials"
 
-    login_attempts: int
     __secret_key: str
+    login_attempts: int
+    login_ban_time: int
 
     @property
     def secret_key(self):
@@ -36,6 +38,7 @@ class WebConfig(BaseConfig):
 
     def load_defaults(self):
         self.login_attempts = self.DEFAULT_LOGIN_ATTEMPTS
+        self.login_ban_time = self.DEFAULT_BAN_SECONDS
         self.__secret_key = CryptoUtils.generate_key()
 
     def load(self, config: "WebConfig"):
@@ -45,6 +48,7 @@ class WebConfig(BaseConfig):
     def __to_yaml_dict__(self):  # type: (...) -> Dict[str, Any]
         return {
             "login_attempts": self.login_attempts,
+            "login_ban_time": self.login_ban_time,
             "secret_key": self.secret_key
         }
 
@@ -55,6 +59,7 @@ class WebConfig(BaseConfig):
                            ):  # type: (...) -> Y
         config = WebConfig()
         config.login_attempts = dct.get("login_attempts", None) or config.login_attempts
+        config.login_ban_time = dct.get("login_ban_time", None) or config.login_ban_time
         config.secret_key = dct.get("secret_key", None) or config.secret_key
         return config
 
