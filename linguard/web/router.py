@@ -574,7 +574,7 @@ def themes():
 @setup_required
 def settings():
     from linguard.web.forms import SettingsForm
-    form = SettingsForm()
+    form = SettingsForm.new()
     form.traffic_enabled.data = traffic_config.enabled
     form.log_overwrite.data = logger_config.overwrite
     form.traffic_driver_options.data = json.dumps(traffic_config.driver.__to_yaml_dict__(), indent=4, sort_keys=True)

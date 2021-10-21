@@ -1,4 +1,5 @@
 import ipaddress
+import json
 from random import randint
 from typing import List, Tuple
 
@@ -86,6 +87,31 @@ class SettingsForm(FlaskForm):
     traffic_driver_options = TextAreaField("Driver configuration", validators=[DataRequired(), JsonDataValidator()])
 
     submit = SubmitField('Save')
+
+    @classmethod
+    def new(cls) -> "SettingsForm":
+        form = cls()
+        form.web_login_attempts.data = web_config.login_attempts
+        form.web_login_ban_time.data = web_config.login_ban_time
+        form.web_secret_key.data = web_config.secret_key
+        form.web_credentials_file.data = web_config.credentials_file
+
+        form.app_config_file.data = config_manager.config_filepath
+        form.app_endpoint.data = wireguard_config.endpoint
+        form.app_interfaces_folder.data = wireguard_config.interfaces_folder
+        form.app_wg_bin.data = wireguard_config.wg_bin
+        form.app_wg_quick_bin.data = wireguard_config.wg_quick_bin
+        form.app_iptables_bin.data = wireguard_config.iptables_bin
+
+        form.log_overwrite.data = logger_config.overwrite
+        form.log_file.data = logger_config.logfile
+        form.log_level.data = logger_config.level
+
+        form.traffic_enabled.data = traffic_config.enabled
+        form.traffic_driver.data = traffic_storage.registered_drivers.keys()
+        form.traffic_driver_options.data = json.dumps(traffic_config.driver.__to_yaml_dict__(), indent=4,
+                                                      sort_keys=True)
+        return form
 
 
 class SetupForm(FlaskForm):

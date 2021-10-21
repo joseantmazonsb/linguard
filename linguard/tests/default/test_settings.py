@@ -36,6 +36,11 @@ def test_post_ok(client):
     })
     assert is_http_success(response.status_code)
     assert b"Error" not in response.data
+    assert b"vpn.example.com" in response.data
+
+    response = client.get(url)
+    assert is_http_success(response.status_code)
+    assert b"vpn.example.com" in response.data
 
     response = client.post(url, data={
         "app_endpoint": "10.0.0.1", "app_iptables_bin": "/usr/sbin/iptables", "app_wg_bin": "/usr/bin/wg",
