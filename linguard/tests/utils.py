@@ -10,6 +10,7 @@ from linguard.common.properties import global_properties
 from linguard.common.utils.network import get_system_interfaces
 from linguard.core.managers.cron import cron_manager
 from linguard.core.models import interfaces, Interface
+from linguard.web.client import clients
 
 username = "admin"
 password = "admin"
@@ -44,8 +45,11 @@ def default_cleanup():
         for d in dirs:
             shutil.rmtree(os.path.join(root, d))
     users.clear()
+    clients.clear()
     interfaces.clear()
     cron_manager.stop()
+    if current_user:
+        current_user.logout()
 
 
 def is_http_success(code: int):

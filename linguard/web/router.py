@@ -1,8 +1,10 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from functools import wraps
 from http.client import BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR, UNAUTHORIZED, NO_CONTENT
+from ipaddress import IPv4Address
 from logging import warning, debug, error, info
+from time import sleep
 from typing import List, Dict, Any, Union
 from urllib.parse import parse_qs, urlparse
 
@@ -24,6 +26,7 @@ from linguard.core.exceptions import WireguardError
 from linguard.core.managers.config import config_manager
 from linguard.core.models import interfaces, Interface, get_all_peers, Peer
 from linguard.core.utils.wireguard import is_wg_iface_up
+from linguard.web.client import clients, Client
 from linguard.web.controllers.RestController import RestController
 from linguard.web.controllers.ViewController import ViewController
 from linguard.web.static.assets.resources import EMPTY_FIELD, APP_NAME
@@ -46,7 +49,6 @@ class Router(Blueprint):
 
 router = Router("router", __name__)
 
-
 config_manager.load()
 
 
@@ -56,6 +58,7 @@ def setup_required(f):
         if global_properties.setup_required and not global_properties.setup_file_exists():
             return redirect(url_for("router.setup", next=request.args.get("next", get_referrer_next_value())))
         return f(*args, **kwargs)
+
     return wrapped
 
 
@@ -153,13 +156,23 @@ def login():
         "title": "Login",
         "form": LoginForm()
     }
-    now = datetime.now()
-    if router.banned_until and now < router.banned_until:
-        context["banned_for"] = (router.banned_until - now).seconds
-    else:
-        router.banned_until = None
-        router.login_attempts = 1
+    client = get_client()
+    if client.is_banned():
+        context["banned_for"] = (client.banned_until - datetime.now()).seconds
     return ViewController("web/login.html", **context).load()
+
+
+def run_ban_timer():
+    sleep(web_config.login_ban_time)
+    router.banned_until = None
+    router.login_attempts = 1
+
+
+def get_client() -> Client:
+    client_ip = IPv4Address(request.remote_addr)
+    if client_ip not in clients:
+        clients[client_ip] = Client(client_ip)
+    return clients[client_ip]
 
 
 @router.route("/login", methods=["POST"])
@@ -167,18 +180,21 @@ def login_post():
     from linguard.web.forms import LoginForm
     form = LoginForm(request.form)
     info(f"Logging in user '{form.username.data}'...")
-    max_attempts = int(web_config.login_attempts)
-    if max_attempts and router.login_attempts > max_attempts:
-        router.banned_until = datetime.now() + timedelta(minutes=2)
+    client = get_client()
+    if client.is_banned():
         return redirect(form.next.data or url_for("router.index"))
-    router.login_attempts += 1
     if not form.validate():
         error("Unable to validate form.")
         context = {
             "title": "Login",
             "form": form
         }
+        client.login_attempts += 1
+        if client.login_attempts > int(web_config.login_attempts):
+            client.ban()
+            context["banned_for"] = (client.banned_until - datetime.now()).seconds
         return ViewController("web/login.html", **context).load()
+    del clients[client.ip]
     u = users.get_value_by_attr("name", form.username.data)
     if not login_user(u, form.remember_me.data):
         error(f"Unable to log user in.")
@@ -285,7 +301,7 @@ def create_wireguard_iface():
     context = {
         "title": "Add interface",
         "form": form,
-        
+
     }
     return ViewController("web/wireguard-add-iface.html", **context).load()
 
@@ -300,7 +316,7 @@ def add_wireguard_iface():
     context = {
         "title": "Add interface",
         "form": form,
-        
+
     }
     if not form.validate():
         error("Unable to validate form")
@@ -445,7 +461,7 @@ def create_wireguard_peer():
     context = {
         "title": "Add peer",
         "form": form,
-        
+
     }
     return ViewController("web/wireguard-add-peer.html", **context).load()
 
@@ -462,7 +478,7 @@ def add_wireguard_peer():
     context = {
         "title": "Add Peer",
         "form": form,
-        
+
     }
     if not form.validate():
         error("Unable to validate form")
@@ -565,7 +581,7 @@ def settings():
     context = {
         "title": "Settings",
         "form": form,
-        
+
     }
     return ViewController("web/settings.html", **context).load()
 
@@ -591,12 +607,18 @@ def save_settings():
 
         form.web_secret_key.data = form.web_secret_key.data or web_config.secret_key
         form.web_credentials_file.data = form.web_credentials_file.data or web_config.credentials_file
+        form.web_login_attempts.data = form.web_login_attempts.data or web_config.login_attempts
+        form.web_login_ban_time.data = form.web_login_ban_time.data or web_config.login_ban_time
 
         form.app_endpoint.data = form.app_endpoint.data or wireguard_config.endpoint
         form.app_wg_bin.data = form.app_wg_bin.data or wireguard_config.wg_bin
         form.app_wg_quick_bin.data = form.app_wg_quick_bin.data or wireguard_config.wg_quick_bin
         form.app_iptables_bin.data = form.app_iptables_bin.data or wireguard_config.iptables_bin
         form.app_interfaces_folder.data = form.app_interfaces_folder.data or wireguard_config.interfaces_folder
+
+        form.traffic_driver_options.data = form.traffic_driver_options.data or \
+                                           json.dumps(traffic_config.driver.__to_yaml_dict__(), indent=4,
+                                                      sort_keys=True)
 
         context["success"] = True
         context["success_details"] = "Settings updated!"
