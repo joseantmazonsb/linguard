@@ -6,6 +6,7 @@ from flask_login import current_user
 from linguard.common.models.user import User, users
 from linguard.core.config.web import config
 from linguard.tests.utils import default_cleanup, is_http_success, username, password, get_testing_app
+from linguard.web.client import clients
 
 url = "/login"
 
@@ -14,6 +15,8 @@ url = "/login"
 def cleanup():
     yield
     default_cleanup()
+    config.login_attempts = 0
+    config.login_ban_time = config.DEFAULT_BAN_SECONDS
 
 
 @pytest.fixture
@@ -84,4 +87,30 @@ def test_ban_time(client):
     assert current_user.is_authenticated
     assert b"Dashboard" in response.data
 
-    config.login_attempts = 0
+
+def test_ban_by_ip(client):
+    config.login_attempts = 1
+    config.login_ban_time = 10
+
+    response = client.post(url, data={"username": username + "a", "password": password, "remember_me": False},
+                           follow_redirects=True)
+    assert is_http_success(response.status_code)
+    assert not current_user.is_authenticated
+    assert b"Dashboard" not in response.data
+
+    response = client.post(url, data={"username": username + "a", "password": password, "remember_me": False},
+                           follow_redirects=True)
+
+    assert is_http_success(response.status_code)
+    assert not current_user.is_authenticated
+    assert b"Dashboard" not in response.data
+    assert f"try again in <code>{config.login_ban_time}</code> seconds".encode() in response.data or \
+           f"try again in <code>{config.login_ban_time - 1}</code> seconds".encode() in response.data
+
+    clients.clear()
+
+    response = client.post(url, data={"username": username, "password": password, "remember_me": False},
+                           follow_redirects=True)
+    assert is_http_success(response.status_code)
+    assert current_user.is_authenticated
+    assert b"Dashboard" in response.data

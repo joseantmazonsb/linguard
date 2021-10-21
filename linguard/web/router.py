@@ -1,9 +1,9 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from functools import wraps
 from http.client import BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR, UNAUTHORIZED, NO_CONTENT
+from ipaddress import IPv4Address
 from logging import warning, debug, error, info
-from threading import Thread
 from time import sleep
 from typing import List, Dict, Any, Union
 from urllib.parse import parse_qs, urlparse
@@ -26,6 +26,7 @@ from linguard.core.exceptions import WireguardError
 from linguard.core.managers.config import config_manager
 from linguard.core.models import interfaces, Interface, get_all_peers, Peer
 from linguard.core.utils.wireguard import is_wg_iface_up
+from linguard.web.client import clients, Client
 from linguard.web.controllers.RestController import RestController
 from linguard.web.controllers.ViewController import ViewController
 from linguard.web.static.assets.resources import EMPTY_FIELD, APP_NAME
@@ -155,10 +156,9 @@ def login():
         "title": "Login",
         "form": LoginForm()
     }
-    now = datetime.now()
-    max_attempts = int(web_config.login_attempts)
-    if max_attempts and router.login_attempts > max_attempts:
-        context["banned_for"] = (router.banned_until - now).seconds
+    client = get_client()
+    if client.is_banned():
+        context["banned_for"] = (client.banned_until - datetime.now()).seconds
     return ViewController("web/login.html", **context).load()
 
 
@@ -168,24 +168,33 @@ def run_ban_timer():
     router.login_attempts = 1
 
 
+def get_client() -> Client:
+    client_ip = IPv4Address(request.remote_addr)
+    if client_ip not in clients:
+        clients[client_ip] = Client(client_ip)
+    return clients[client_ip]
+
+
 @router.route("/login", methods=["POST"])
 def login_post():
     from linguard.web.forms import LoginForm
     form = LoginForm(request.form)
     info(f"Logging in user '{form.username.data}'...")
-    max_attempts = int(web_config.login_attempts)
-    if max_attempts and router.login_attempts > max_attempts:
-        Thread(target=run_ban_timer).start()
-        router.banned_until = datetime.now() + timedelta(seconds=web_config.login_ban_time)
+    client = get_client()
+    if client.is_banned():
         return redirect(form.next.data or url_for("router.index"))
-    router.login_attempts += 1
     if not form.validate():
         error("Unable to validate form.")
         context = {
             "title": "Login",
             "form": form
         }
+        client.login_attempts += 1
+        if client.login_attempts > int(web_config.login_attempts):
+            client.ban()
+            context["banned_for"] = (client.banned_until - datetime.now()).seconds
         return ViewController("web/login.html", **context).load()
+    del clients[client.ip]
     u = users.get_value_by_attr("name", form.username.data)
     if not login_user(u, form.remember_me.data):
         error(f"Unable to log user in.")
