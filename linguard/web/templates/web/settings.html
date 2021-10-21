@@ -51,6 +51,11 @@
                                   Error in field <strong>{{ form.web_login_attempts.label.text }}</strong>: {{ error }}
                                 </div>
                             {% endfor %}
+                            {% for error in form.web_login_ban_time.errors %}
+                                <div class="alert alert-danger" role="alert">
+                                  Error in field <strong>{{ form.web_login_ban_time.label.text }}</strong>: {{ error }}
+                                </div>
+                            {% endfor %}
                             {% for error in form.web_secret_key.errors %}
                                 <div class="alert alert-danger" role="alert">
                                   Error in field <strong>{{ form.web_secret_key.label.text }}</strong>: {{ error }}
@@ -67,11 +72,21 @@
                                 {{ form.web_login_attempts.label() }}
                                 <span type="button" class="ml-1" data-toggle="popover"
                                             data-placement="top"
-                                            data-content="After this limit is reached, the user won't be able to login for
-                                            2 minutes. 0 means unlimited attempts.">
+                                            data-content="After this limit is reached, the user won't be able to login
+                                            from its last IP until the ban time is over. 0 means unlimited attempts.">
                                             <i class="fas fa-question-circle"></i>
                                 </span>
                                 {{ form.web_login_attempts(class="form-control") }}
+                            </div>
+                            <div class="form-group col-md-4">
+                                {{ form.web_login_ban_time.label() }}
+                                <span type="button" class="ml-1" data-toggle="popover"
+                                            data-placement="top"
+                                            data-content="How many seconds the user will be banned after too many
+                                            login attempts.">
+                                            <i class="fas fa-question-circle"></i>
+                                </span>
+                                {{ form.web_login_ban_time(class="form-control") }}
                             </div>
                             <div class="form-group col-md-4">
                                 {{ form.web_secret_key.label() }}

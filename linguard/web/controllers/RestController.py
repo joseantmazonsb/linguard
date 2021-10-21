@@ -126,6 +126,8 @@ class RestController:
         sample_web = WebConfig()
 
         web_config.login_attempts = form.web_login_attempts.data or sample_web.login_attempts
+        web_config.login_ban_time = form.web_login_ban_time.data or sample_web.login_ban_time
+
         web_config.secret_key = form.web_secret_key.data or sample_web.secret_key
 
         sample_wireguard = WireguardConfig()

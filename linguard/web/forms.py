@@ -1,11 +1,12 @@
 import ipaddress
+import json
 from random import randint
 from typing import List, Tuple
 
 from flask_wtf import FlaskForm
 from wtforms import StringField, BooleanField, PasswordField, SubmitField, SelectField, IntegerField, \
     TextAreaField
-from wtforms.validators import DataRequired
+from wtforms.validators import DataRequired, InputRequired
 
 from linguard.common.utils.encryption import CryptoUtils
 from linguard.common.utils.network import get_system_interfaces, get_default_gateway
@@ -19,7 +20,7 @@ from linguard.core.managers.config import config_manager
 from linguard.core.models import Interface, Peer, interfaces
 from linguard.web.utils import fake
 from linguard.web.validators import LoginUsernameValidator, LoginPasswordValidator, SignupPasswordValidator, \
-    SignupUsernameValidator, SettingsSecretKeyValidator, SettingsLoginAttemptsValidator, \
+    SignupUsernameValidator, SettingsSecretKeyValidator, PositiveIntegerValidator, \
     InterfaceIpValidator, InterfaceNameValidator, InterfacePortValidator, PeerIpValidator, PeerPrimaryDnsValidator, \
     PeerSecondaryDnsValidator, PeerNameValidator, NewPasswordValidator, OldPasswordValidator, JsonDataValidator, \
     PathExistsValidator, EndpointValidator
@@ -46,11 +47,14 @@ class SignupForm(FlaskForm):
 
 
 class SettingsForm(FlaskForm):
-    web_login_attempts = IntegerField("Maximum login attempts", validators=[SettingsLoginAttemptsValidator()],
+    web_login_attempts = IntegerField("Max login attempts",
+                                      validators=[InputRequired(), PositiveIntegerValidator()],
                                       render_kw={"placeholder": f"{web_config.DEFAULT_LOGIN_ATTEMPTS}",
-                                                 "type": "number"},
-                                      default=web_config.login_attempts)
-    web_secret_key = StringField("Secret key", validators=[SettingsSecretKeyValidator()],
+                                                 "type": "number"}, default=web_config.login_attempts)
+    web_login_ban_time = IntegerField("Login ban time", validators=[InputRequired(), PositiveIntegerValidator()],
+                                      render_kw={"placeholder": f"{web_config.DEFAULT_BAN_SECONDS}",
+                                                 "type": "number"}, default=web_config.login_ban_time)
+    web_secret_key = StringField("Secret key", validators=[DataRequired(), SettingsSecretKeyValidator()],
                                  render_kw={"placeholder": f'A {CryptoUtils.KEY_LEN} characters long secret key'},
                                  default=web_config.secret_key)
     web_credentials_file = StringField("Credentials file",
@@ -83,6 +87,31 @@ class SettingsForm(FlaskForm):
     traffic_driver_options = TextAreaField("Driver configuration", validators=[DataRequired(), JsonDataValidator()])
 
     submit = SubmitField('Save')
+
+    @classmethod
+    def new(cls) -> "SettingsForm":
+        form = cls()
+        form.web_login_attempts.data = web_config.login_attempts
+        form.web_login_ban_time.data = web_config.login_ban_time
+        form.web_secret_key.data = web_config.secret_key
+        form.web_credentials_file.data = web_config.credentials_file
+
+        form.app_config_file.data = config_manager.config_filepath
+        form.app_endpoint.data = wireguard_config.endpoint
+        form.app_interfaces_folder.data = wireguard_config.interfaces_folder
+        form.app_wg_bin.data = wireguard_config.wg_bin
+        form.app_wg_quick_bin.data = wireguard_config.wg_quick_bin
+        form.app_iptables_bin.data = wireguard_config.iptables_bin
+
+        form.log_overwrite.data = logger_config.overwrite
+        form.log_file.data = logger_config.logfile
+        form.log_level.data = logger_config.level
+
+        form.traffic_enabled.data = traffic_config.enabled
+        form.traffic_driver.data = traffic_storage.registered_drivers.keys()
+        form.traffic_driver_options.data = json.dumps(traffic_config.driver.__to_yaml_dict__(), indent=4,
+                                                      sort_keys=True)
+        return form
 
 
 class SetupForm(FlaskForm):

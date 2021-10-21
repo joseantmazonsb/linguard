@@ -62,13 +62,12 @@ class SettingsSecretKeyValidator:
             stop_validation(field, msg)
 
 
-class SettingsLoginAttemptsValidator:
+class PositiveIntegerValidator:
     def __call__(self, form, field):
         if type(field.data) is not int:
             return
         if field.data and field.data < 0:
-            msg = "must be an integer value equal to or greater than 0."
-            stop_validation(field, msg)
+            stop_validation(field, "must be an integer value equal to or greater than 0.")
 
 
 class InterfaceNameValidator:

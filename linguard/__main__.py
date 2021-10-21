@@ -79,7 +79,7 @@ if __name__ == "__main__":
     else:
         info(f"Running {APP_NAME} {release}")
         debug(f"Commit hash: {commit}")
-    app.run(debug=args.debug, port=8080)
+    app.run(debug=args.debug, port=8080, host="0.0.0.0")
 else:
     if not release or not commit:
         if global_properties.dev_env:
