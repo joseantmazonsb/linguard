@@ -11,5 +11,3 @@ services:
       - "${DATA_FOLDER:-/srv/linguard/data}:/data"  # Optional, provides a way to see and edit the configuration files directly from the host.
     network_mode: host
     restart: unless-stopped
-    ports:
-      - "8080:8080"
