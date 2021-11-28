@@ -1,5 +1,5 @@
-import ipaddress
 import json
+from ipaddress import IPv4Interface
 from random import randint
 from typing import List, Tuple
 
@@ -177,9 +177,9 @@ class AddInterfaceForm(FlaskForm):
 
         tries = 0
         max_tries = 100
-        ip = ipaddress.IPv4Interface(f"{fake.ipv4_private()}/{randint(8, 30)}")
-        while tries < max_tries and Interface.is_ip_in_use(str(ip)) or Interface.is_network_in_use(ip):
-            ip = ipaddress.IPv4Interface(f"{fake.ipv4_private()}/{randint(8, 30)}")
+        ip = IPv4Interface(f"{fake.ipv4_private()}/{randint(8, 30)}")
+        while tries < max_tries and Interface.is_ip_in_use(ip) or Interface.is_network_in_use(ip):
+            ip = IPv4Interface(f"{fake.ipv4_private()}/{randint(8, 30)}")
             tries += 1
         if tries < max_tries:
             form.ipv4.data = str(ip)
@@ -274,10 +274,10 @@ class AddPeerForm(FlaskForm):
             form.interface.data = iface.name
         else:
             iface = interfaces.get_value_by_attr("name", form.interface.choices[0][0])
-        iface_network = ipaddress.IPv4Interface(iface.ipv4_address).network
+        iface_network = IPv4Interface(iface.ipv4_address).network
         peer_ip = "No addresses available for this network!"
         for host in iface_network.hosts():
-            if not Peer.is_ip_in_use(str(host)):
+            if not Peer.is_ip_in_use(host):
                 peer_ip = host
                 break
         form.ipv4.data = peer_ip

@@ -2,6 +2,7 @@ import http
 import os
 import shutil
 import sys
+from ipaddress import IPv4Interface
 
 from flask_login import current_user
 
@@ -90,5 +91,5 @@ def create_test_iface(name, ipv4, port):
         f"{config.iptables_bin} -D FORWARD -o {name} -j ACCEPT\n" +
         f"{config.iptables_bin} -t nat -D POSTROUTING -o {gw} -j MASQUERADE\n"
     ]
-    return Interface(name=name, description="", gw_iface=gw, ipv4_address=ipv4, listen_port=port, auto=False,
-                     on_up=on_up, on_down=on_down)
+    return Interface(name=name, description="", gw_iface=gw, ipv4_address=IPv4Interface(ipv4), listen_port=port,
+                     auto=False, on_up=on_up, on_down=on_down)

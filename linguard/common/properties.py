@@ -8,6 +8,7 @@ class Properties:
         self.workdir = ""
         self.setup_required = True
         self.setup_filename = ".setup"
+        self.check_gateway_when_importing_interfaces = True
 
     def join_workdir(self, path: str) -> str:
         """

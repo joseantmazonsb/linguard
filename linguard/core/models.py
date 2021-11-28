@@ -1,18 +1,23 @@
 import http
-import ipaddress
 import os
 import re
+from http.client import BAD_REQUEST
+from io import StringIO
+from ipaddress import IPv4Interface
 from logging import info, warning, error, debug
 from random import randint
 from time import sleep
-from typing import Dict, Any, Type, List, Mapping
+from typing import Dict, Any, Type, List, Mapping, TextIO
 from uuid import uuid4 as gen_uuid
 
 from coolname import generate_slug
 from yamlable import YamlAble, yaml_info, Y
 
 from linguard.common.models.enhanced_dict import EnhancedDict, V, K
+from linguard.common.properties import global_properties
 from linguard.common.utils.file import write_lines
+from linguard.common.utils.logs import log_exception
+from linguard.common.utils.network import get_system_interfaces
 from linguard.common.utils.system import Command, try_makedir
 from linguard.core.exceptions import WireguardError
 from linguard.core.utils.wireguard import get_wg_interface_status
@@ -35,8 +40,8 @@ class Interface(YamlAble):
         from linguard.core.config.wireguard import config
         return config.wg_quick_bin
 
-    def __init__(self, name: str, description: str, gw_iface: str, ipv4_address: str, listen_port: int, auto: bool,
-                 on_up: List[str], on_down: List[str], uuid: str = "", private_key: str = "",
+    def __init__(self, name: str, description: str, gw_iface: str, ipv4_address: IPv4Interface, listen_port: int,
+                 auto: bool, on_up: List[str], on_down: List[str], uuid: str = "", private_key: str = "",
                  public_key: str = "", peers: "PeerDict" = None):
         self.name = name
         self.gw_iface = gw_iface
@@ -67,7 +72,7 @@ class Interface(YamlAble):
             "name": self.name,
             "description": self.description,
             "gw_iface": self.gw_iface,
-            "ipv4_address": self.ipv4_address,
+            "ipv4_address": str(self.ipv4_address),
             "listen_port": self.listen_port,
             "private_key": self.private_key,
             "public_key": self.public_key,
@@ -87,7 +92,7 @@ class Interface(YamlAble):
         name = dct["name"]
         description = dct["description"]
         gw_iface = dct["gw_iface"]
-        ipv4_address = dct["ipv4_address"]
+        ipv4_address = IPv4Interface(dct["ipv4_address"])
         listen_port = dct["listen_port"]
         private_key = dct["private_key"]
         public_key = dct["public_key"]
@@ -117,6 +122,115 @@ class Interface(YamlAble):
                       f"PublicKey = {peer.public_key}\n"
                       f"AllowedIPs = {peer.ipv4_address}\n")
         return iface + peers
+
+    @classmethod
+    def from_wireguard_conf_file(cls, filepath: str):
+        with open(filepath, "r") as f:
+            return cls.from_wireguard_conf(os.path.basename(filepath), f)
+
+    @classmethod
+    def from_wireguard_conf(cls, name: str, stream: [StringIO, TextIO]) -> "Interface":
+        private_key = ""
+        gw_iface = ""
+        ip = ""
+        port = 0
+        on_up = []
+        on_down = []
+        iface_node_found = False
+        try:
+            lines = stream.readlines()
+            size = len(lines)
+            i = -1
+            while i < size - 1:
+                i += 1
+                line = lines[i].strip()
+                if not line or line == "\n":
+                    continue
+                if line.lower() == "[interface]":
+                    if iface_node_found:
+                        raise WireguardError("Invalid configuration file! <code>interface</code> node already defined!")
+                    iface_node_found = True
+                    continue
+                if line.lower() == "[peer]":
+                    if iface_node_found:
+                        break
+                    while i < size and line.lower() != "[interface]":
+                        i += 1
+                        line = lines[i].strip()
+                    if i > size:
+                        raise WireguardError("Invalid configuration file! No <code>interface</code> node present.")
+                    iface_node_found = True
+                    continue
+                key_values = line.split("=", 1)
+                key = key_values[0].strip().lower()
+                value = key_values[1].strip()
+                if key == "privatekey":
+                    private_key = value
+                    continue
+                if key == "address":
+                    ip = value
+                    continue
+                if key == "listenport":
+                    port = value
+                    continue
+                if key == "postup":
+                    commands = value.split(";")
+                    for cmd in commands:
+                        if not cmd:
+                            continue
+                        delim = "postrouting -o "
+                        if delim in cmd.lower():
+                            gw_iface = cmd.lower().split(delim)[1].split(" ")[0]
+                            if gw_iface not in get_system_interfaces().keys():
+                                if global_properties.check_gateway_when_importing_interfaces:
+                                    raise WireguardError(f"Invalid gateway: <code>{gw_iface}</code> is not a system "
+                                                         f"interface.", BAD_REQUEST)
+                        on_up.append(cmd.strip())
+                    continue
+                if key == "postdown":
+                    commands = value.split(";")
+                    for cmd in commands:
+                        if not cmd:
+                            continue
+                        on_down.append(cmd.strip())
+                    continue
+        except WireguardError as e:
+            log_exception(e)
+            raise
+        except Exception as e:
+            log_exception(e)
+            raise WireguardError(f"Invalid configuration file!", http_code=BAD_REQUEST)
+        errors = []
+        if not name:
+            errors.append("name")
+        if not gw_iface:
+            errors.append("gateway")
+        if not ip:
+            errors.append("IP address")
+        if not port:
+            errors.append("port")
+        if len(on_up) < 1:
+            errors.append("on up rules")
+        if len(on_down) < 1:
+            errors.append("on down rules")
+        if not private_key:
+            errors.append("private key")
+        err_len = len(errors)
+        if err_len == 1:
+            raise WireguardError(f"Invalid configuration file! Interface's {errors[0]} is missing.",
+                                 http_code=BAD_REQUEST)
+        if err_len > 1:
+            msg = f"Invalid configuration file! Interface's {errors[0]}"
+            i = 1
+            for i in range(i, err_len):
+                error = errors[i]
+                if i < err_len - 1:
+                    msg += f", {error}"
+                else:
+                    msg += f" and {error} are missing."
+            raise WireguardError(msg, http_code=BAD_REQUEST)
+        return cls(name=name, description="", gw_iface=gw_iface, ipv4_address=IPv4Interface(ip), listen_port=port,
+                   auto=True, on_up=on_up, on_down=on_down, uuid="", private_key=private_key, public_key="")
 
     def save(self):
         """Store the current wireguard configuration for this interface in the file system."""
@@ -183,7 +297,7 @@ class Interface(YamlAble):
         del interfaces[self.uuid]
         interfaces.sort()
 
-    def edit(self, name: str, description: str, ipv4_address: str,
+    def edit(self, name: str, description: str, ipv4_address: IPv4Interface,
              port: int, gw_iface: str, auto: bool, on_up: List[str], on_down: List[str]):
         self.name = name
         self.gw_iface = gw_iface
@@ -213,28 +327,26 @@ class Interface(YamlAble):
         return re.match(cls.REGEX_NAME, name) is not None
 
     @classmethod
-    def is_name_in_use(cls, name: str, interface: "Interface") -> bool:
+    def is_name_in_use(cls, name: str, interface_to_exclude: "Interface" = None) -> bool:
         iface = interfaces.get_value_by_attr("name", name)
-        if iface:
-            if iface == interface:
-                return False
+        if iface and iface != interface_to_exclude:
             return True
+        return False
 
     @classmethod
-    def is_ip_in_use(cls, ip: str, interface_to_exclude: "Interface" = None) -> bool:
-        ip = ip.split("/")[0]
+    def is_ip_in_use(cls, ip: IPv4Interface, interface_to_exclude: "Interface" = None) -> bool:
         for iface in filter(lambda i: i != interface_to_exclude, interfaces.values()):
-            if iface.ipv4_address.split("/")[0] == ip:
+            if iface.ipv4_address.ip == ip.ip:
                 return True
         for peer in get_all_peers().values():
-            if peer.ipv4_address.split("/")[0] == ip:
+            if peer.ipv4_address.ip == ip.ip:
                 return True
         return False
 
     @classmethod
-    def is_network_in_use(cls, interface: ipaddress.IPv4Interface, interface_to_exclude: "Interface" = None) -> bool:
+    def is_network_in_use(cls, interface: IPv4Interface, interface_to_exclude: "Interface" = None) -> bool:
         for iface in filter(lambda i: i != interface_to_exclude, interfaces.values()):
-            if interface in ipaddress.IPv4Interface(iface.ipv4_address).network:
+            if interface in iface.ipv4_address.network:
                 return True
         return False
 
@@ -261,7 +373,8 @@ class Peer(YamlAble):
     MAX_NAME_LENGTH = 64
     REGEX_NAME = f"^[a-zA-Z][\w\-. ]{{{MIN_NAME_LENGTH - 1},{MAX_NAME_LENGTH - 1}}}$"
 
-    def __init__(self, name: str, description: str, ipv4_address: str, nat: bool, interface: Interface, dns1: str,
+    def __init__(self, name: str, description: str, ipv4_address: IPv4Interface, nat: bool, interface: Interface,
+                 dns1: str,
                  uuid: str = "", private_key: str = "", public_key: str = "", dns2: str = None):
         self.name = name
         self.description = description
@@ -290,7 +403,7 @@ class Peer(YamlAble):
             "uuid": self.uuid,
             "name": self.name,
             "description": self.description,
-            "ipv4_address": self.ipv4_address,
+            "ipv4_address": str(self.ipv4_address),
             "private_key": self.private_key,
             "public_key": self.public_key,
             "nat": self.nat,
@@ -307,7 +420,7 @@ class Peer(YamlAble):
         uuid = dct["uuid"]
         name = dct["name"]
         description = dct["description"]
-        ipv4_address = dct["ipv4_address"]
+        ipv4_address = IPv4Interface(dct["ipv4_address"])
         private_key = dct["private_key"]
         public_key = dct["public_key"]
         nat = dct["nat"]
@@ -316,13 +429,96 @@ class Peer(YamlAble):
         return Peer(name=name, description=description, interface=None, ipv4_address=ipv4_address, nat=nat, uuid=uuid,
                     private_key=private_key, public_key=public_key, dns1=dns1, dns2=dns2)
 
+    @classmethod
+    def from_wireguard_conf(cls, name: str, stream: [StringIO, TextIO], interface: Interface) -> "Peer":
+        private_key = ""
+        nat = False
+        ip = ""
+        dns1 = ""
+        dns2 = ""
+        peer_node_found = False
+        try:
+            lines = stream.readlines()
+            size = len(lines)
+            i = -1
+            while i < size - 1:
+                i += 1
+                line = lines[i].strip()
+                if not line or line == "\n":
+                    continue
+                if line.lower() == "[interface]":
+                    if peer_node_found:
+                        raise WireguardError("Invalid configuration file! [interface] already defined!")
+                    peer_node_found = True
+                    continue
+                if line.lower() == "[peer]":
+                    if peer_node_found:
+                        break
+                    while i < size and line.lower() != "[interface]":
+                        i += 1
+                        line = lines[i].strip()
+                    if i > size:
+                        raise WireguardError("Invalid configuration file! No [interface] node present.")
+                    peer_node_found = True
+                    continue
+                key_values = line.split("=", 1)
+                key = key_values[0].strip().lower()
+                value = key_values[1].strip()
+                if key == "privatekey":
+                    private_key = value
+                    continue
+                if key == "address":
+                    ip = IPv4Interface(f"{value.split('/')[0]}/{interface.ipv4_address.network.prefixlen}")
+                    if ip not in interface.ipv4_address.network:
+                        raise WireguardError("Invalid configuration file! IP address does not belong to network "
+                                             f"<code>{interface.ipv4_address.network}</code>.")
+                    continue
+                if key == "persistentkeepalive":
+                    nat = True
+                    continue
+                if key == "dns":
+                    dnss = value.split(",", 2)
+                    dns1 = dnss[0]
+                    dns2 = dnss[1] if len(dnss) > 1 else ""
+                    continue
+        except Exception as e:
+            log_exception(e)
+            raise
+        errors = []
+        if not name:
+            errors.append("name")
+        if not ip:
+            errors.append("IP address")
+        if not dns1:
+            errors.append("primary DNS")
+        if not interface:
+            errors.append("interface")
+        if not private_key:
+            errors.append("private key")
+        err_len = len(errors)
+        if err_len == 1:
+            raise WireguardError(f"Invalid configuration file! Peer's {errors[0]} is missing.",
+                                 http_code=BAD_REQUEST)
+        if err_len > 1:
+            msg = f"Invalid configuration file! Peer's {errors[0]}"
+            i = 1
+            for i in range(i, err_len):
+                error = errors[i]
+                if i < err_len - 1:
+                    msg += f", {error}"
+                else:
+                    msg += f" and {error} are missing."
+            raise WireguardError(msg, http_code=BAD_REQUEST)
+        return cls(name=name, description="", ipv4_address=ip, nat=nat, uuid="", private_key=private_key,
+                   public_key="", dns1=dns1, dns2=dns2, interface=interface)
+
     def generate_conf(self) -> str:
         """Generate a wireguard configuration file suitable for this client."""
 
         iface = f"[Interface]\n" \
-                f"PrivateKey = {self.private_key}\n"
-        iface += f"Address = {self.ipv4_address}\n" \
-                 f"DNS = {self.dns1}"
+                f"PrivateKey = {self.private_key}\n" \
+                f"Address = {self.ipv4_address}\n" \
+                f"DNS = {self.dns1}"
         if self.dns2:
             iface += f", {self.dns2}\n"
         else:
@@ -336,7 +532,7 @@ class Peer(YamlAble):
 
         return iface + peer
 
-    def edit(self, name: str, description: str, ipv4_address: str, interface: Interface, dns1: str, dns2: str,
+    def edit(self, name: str, description: str, ipv4_address: IPv4Interface, interface: Interface, dns1: str, dns2: str,
              nat: bool):
         self.remove()
         self.name = name
@@ -355,13 +551,12 @@ class Peer(YamlAble):
         self.interface.peers.sort()
 
     @classmethod
-    def is_ip_in_use(cls, ip: str, peer_to_exclude: "Peer" = None) -> bool:
-        ip = ip.split("/")[0]
+    def is_ip_in_use(cls, ip: IPv4Interface, peer_to_exclude: "Peer" = None) -> bool:
         for iface in interfaces.values():
-            if iface.ipv4_address.split("/")[0] == ip:
+            if iface.ipv4_address.ip == ip.ip:
                 return True
         for peer in filter(lambda p: p != peer_to_exclude, get_all_peers().values()):
-            if peer.ipv4_address.split("/")[0] == ip:
+            if peer.ipv4_address.ip == ip.ip:
                 return True
         return False
 

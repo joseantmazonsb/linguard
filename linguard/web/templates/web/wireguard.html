@@ -8,17 +8,78 @@
     <main>
         <div class="container-fluid">
             <h1 class="my-4">{{ title }}</h1>
+            {% if error %}
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                  <strong>Error:</strong> {{ error_details }}
+                  <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </div>
+            {% endif %}
             <div class="card mb-4">
                 <div class="card-header">
                     <i class="fas fa-ethernet mr-1"></i>
                     Interfaces
-                    <a href="/wireguard/interfaces/add" class="float-right" title="Add"><i class="fas fa-plus mr-1"></i></a>
+                    <div class="float-right" title="Add">
+                        <span data-toggle="modal" data-target="#addInterface"
+                              type="button" class="btn-link">
+                            <i class="fas fa-plus mr-1"></i>
+                        </span>
+                        <!-- Add modal -->
+                        <div class="modal fade" id="addInterface" tabindex="-1" role="dialog"
+                             aria-labelledby="addInterfaceTitle" aria-hidden="true">
+                          <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                              <div class="modal-header">
+                                <h5 class="modal-title" id="addInterfaceTitle">Add interface</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                  <span aria-hidden="true">&times;</span>
+                                </button>
+                              </div>
+                              <div class="modal-body">
+                                  You may add a new interface or <strong>import</strong> as much interfaces as you want.
+                              </div>
+                              <div class="modal-footer">
+                                  <a type="button" class="btn btn-primary" href="/wireguard/interfaces/add"
+                                     title="Add">Add</a>
+                                  <a type="button" class="btn btn-secondary" href="/wireguard/interfaces/import"
+                                     title="Import">Import</a>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                    </div>
                 </div>
                 <div id="wgIfacesHeader" class="card-body">
                     <div class="row row-cols-1 row-cols-lg-2 row-cols-xl-3">
                         {% if interfaces | length < 1 %}
                             <div class="col">
-                                There are no interfaces available yet, why don't you <a href="/wireguard/interfaces/add">add one</a>?
+                                There are no interfaces available yet, why don't you
+                                <span type="button" class="btn-link" data-toggle="modal"
+                                      data-target="#addInterface">add one</span>?
+                                <!-- Add modal -->
+                                <div class="modal fade" id="addInterface" tabindex="-1" role="dialog"
+                             aria-labelledby="addInterfaceTitle" aria-hidden="true">
+                          <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                              <div class="modal-header">
+                                <h5 class="modal-title" id="addInterfaceTitle">Add interface</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                  <span aria-hidden="true">&times;</span>
+                                </button>
+                              </div>
+                              <div class="modal-body">
+                                  You may add a new interface or <strong>import</strong> as much interfaces as you want.
+                              </div>
+                              <div class="modal-footer">
+                                  <a type="button" class="btn btn-primary" href="/wireguard/interfaces/add"
+                                     title="Add">Add</a>
+                                  <a type="button" class="btn btn-secondary" href="/wireguard/interfaces/import"
+                                     title="Import">Import</a>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                             </div>
                         {% else %}
                             {% for iface in interfaces.values() %}

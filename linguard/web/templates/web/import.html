@@ -1,0 +1,54 @@
+{% extends "web/web-main.html" %}
+
+{% block content %}
+
+    <main>
+        <div class="container-fluid">
+            <h1 class="my-4">{{ title }}</h1>
+            {% for error in errors %}
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                  {{ error | safe }}
+                  <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </div>
+            {% endfor %}
+            {% for success in successes %}
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                  {{ success | safe }}
+                  <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </div>
+            {% endfor %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-upload mr-1"></i>
+                    Import
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ request.url }}" enctype="multipart/form-data">
+                        <div class="form-row">
+                            <div class="input-group col-md-4">
+                              <div class="custom-file">
+                                <input type="file" class="custom-file-input" multiple="multiple" accept=".conf" name="files"
+                                       id="inputGroupFile01" aria-describedby="inputGroupFileAddon01">
+                                <label class="custom-file-label" for="inputGroupFile01">Select files...</label>
+                              </div>
+                            </div>
+                        </div>
+                        <div class="form-group mt-4 mb-0">
+                            <input type="submit" class="btn btn-primary" value="Import">
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+{% endblock %}
+
+{% block additional_scripts %}
+    <script type="module" src="../../static/js/modules/import.mjs"></script>
+    <script src="../../static/js/libs/bs-custom-file-input.min.js"></script>
+{% endblock %}

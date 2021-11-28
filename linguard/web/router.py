@@ -2,9 +2,9 @@ import json
 from datetime import datetime
 from functools import wraps
 from http.client import BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR, UNAUTHORIZED, NO_CONTENT
+from io import StringIO
 from ipaddress import IPv4Address
 from logging import warning, debug, error, info
-from time import sleep
 from typing import List, Dict, Any, Union
 from urllib.parse import parse_qs, urlparse
 
@@ -43,8 +43,6 @@ class Router(Blueprint):
 
     def __init__(self, name, import_name):
         super().__init__(name, import_name)
-        self.login_attempts = 1
-        self.banned_until = None
 
 
 router = Router("router", __name__)
@@ -162,12 +160,6 @@ def login():
     return ViewController("web/login.html", **context).load()
 
 
-def run_ban_timer():
-    sleep(web_config.login_ban_time)
-    router.banned_until = None
-    router.login_attempts = 1
-
-
 def get_client() -> Client:
     client_ip = IPv4Address(request.remote_addr)
     if client_ip not in clients:
@@ -190,7 +182,7 @@ def login_post():
             "form": form
         }
         client.login_attempts += 1
-        if client.login_attempts > int(web_config.login_attempts):
+        if web_config.login_attempts and client.login_attempts > int(web_config.login_attempts):
             client.ban()
             context["banned_for"] = (client.banned_until - datetime.now()).seconds
         return ViewController("web/login.html", **context).load()
@@ -290,6 +282,122 @@ def wireguard():
         "EMPTY_FIELD": EMPTY_FIELD
     }
     return ViewController("web/wireguard.html", **context).load()
+
+
+@router.route("/wireguard/interfaces/import", methods=['GET'])
+@login_required
+@setup_required
+def import_wireguard_iface():
+    context = {
+        "title": "Import interfaces",
+        "EMPTY_FIELD": EMPTY_FIELD
+    }
+    return ViewController("web/import.html", **context).load()
+
+
+@router.route("/wireguard/peers/import", methods=['GET'])
+@login_required
+@setup_required
+def import_wireguard_peer():
+    if len(interfaces) < 1:
+        abort(BAD_REQUEST, "There are no wireguard interfaces!")
+    iface_uuid = request.args.get("interface", None)
+    if not iface_uuid:
+        abort(BAD_REQUEST, f"No interface provided.")
+    iface = interfaces.get(iface_uuid, None)
+    if not iface:
+        abort(BAD_REQUEST, f"Unknown interface '{iface_uuid}'.")
+    context = {
+        "title": f"Import peers for {iface.name}",
+        "EMPTY_FIELD": EMPTY_FIELD
+    }
+    return ViewController("web/import.html", **context).load()
+
+
+@router.route("/wireguard/interfaces/import", methods=['POST'])
+@login_required
+@setup_required
+def add_imported_wireguard_iface():
+    context = {
+        "title": "Import interfaces",
+        "EMPTY_FIELD": EMPTY_FIELD,
+        "errors": [],
+        "successes": [],
+    }
+    files = request.files.getlist("files")
+    if len(files) < 1 or len(files) == 1 and not files[0].filename:
+        context["errors"].append("You must specify one or more files to import!")
+        return ViewController("web/import.html", **context).load()
+    for file in files:
+        try:
+            stream = StringIO(file.stream.read().decode("utf-8"))
+            iface = Interface.from_wireguard_conf(file.filename.rsplit(".", 1)[0], stream)
+            if Interface.is_port_in_use(iface.listen_port):
+                raise WireguardError(f"Port <code>{iface.listen_port}</code> is already in use!", BAD_REQUEST)
+            if Interface.is_ip_in_use(iface.ipv4_address):
+                raise WireguardError(f"Address <code>{iface.ipv4_address}</code> is already in use!", BAD_REQUEST)
+            if Interface.is_network_in_use(iface.ipv4_address):
+                raise WireguardError(f"Network <code>{iface.ipv4_address.network}</code> is already in use!",
+                                     BAD_REQUEST)
+            if Interface.is_name_in_use(iface.name):
+                raise WireguardError(f"Interface name <code>{iface.name}</code> is already in use", BAD_REQUEST)
+            if not Interface.is_name_valid(iface.name):
+                msg = f"<code>{iface.name}</code> is not a valid interface name. " \
+                      f"It can only contain alphanumeric characters, underscores (_) and " \
+                      f"hyphens (-). It must also begin with a letter and be between {Interface.MIN_NAME_LENGTH} and " \
+                      f"{Interface.MAX_NAME_LENGTH} characters long."
+                raise WireguardError(msg, BAD_REQUEST)
+            interfaces[iface.uuid] = iface
+            context["successes"].append(f"Interface <code>{iface.name}</code> was successfully imported!")
+        except Exception as e:
+            log_exception(e)
+            context["errors"].append(f"Unable to import file <code>{file.filename}</code>. {str(e)}")
+    interfaces.sort()
+    config_manager.save()
+    return ViewController("web/import.html", **context).load()
+
+
+@router.route("/wireguard/peers/import", methods=['POST'])
+@login_required
+@setup_required
+def add_imported_wireguard_peer():
+    if len(interfaces) < 1:
+        abort(BAD_REQUEST, "There are no wireguard interfaces!")
+    iface_uuid = request.args.get("interface", None)
+    if not iface_uuid:
+        abort(BAD_REQUEST, f"No interface provided.")
+    iface = interfaces.get(iface_uuid, None)
+    if not iface:
+        abort(BAD_REQUEST, f"Unknown interface '{iface_uuid}'.")
+    context = {
+        "title": "Import peers",
+        "EMPTY_FIELD": EMPTY_FIELD,
+        "errors": [],
+        "successes": [],
+    }
+    files = request.files.getlist("files")
+    if len(files) < 1 or len(files) == 1 and not files[0].filename:
+        context["errors"].append("You must specify one or more files to import!")
+        return ViewController("web/import.html", **context).load()
+    for file in files:
+        try:
+            stream = StringIO(file.stream.read().decode("utf-8"))
+            peer = Peer.from_wireguard_conf(file.filename.rsplit(".", 1)[0], stream, iface)
+            if not Peer.is_name_valid(peer.name):
+                msg = (f"Name <code>{peer.name}</code> is not valid! It "
+                       f"can only contain alphanumeric characters, underscores (_), hyphens (-) and whitespaces. "
+                       f"It must also begin with a letter and be between {Peer.MIN_NAME_LENGTH} and "
+                       f"{Peer.MAX_NAME_LENGTH} characters long.")
+                raise WireguardError(msg, BAD_REQUEST)
+            if Peer.is_ip_in_use(peer.ipv4_address):
+                raise WireguardError(f"Address <code>{peer.ipv4_address}</code> is already in use!", BAD_REQUEST)
+            iface.add_peer(peer)
+            context["successes"].append(f"Peer <code>{peer.name}</code> was successfully imported!")
+        except Exception as e:
+            log_exception(e)
+            context["errors"].append(f"Unable to import file <code>{file.filename}</code>. {str(e)}")
+    config_manager.save()
+    return ViewController("web/import.html", **context).load()
 
 
 @router.route("/wireguard/interfaces/add", methods=['GET'])

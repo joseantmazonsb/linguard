@@ -229,7 +229,31 @@
                 <div class="card-header">
                     <i class="fas fa-user-friends mr-1"></i>
                     Peers
-                    <a href="/wireguard/peers/add?interface={{ iface.uuid }}" class="float-right" title="Add"><i class="fas fa-plus mr-1"></i></a>
+                    <span class="float-right" title="Add" data-toggle="modal" data-target="#addPeer"
+                              type="button"><i class="fas fa-plus mr-1"></i></span>
+                        <!-- Add modal -->
+                        <div class="modal fade" id="addPeer" tabindex="-1" role="dialog"
+                             aria-labelledby="addPeerTitle" aria-hidden="true">
+                          <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                              <div class="modal-header">
+                                <h5 class="modal-title" id="addPeerTitle">Add peer</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                  <span aria-hidden="true">&times;</span>
+                                </button>
+                              </div>
+                              <div class="modal-body">
+                                  You may add a new peer or <strong>import</strong> as much peers as you want.
+                              </div>
+                              <div class="modal-footer">
+                                  <a type="button" class="btn btn-primary" href="/wireguard/peers/add?interface={{ iface.uuid }}"
+                                     title="Add">Add</a>
+                                  <a type="button" class="btn btn-secondary" href="/wireguard/peers/import?interface={{ iface.uuid }}"
+                                     title="Import">Import</a>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                 </div>
                 <div class="card-body">
                     <div id="wgIfacePeers">

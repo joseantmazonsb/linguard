@@ -2,6 +2,7 @@ import http
 import io
 import json
 from http.client import NO_CONTENT, INTERNAL_SERVER_ERROR
+from ipaddress import IPv4Interface
 from logging import debug
 
 from flask import Response, url_for, redirect, abort, request
@@ -30,8 +31,8 @@ class RestController:
     @staticmethod
     def __save_iface__(iface: Interface, form):
         iface.edit(name=form.name.data, description=form.description.data,
-                   gw_iface=form.gateway.data, ipv4_address=form.ipv4.data, port=form.port.data,
-                   auto=form.auto.data, on_up=str_to_list(form.on_up.data),
+                   gw_iface=form.gateway.data, ipv4_address=IPv4Interface(form.ipv4.data),
+                   port=form.port.data, auto=form.auto.data, on_up=str_to_list(form.on_up.data),
                    on_down=str_to_list(form.on_down.data))
         config_manager.save()
 
@@ -66,7 +67,7 @@ class RestController:
     def add_peer(form) -> Peer:
         iface = interfaces.get_value_by_attr("name", form.interface.data)
         peer = Peer(name=form.name.data, description=form.description.data,
-                    interface=iface, ipv4_address=form.ipv4.data,
+                    interface=iface, ipv4_address=IPv4Interface(form.ipv4.data),
                     dns1=form.dns1.data, dns2=form.dns2.data, nat=form.nat.data)
         iface.add_peer(peer)
         config_manager.save()
@@ -86,7 +87,7 @@ class RestController:
     def save_peer(peer: Peer, form):
         iface = interfaces.get_value_by_attr("name", form.interface.data)
         peer.edit(name=form.name.data, description=form.description.data, interface=iface,
-                  ipv4_address=form.ipv4.data, nat=form.nat.data, dns1=form.dns1.data, dns2=form.dns2.data)
+                  ipv4_address=IPv4Interface(form.ipv4.data), nat=form.nat.data, dns1=form.dns1.data, dns2=form.dns2.data)
         config_manager.save()
 
     def download_peer(self, peer: Peer) -> Response:

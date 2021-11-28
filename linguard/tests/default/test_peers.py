@@ -1,3 +1,5 @@
+from ipaddress import IPv4Interface
+
 import pytest
 
 from linguard.core.models import interfaces, Peer
@@ -21,13 +23,14 @@ def client():
 def test_get_edit(client):
     login(client)
     iface = create_test_iface("iface1", "10.0.0.1/24", 50000)
-    peer = Peer(name="peer1", description="", ipv4_address="10.0.0.2/24", nat=False, interface=iface, dns1="8.8.8.8")
+    peer = Peer(name="peer1", description="", ipv4_address=IPv4Interface("10.0.0.2/24"), nat=False, interface=iface,
+                dns1="8.8.8.8")
     iface.add_peer(peer)
     interfaces[iface.uuid] = iface
     response = client.get(f"{url}/{peer.uuid}")
     assert is_http_success(response.status_code)
     assert peer.name.encode() in response.data
-    assert peer.ipv4_address.encode() in response.data
+    assert str(peer.ipv4_address).encode() in response.data
     assert peer.dns1.encode() in response.data
     assert iface.name.encode() in response.data
 
@@ -35,7 +38,8 @@ def test_get_edit(client):
 def test_post_edit_ok(client):
     login(client)
     iface = create_test_iface("iface1", "10.0.0.1/24", 50000)
-    peer = Peer(name="peer1", description="", ipv4_address="10.0.0.2/24", nat=False, interface=iface, dns1="8.8.8.8")
+    peer = Peer(name="peer1", description="", ipv4_address=IPv4Interface("10.0.0.2/24"), nat=False, interface=iface,
+                dns1="8.8.8.8")
     iface.add_peer(peer)
     interfaces[iface.uuid] = iface
 
@@ -65,7 +69,8 @@ def test_post_edit_ok(client):
 def test_post_edit_ko(client):
     login(client)
     iface = create_test_iface("iface1", "10.0.0.1/24", 50000)
-    peer = Peer(name="peer1", description="", ipv4_address="10.0.0.2/24", nat=False, interface=iface, dns1="8.8.8.8")
+    peer = Peer(name="peer1", description="", ipv4_address=IPv4Interface("10.0.0.2/24"), nat=False, interface=iface,
+                dns1="8.8.8.8")
     iface.add_peer(peer)
     interfaces[iface.uuid] = iface
 

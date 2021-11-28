@@ -1,3 +1,5 @@
+from ipaddress import IPv4Interface
+
 import pytest
 
 from linguard.common.utils.network import get_default_gateway
@@ -23,8 +25,8 @@ def client():
 def test_get_edit(client):
     login(client)
     iface = create_test_iface("iface1", "10.0.0.1/24", 50000)
-    peer1 = Peer(name="peer1", description="", ipv4_address="10.0.0.2/24", nat=False, interface=iface, dns1="8.8.8.8")
-    peer2 = Peer(name="peer2", description="", ipv4_address="10.0.0.3/24", nat=False, interface=iface, dns1="8.8.8.8")
+    peer1 = Peer(name="peer1", description="", ipv4_address=IPv4Interface("10.0.0.2/24"), nat=False, interface=iface, dns1="8.8.8.8")
+    peer2 = Peer(name="peer2", description="", ipv4_address=IPv4Interface("10.0.0.3/24"), nat=False, interface=iface, dns1="8.8.8.8")
     iface.add_peer(peer1)
     iface.add_peer(peer2)
     interfaces[iface.uuid] = iface
@@ -38,8 +40,8 @@ def test_get_edit(client):
 def test_post_edit_ok(client):
     login(client)
     iface = create_test_iface("iface1", "10.0.0.1/24", 50000)
-    peer1 = Peer(name="peer1", description="", ipv4_address="10.0.0.2/24", nat=False, interface=iface, dns1="8.8.8.8")
-    peer2 = Peer(name="peer2", description="", ipv4_address="10.0.0.3/24", nat=False, interface=iface, dns1="8.8.8.8")
+    peer1 = Peer(name="peer1", description="", ipv4_address=IPv4Interface("10.0.0.2/24"), nat=False, interface=iface, dns1="8.8.8.8")
+    peer2 = Peer(name="peer2", description="", ipv4_address=IPv4Interface("10.0.0.3/24"), nat=False, interface=iface, dns1="8.8.8.8")
     iface.add_peer(peer1)
     iface.add_peer(peer2)
     interfaces[iface.uuid] = iface
@@ -73,8 +75,10 @@ def test_post_edit_ko(client):
     login(client)
     iface = create_test_iface("iface1", "10.0.0.1/24", 50000)
     iface2 = create_test_iface("iface1", "10.0.1.1/24", 50000)
-    peer1 = Peer(name="peer1", description="", ipv4_address="10.0.0.2/24", nat=False, interface=iface, dns1="8.8.8.8")
-    peer2 = Peer(name="peer2", description="", ipv4_address="10.0.0.3/24", nat=False, interface=iface, dns1="8.8.8.8")
+    peer1 = Peer(name="peer1", description="", ipv4_address=IPv4Interface("10.0.0.2/24"), nat=False, interface=iface,
+                 dns1="8.8.8.8")
+    peer2 = Peer(name="peer2", description="", ipv4_address=IPv4Interface("10.0.0.3/24"), nat=False, interface=iface,
+                 dns1="8.8.8.8")
     iface.add_peer(peer1)
     iface.add_peer(peer2)
     interfaces[iface.uuid] = iface

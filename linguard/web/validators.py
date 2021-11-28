@@ -1,7 +1,7 @@
-import ipaddress
 import json
 import os.path
 import re
+from ipaddress import IPv4Interface, IPv4Address
 from logging import error
 
 from flask_login import current_user
@@ -86,10 +86,10 @@ class InterfaceIpValidator:
         if len(field.data.split("/")) != 2:
             return stop_validation(field, "must be valid IPv4 interface. Follow the format 'X.X.X.X/Y'.")
         try:
-            ip = ipaddress.IPv4Interface(field.data)
+            ip = IPv4Interface(field.data)
         except ValueError:
             return stop_validation(field, "must be valid IPv4 interface. Follow the format 'X.X.X.X/Y'.")
-        if Interface.is_ip_in_use(str(ip), form.iface):
+        if Interface.is_ip_in_use(ip, form.iface):
             return stop_validation(field, "address already in use!")
         if Interface.is_network_in_use(ip, form.iface):
             return stop_validation(field, f"network {ip.network} already has a wireguard interface!")
@@ -120,16 +120,16 @@ class PeerNameValidator:
 class PeerIpValidator:
     def __call__(self, form, field):
         try:
-            ipaddress.IPv4Interface(field.data)
+            IPv4Interface(field.data)
         except ValueError:
             msg = "must be valid IPv4 address. Follow the format 'X.X.X.X'."
             return stop_validation(field, msg)
         iface = interfaces.get_value_by_attr("name", form.interface.data)
         if not iface:
             return stop_validation(field, "unknown interface")
-        iface_network = ipaddress.IPv4Interface(iface.ipv4_address).network
-        peer_ip = ipaddress.IPv4Interface(f"{field.data.split('/')[0]}/{iface_network.prefixlen}")
-        if Peer.is_ip_in_use(str(peer_ip), form.peer):
+        iface_network = iface.ipv4_address.network
+        peer_ip = IPv4Interface(f"{field.data.split('/')[0]}/{iface_network.prefixlen}")
+        if Peer.is_ip_in_use(peer_ip, form.peer):
             return stop_validation(field, "address already in use!")
         if peer_ip not in iface_network:
             return stop_validation(field, f"address must belong to network {iface_network}")
@@ -140,7 +140,7 @@ class PeerIpValidator:
 class PeerPrimaryDnsValidator:
     def __call__(self, form, field):
         try:
-            ipaddress.IPv4Address(field.data)
+            IPv4Address(field.data)
         except ValueError:
             msg = "must be valid IPv4 address. Follow the format 'X.X.X.X'."
             stop_validation(field, msg)
@@ -151,7 +151,7 @@ class PeerSecondaryDnsValidator:
         if not field.data:
             return
         try:
-            ipaddress.IPv4Address(field.data)
+            IPv4Address(field.data)
         except ValueError:
             msg = "must be valid IPv4 address. Follow the format 'X.X.X.X'."
             stop_validation(field, msg)
@@ -193,7 +193,7 @@ URL_REGEX = re.compile(r"[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a
 class EndpointValidator:
     def __call__(self, form, field):
         try:
-            ipaddress.IPv4Address(field.data)
+            IPv4Address(field.data)
         except ValueError:
             if not URL_REGEX.match(field.data):
                 stop_validation(field, "must be valid url or IPv4 address. "
