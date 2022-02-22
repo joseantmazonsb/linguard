@@ -5,8 +5,8 @@ Linguard
     :target: https://github.com/joseantmazonsb/linguard/blob/main/LICENSE.md
     :alt: License: GPL-3.0
 
-.. image:: https://img.shields.io/badge/python-3.7%20%7C%203.8%20%7C%203.9-blue?logo=python&logoColor=yellow
-    :alt: Supported python versions: 3.7, 3.8, 3.9
+.. image:: https://img.shields.io/badge/6-blue?logo=dotnet&logoColor=white
+    :alt: Supported dotnet versions: 6
 
 .. image:: https://github.com/joseantmazonsb/linguard/actions/workflows/stable-test.yaml/badge.svg
     :target: https://github.com/joseantmazonsb/linguard/actions/workflows/stable-test.yaml

@@ -1,0 +1,15 @@
+@page "/"
+@page "/dashboard"
+@using Linguard.Core.Utils
+
+@code {
+    const string Title = "Dashboard";
+}
+
+<PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
+
+<RadzenHeading Text="@Title" class="mb-3"/>
+
+Welcome to your new app.
+
+<RadzenButton Text="Hi"></RadzenButton>

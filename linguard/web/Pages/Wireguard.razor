@@ -1,0 +1,264 @@
+﻿@page "/wireguard"
+@using Linguard.Core.Utils
+@using Linguard.Core.Models.Wireguard
+@using Linguard.Core.Managers
+@using System.Net.NetworkInformation
+@using Linguard.Core.Configuration
+@using Linguard.Core.Services
+@using Linguard.Web.Services
+
+@inject IConfigurationManager _configurationManager
+@inject IWireguardService _wireguardService
+@inject IWebService _webService
+@inject NotificationService _notificationService
+@inject DialogService _dialogService
+@inject NavigationManager _navigationManager
+@inject IJSRuntime _js
+
+<PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
+
+<RadzenHeading Text="@Title" class="mb-3"/>
+
+<h2 class="mb-3">Interfaces</h2>
+@if (!_wireguardInterfaces.Any()) {
+    <p>It looks like there are no interfaces yet. Why don't you <a href="/add-interface">add one</a>?</p>
+}
+else {
+    <RadzenButton Icon="add_circle_outline" style="margin-bottom: 10px" Text="Add new"
+                  Click=@AddInterface />
+    <RadzenDataGrid @ref="_interfacesGrid" AllowColumnResize="true" AllowFiltering="true" AllowPaging="true"
+                    AllowSorting="true" ColumnWidth="200px"
+                    Data="@_wireguardInterfaces"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                    TItem="Interface">
+        <Columns>
+            <RadzenDataGridColumn TItem="Interface" Property="Name" Title="Name">
+                <FooterTemplate>
+                    Total: <b>@_wireguardInterfaces.Count</b>
+                </FooterTemplate>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="Interface" Property="Description" Title="Description"/>
+            <RadzenDataGridColumn TItem="Interface" Property="IPv4Address" Title="IPv4"/>
+            <RadzenDataGridColumn TItem="Interface" Property="IPv6Address" Title="IPv6"/>
+            <RadzenDataGridColumn TItem="Interface" Title="Actions" Resizable="false" 
+                                  Filterable="false" Sortable="false">
+                <Template Context="data">
+                    @if (_interfaces.SingleOrDefault(i => i.Name.Equals(data.Name)) == default) {
+                        <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Success" title="Start"
+                                      Click="() => StartInterface(data)" />
+                    }
+                    else {
+                        <RadzenButton Icon="stop" ButtonStyle="ButtonStyle.Danger" title="Stop"
+                                      Click="() => StopInterface(data)"/>
+                    }
+                    <RadzenButton Icon="download" ButtonStyle="ButtonStyle.Light" title="Download"
+                                  Click="() => _webService.DownloadWireguardModel(data)"/>
+                    <RadzenButton Icon="qr_code" title="Show QR code" ButtonStyle="ButtonStyle.Light"
+                                  Click="() => ShowQrCode(data)"/>
+                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" title="Edit"
+                                  Click="() => EditWireguardPeer(data)"/>
+                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Light" title="Delete"
+                                  Click="() => ConfirmRemoveWireguardPeer(data)"/>
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+
+    <div class="d-flex flex-row mt-2 mb-3">
+        <RadzenButton class="me-2" Text="Start all" ButtonStyle="ButtonStyle.Success" Icon="play_arrow" 
+                      IsBusy="@_startingAll" Click="@StartAllInterfaces" />
+        <RadzenButton Text="Stop all" ButtonStyle="ButtonStyle.Danger" Icon="stop" 
+                      IsBusy="@_stoppingAll" Click="@StopAllInterfaces" />
+    </div>
+}
+
+<h2>Clients</h2>
+@if (!_clients.Any()) {
+    <p>It looks like there are no clients yet. Why don't you <a href="/add-client">add one</a>?</p>
+}
+else {
+    <RadzenButton Icon="add_circle_outline" style="margin-bottom: 10px" Text="Add new"
+                  Click=@AddClient />
+    <RadzenDataGrid @ref="_clientsGrid" AllowColumnResize="true" AllowFiltering="true" AllowPaging="true"
+                    AllowSorting="true" ColumnWidth="200px"
+                    Data="@_clients"
+                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                    TItem="Client">
+        <Columns>
+            <RadzenDataGridColumn TItem="Client" Property="Name" Title="Name">
+                <FooterTemplate>
+                    Total: <b>@_clients.Count</b>
+                </FooterTemplate>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="Client" Property="Description" Title="Description"/>
+            <RadzenDataGridColumn TItem="Client" Property="IPv4Address" Title="IPv4"/>
+            <RadzenDataGridColumn TItem="Client" Property="IPv6Address" Title="IPv6"/>
+            <RadzenDataGridColumn TItem="Client" Title="Interface">
+                <Template Context="data">
+                    <a href="/edit/interface/@(_wireguardService.GetInterface(data)?.Id)">
+                        @(_wireguardService.GetInterface(data)?.Name)
+                    </a>
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="Client" Title="Actions" Resizable="false"
+                                  Filterable="false" Sortable="false">
+                <Template Context="data">
+                    <RadzenButton Icon="download" ButtonStyle="ButtonStyle.Light" title="Download"
+                                  Click="() => _webService.DownloadWireguardModel(data)"/>
+                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" title="Edit"
+                                  Click="() => EditWireguardPeer(data)"/>
+                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Light" title="Delete"
+                                  Click="() => ConfirmRemoveWireguardPeer(data)"/>
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+}
+
+@code {
+    const string Title = "Wireguard";
+    IConfiguration Configuration => _configurationManager.Configuration;
+    ICollection<Interface> _wireguardInterfaces;
+    ICollection<Client> _clients;
+    ICollection<NetworkInterface> _interfaces;
+    bool _startingAll;
+    bool _stoppingAll;
+
+    protected override void OnInitialized() {
+        _interfaces = NetworkInterface.GetAllNetworkInterfaces();
+        _wireguardInterfaces = Configuration.Wireguard.Interfaces
+            .OrderBy(i => i.Name)
+            .ToList();
+        _clients = _wireguardInterfaces.SelectMany(i => i.Clients)
+            .OrderBy(c => c.Name)
+            .ToList();
+    }
+
+    void RefreshNetworkInterfaces() {
+        _interfaces = NetworkInterface.GetAllNetworkInterfaces();
+    }
+
+    void StartInterface(Interface iface) {
+        try {
+            _wireguardService.StartInterface(iface);
+            RefreshNetworkInterfaces();
+            _interfacesGrid.Reload();
+        }
+        catch (Exception e) {
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = $"Unable to start interface {iface.Name}",
+                Detail = e.Message
+            });
+        }
+    }
+    
+    void StopInterface(Interface @interface) {
+        try {
+            _wireguardService.StopInterface(@interface);
+            RefreshNetworkInterfaces();
+            _interfacesGrid.Reload();
+        }
+        catch (Exception e) {
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = $"Unable to stop interface {@interface.Name}",
+                Detail = e.Message
+            });
+        }
+    }
+    
+    void StopAllInterfaces() {
+        _stoppingAll = true;
+        foreach (var iface in Configuration.Wireguard.Interfaces) {
+            StopInterface(iface);
+        }
+        _stoppingAll = false;
+    }
+    
+    void StartAllInterfaces() {
+        _startingAll = true;
+        foreach (var iface in Configuration.Wireguard.Interfaces) {
+            StartInterface(iface);
+        }
+        _startingAll = false;
+    }
+
+    void EditWireguardPeer(IWireguardPeer peer) {
+        var modelType = peer.GetType().Name.ToLower();
+        _navigationManager.NavigateTo($"{modelType}/{peer.Id}");
+    }
+    
+    void AddClient() {
+        _navigationManager.NavigateTo($"/add-{nameof(Client).ToLower()}");
+    }
+
+    void AddInterface() {
+        _navigationManager.NavigateTo($"/add-{nameof(Interface).ToLower()}");
+    }
+    
+    async void ConfirmRemoveWireguardPeer(IWireguardPeer peer) {
+        var peerType = peer.GetType().Name.ToLower();
+        var remove = await _dialogService.Confirm(
+            $"Are you sure you want to delete {peer.Name}? This cannot be undone.", 
+            $"Delete {peerType} {peer.Name}",
+            new ConfirmOptions {
+                OkButtonText = "Yes",
+                CancelButtonText = "No",
+                CloseDialogOnOverlayClick = true,
+            });
+        if (remove == default || !remove.Value) return;
+        try {
+            RemoveWireguardModel(peer);
+            _configurationManager.Save();
+        }
+        catch (Exception e) {
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = $"Unable to remove {peerType} {peer.Name}",
+                Detail = e.Message
+            });
+        }
+    }
+
+    void RemoveWireguardModel(IWireguardPeer peer) {
+        _webService.RemoveWireguardModel(peer);
+        switch (peer) {
+            case Client client:
+                RemovePeer(client);
+                break;
+            case Interface iface:
+                RemoveInterface(iface);
+                break;
+        }
+    }
+    
+    RadzenDataGrid<Client> _clientsGrid;
+    RadzenDataGrid<Interface> _interfacesGrid;
+    
+    void RemovePeer(Client client) {
+        _clients.Remove(client);
+        _clientsGrid.Reload();
+    }
+    
+    void RemoveInterface(Interface iface) {
+        _wireguardInterfaces.Remove(iface);
+        _interfacesGrid.Reload();
+    }
+    
+    async void ShowQrCode(IWireguardPeer peer) {
+        var qr = $"data:image/png;base64, {Convert.ToBase64String(_webService.GetQrCode(peer))}" ;
+        await _dialogService.OpenAsync($"Configuration of {peer.Name}", ds =>
+            @<div>
+                <div class="row">
+                    <div class="col text-center">
+                        <RadzenImage Path="@qr" Style="display: block; width: 25rem;"/>
+                    </div>
+                </div>
+            </div>, 
+            new DialogOptions {
+                Style = "min-height:auto;min-width:auto;width:auto"
+            }
+        );
+    }
+}

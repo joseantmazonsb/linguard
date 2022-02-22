@@ -12,62 +12,24 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9]
+        dotnet-version: [6]
         os: [ ubuntu-20.04 ]
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
 
-      - name: Set permissions
-        run: |
-          chmod +x linguard/core/tools/*
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+      - name: Set up Dotnet ${{ matrix.dotnet-version }}
+        uses: actions/setup-dotnet
         with:
-          python-version: ${{ matrix.python-version }}
+          dotnet-version: ${{ matrix.dotnet-version }}
 
-      - name: Upgrade pip
-        run: |
-          pip install --upgrade pip
-
-      - name: Set up virtual environment using poetry
-        run: |
-          wget https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py
-          python3 install-poetry.py
-          poetry config virtualenvs.create false
-          poetry install --no-interaction
-
-      - name: Install linux dependencies
-        run: |
-          sudo apt-get -qq install wireguard iptables
-
-      - name: Run tests
-        run: |
-          poetry run coverage run -m pytest && poetry run coverage xml --fail-under=80
-
-      - name: Check docs are compiled successfully
-        run: |
-          cd docs && make html && cd ..
+      - name: Test
+        run: dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:Threshold=80 Linguard
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v2.1.0
         if: always()
-        with:
-          files: coverage.xml
 
-      - name: Build release
+      - name: Check docs are compiled successfully
         run: |
-          ./build.sh
-
-      - name: Install release
-        run: |
-          cd dist
-          tar -xf *.tar.gz
-          sudo ./install.sh
-
-      - name: Briefly test uwgsi (can't use service here)
-        run: |
-          sudo -u linguard /usr/bin/uwsgi --yaml /var/www/linguard/data/uwsgi.yaml &
-          sleep 2s
-          sudo pkill -f uwsgi
+          cd docs && make html && cd ..

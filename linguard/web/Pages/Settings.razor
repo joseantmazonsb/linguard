@@ -1,0 +1,71 @@
+﻿@page "/settings"
+@using Linguard.Core.Utils
+@using Linguard.Core.Managers
+@using Linguard.Core.Configuration
+@using Linguard.Web.Services
+
+@inject IConfigurationManager _configurationManager
+@inject NotificationService _notificationService;
+@inject IWebService _webService;
+
+@code { 
+    const string Title = "Settings";
+    IConfiguration _configuration;
+
+    protected override void OnInitialized() {
+        _configuration = (IConfiguration) _configurationManager.Configuration.Clone();
+    }
+
+}
+
+<PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
+
+<RadzenHeading Text="@Title" class="mb-3"/>
+
+<RadzenCard class="mb-3">
+    <RadzenTemplateForm Data="@_configuration" Submit="@((IConfiguration args) => { Save(args); })">
+        <RadzenTabs SelectedIndex="0" RenderMode="TabRenderMode.Server">
+            <Tabs>
+                <RadzenTabsItem Text="Web">
+                    <WebSettings Configuration="@_configuration.Web"/>
+                </RadzenTabsItem>
+                <RadzenTabsItem Text="Wireguard">
+                    <WireguardSettings Configuration="@_configuration.Wireguard"/>
+                </RadzenTabsItem>
+                <RadzenTabsItem Text="Traffic">
+                </RadzenTabsItem>
+                <RadzenTabsItem Text="Logging">
+                    <LoggingSettings Configuration="@_configuration.Logging"/>
+                </RadzenTabsItem>
+            </Tabs>
+        </RadzenTabs>
+        <div class="row mt-2 d-flex">
+                <div class="col-md-12 align-items-end">
+                    <RadzenButton ButtonType="ButtonType.Submit" Icon="save" Text="Save" class="me-2"
+                                  ButtonStyle="ButtonStyle.Primary"/>
+                    <RadzenButton ButtonType="ButtonType.Button" Icon="download" title="Download"
+                                  ButtonStyle="ButtonStyle.Secondary"
+                                  Click="@_webService.DownloadConfiguration" />
+                </div>
+            </div>
+    </RadzenTemplateForm>
+</RadzenCard>
+
+
+@code {
+
+    void Save(IConfiguration configuration) {
+        try {
+            _configurationManager.Configuration = (IConfiguration)configuration.Clone();
+            _configurationManager.Save();
+        }
+        catch (Exception e) {
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = "Failed to save configuration",
+                Detail = e.Message
+            });
+        }
+    }
+
+}

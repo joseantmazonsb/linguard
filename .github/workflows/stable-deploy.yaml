@@ -16,34 +16,30 @@ env:
 jobs:
   deploy:
     if: github.event.pull_request.merged
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        dotnet-version: [6]
+        os: [ ubuntu-20.04 ]
     steps:
-      - uses: actions/checkout@v2
+      - name: Check out repository
+        uses: actions/checkout@v2
 
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v2
+      - name: Set up Dotnet ${{ matrix.dotnet-version }}
+        uses: actions/setup-dotnet
         with:
-          python-version: 3.9
+          dotnet-version: ${{ matrix.dotnet-version }}
 
-      - name: Upgrade pip
+      - name: Build and publish
         run: |
-          pip install --upgrade pip
-
-      - name: Set up virtual environment using poetry
-        run: |
-          wget https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py
-          python3 install-poetry.py
-          poetry config virtualenvs.create false
-          poetry install --no-interaction
-
-      - name: Get version
-        id: get_version
-        run: |
-          echo "::set-output name=version::$(poetry version -s)"
-
-      - name: Build artifacts
-        run: |
-          ./build.sh
+          dotnet publish -c Release -o ./dist/docker/cli/ ./Linguard/Cli
+          dotnet publish -c Release -o ./dist/docker/web/ ./Linguard/Web
+          dotnet publish -c Release -o ./dist/linux/linguard-web/ --sc --os linux .\Linguard\Web
+          dotnet publish -c Release -o ./dist/linux/linguard-cli/ --sc --os linux .\Linguard\Cli
+          tar -zcf linguard-docker.tar.gz ./dist/docker/
+          tar -zcf linguard-linux.tar.gz ./dist/linux/ 
+          cp scripts/* dist/
+          cp -r systemd/ dist/
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -73,7 +69,7 @@ jobs:
           name: ${{ steps.get_version.outputs.version }}
           tag: "v${{ steps.get_version.outputs.version }}"
           commit: "main"
-          artifacts: "dist/*.tar.gz"
+          artifacts: "dist/linguard-linux.tar.gz"
           bodyFile: "release-notes.md"
           discussionCategory: "Announcements"
           token: ${{ secrets.GITHUB_TOKEN }}

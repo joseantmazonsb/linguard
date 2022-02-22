@@ -1,0 +1,306 @@
+﻿@page "/interface/{id:guid}"
+@using Linguard.Core.Utils
+@using Linguard.Core.Models.Wireguard
+@using Linguard.Core.Services
+@using Linguard.Core.Managers
+@using Linguard.Core.Configuration
+@using System.Net.NetworkInformation
+@using ByteSizeLib
+@using FluentValidation
+@using Linguard.Core.Models
+@using Linguard.Web.Services
+@using Linguard.Web.Utils
+
+@inject IConfigurationManager _configurationManager
+@inject IWireguardService _wireguardService
+@inject IWebService _webService;
+@inject NotificationService _notificationService
+@inject DialogService _dialogService
+@inject NavigationManager _navigationManager
+@inject IJSRuntime _js
+@inject AbstractValidator<Interface> _validator
+
+@code {
+    const string Title = "Interface";
+    [Parameter]
+    public Guid Id { get; set; }
+    
+    IConfiguration Configuration => _configurationManager.Configuration;
+    Interface? Iface => Configuration.Wireguard.Interfaces.SingleOrDefault(i => i.Id == Id);
+
+}
+<PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
+
+@if (Iface == default) {
+    <p>Oops, it looks like the interface you are looking for does not exist.</p>
+    return;
+}
+
+<div class="row">
+    <div class="col">
+        <h1 class="mb-3">
+            @Title
+            @if (InterfaceNames.Contains(Iface.Name)) {
+                <RadzenBadge class="float-end" IsPill="true" Text="up" BadgeStyle="BadgeStyle.Success" />
+            }
+            else {
+                <RadzenBadge class="float-end" IsPill="true" Text="down" BadgeStyle="BadgeStyle.Danger" />
+            }
+        </h1>
+    </div>
+</div>
+<RadzenCard>
+    
+<RadzenAccordion Multiple="true">
+    <Items>
+        <RadzenAccordionItem Text="Actions" Icon="construction">
+            <div class="row my-2 d-flex">
+                <div class="col-md-12 align-items-end">
+                    @if (InterfaceNames.Contains(Iface.Name)) {
+                        <RadzenButton Icon="stop" ButtonStyle="ButtonStyle.Danger" title="Stop"
+                                      Click="StopInterface"/>
+                    }
+                    else {
+                        <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Success" title="Start"
+                                      Click="StartInterface" />
+                    }
+                    <RadzenButton ButtonType="ButtonType.Button" Icon="download" title="Download"
+                                  ButtonStyle="ButtonStyle.Secondary"
+                                  Click="() => _webService.DownloadWireguardModel(Iface)"/>
+                    <RadzenButton ButtonType="ButtonType.Button" Icon="qr_code" title="Show QR code"
+                                  ButtonStyle="ButtonStyle.Light"
+                                  Click="() => ShowQrCode(Iface)"/>
+                    <RadzenButton ButtonType="ButtonType.Button" Icon="delete"
+                                  ButtonStyle="ButtonStyle.Danger" title="Delete"
+                                  Click="() => ConfirmRemoveWireguardPeer(Iface)"/>
+                </div>
+            </div>
+        </RadzenAccordionItem>
+        <RadzenAccordionItem Selected="true" Text="Configuration" Icon="settings">
+            <RadzenCard class="my-2">
+                <RadzenTemplateForm Data="@Iface" Submit="@((Interface args) => { Submit(args); })">
+                    <EditInterfaceConfigurationForm Iface="Iface"/>
+                </RadzenTemplateForm>
+            </RadzenCard>
+        </RadzenAccordionItem>
+        <RadzenAccordionItem Text="Clients" Icon="people">
+            <RadzenCard class="my-2">
+                @if (!Iface.Clients.Any()) {
+                    <p>
+                        It looks like there are no clients yet. Why don't you 
+                        <a href="/add-@nameof(Client).ToLower()?@nameof(Interface)=@Iface.Id">add one</a>?
+                    </p>
+                }
+                else {
+                    <RadzenButton Icon="add_circle_outline" style="margin-bottom: 10px" Text="Add new"
+                                  Click=@AddClient />
+                    <RadzenDataGrid @ref="_clientsGrid" AllowColumnResize="true" AllowFiltering="true" AllowPaging="true"
+                                    AllowSorting="true" ColumnWidth="200px"
+                                    Data="@Iface.Clients"
+                                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                    TItem="Client">
+                        <Columns>
+                            <RadzenDataGridColumn TItem="Client" Property="Name" Title="Name">
+                                <FooterTemplate>
+                                    Total: <b>@Iface.Clients.Count</b>
+                                </FooterTemplate>
+                            </RadzenDataGridColumn>
+                            <RadzenDataGridColumn TItem="Client" Property="Description" Title="Description"/>
+                            <RadzenDataGridColumn TItem="Client" Property="IPv4Address" Title="IPv4"/>
+                            <RadzenDataGridColumn TItem="Client" Property="IPv6Address" Title="IPv6"/>
+                            <RadzenDataGridColumn TItem="Client" Property="Nat" Title="NAT"/>
+                            <RadzenDataGridColumn TItem="Client" Title="Last Handshake">
+                                <Template Context="data">
+                                    <p>@_wireguardService.GetLastHandshake(data)</p>
+                                </Template>
+                            </RadzenDataGridColumn>
+                            <RadzenDataGridColumn TItem="Client" Title="Actions" Resizable="false"
+                                                  Filterable="false" Sortable="false">
+                                <Template Context="data">
+                                    <RadzenButton Icon="download" ButtonStyle="ButtonStyle.Light" title="Download"
+                                                  Click="() => _webService.DownloadWireguardModel(data)"/>
+                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" title="Edit"
+                                                  Click="() => EditWireguardClient(data)"/>
+                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Light" title="Delete"
+                                                  Click="() => ConfirmRemoveWireguardPeer(data)"/>
+                                </Template>
+                            </RadzenDataGridColumn>
+                        </Columns>
+                    </RadzenDataGrid>
+                }
+            </RadzenCard>
+        </RadzenAccordionItem>
+        <RadzenAccordionItem Text="Traffic data" Icon="swap_vert">
+            <div class="row">
+                <!-- Real time -->
+                <div class="col-md-6 mt-2">
+                    <RadzenCard>
+                        <h3>Real time</h3>
+                        @if (realTimeTraffic == default || realTimeChartData.All(d => d.Value == default)) {
+                            <p>There is no data yet.</p>
+                        }
+                        else {
+                            <RadzenChart>
+                                <RadzenDonutSeries Data="@realTimeChartData"
+                                                   CategoryProperty="Key" ValueProperty="Value.Bytes">
+                                    <TooltipTemplate Context="data">
+                                        <div>
+                                            <strong>@data.ToString()</strong>
+                                        </div>
+                                    </TooltipTemplate>
+                                </RadzenDonutSeries>
+                            </RadzenChart>
+                        }
+                    </RadzenCard>
+                </div>
+                <!-- History -->
+                <div class="col-md-6 mt-2">
+                    <RadzenCard>
+                        <h3>History</h3>
+                        @if (!Configuration.Traffic.Enabled) {
+                            <p>
+                                It looks like traffic data storage is disabled.
+                                <a href="/settings">Enable it</a> to get more statistics.
+                            </p>
+                        }
+                        <!-- TODO -->
+                        <p>There is no data yet.</p>
+                    </RadzenCard>
+                </div>
+            </div>
+        </RadzenAccordionItem>
+    </Items>
+</RadzenAccordion>
+
+</RadzenCard>
+
+
+@code {
+
+    TrafficData? realTimeTraffic => _wireguardService.GetTrafficData(Iface)
+        .SingleOrDefault(e => e.Peer is Interface);
+
+    IEnumerable<ChartTrafficData> realTimeChartData => new List<ChartTrafficData> {
+        new() {
+            Key = "Received",
+            Value = realTimeTraffic?.ReceivedData ?? ByteSize.FromBytes(0)
+        },
+        new() {
+            Key = "Transmitted",
+            Value = realTimeTraffic?.SentData ?? ByteSize.FromBytes(0)
+        }
+    };
+
+    void Submit(Interface args) {
+        var result = _validator.Validate(args);
+        if (result.IsValid) {
+            _configurationManager.Save();
+            _navigationManager.NavigateTo("wireguard");
+            return;
+        }
+    }
+
+    void StartInterface() {
+        try {
+            _wireguardService.StartInterface(Iface);
+        }
+        catch (Exception e) {
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = $"Unable to start interface",
+                Detail = e.Message
+            });
+        }
+    }
+    
+    void StopInterface() {
+        try {
+            _wireguardService.StopInterface(Iface);
+        }
+        catch (Exception e) {
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = $"Unable to stop interface",
+                Detail = e.Message
+            });
+        }
+    }
+
+    async void ShowQrCode(IWireguardPeer peer) {
+        var qr = $"data:image/png;base64, {Convert.ToBase64String(_webService.GetQrCode(peer))}" ;
+        await _dialogService.OpenAsync($"Configuration of {peer.Name}", ds =>
+            @<div>
+                <div class="row">
+                    <div class="col text-center">
+                        <RadzenImage Path="@qr" Style="display: block; width: 25rem;"/>
+                    </div>
+                </div>
+            </div>, 
+            new DialogOptions {
+                Style = "min-height:auto;min-width:auto;width:auto"
+            }
+        );
+    }
+    
+    void EditWireguardClient(Client client) {
+        _navigationManager.NavigateTo($"{nameof(Client).ToLower()}/{client.Id}");
+    }
+
+    async void ConfirmRemoveWireguardPeer(IWireguardPeer peer) {
+        var peerType = peer.GetType().Name.ToLower();
+        var remove = await _dialogService.Confirm(
+            $"Are you sure you want to delete {peer.Name}? This cannot be undone.", 
+            $"Delete {peerType} {peer.Name}",
+            new ConfirmOptions {
+                OkButtonText = "Yes",
+                CancelButtonText = "No",
+                CloseDialogOnOverlayClick = true,
+            });
+        if (remove == default || !remove.Value) return;
+        try {
+            RemoveWireguardPeer(peer);
+            _configurationManager.Save();
+        }
+        catch (Exception e) {
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = $"Unable to remove {peerType} {peer.Name}",
+                Detail = e.Message
+            });
+        }
+    }
+
+    void RemoveWireguardPeer(IWireguardPeer peer) {
+        _webService.RemoveWireguardModel(peer);
+        switch (peer) {
+            case Client client:
+                RemoveClient(client);
+                break;
+            case Interface iface:
+                RemoveInterface(iface);
+                break;
+        }
+    }
+    
+    IEnumerable<string> InterfaceNames => NetworkInterface.GetAllNetworkInterfaces()
+        .Select(i => i.Name)
+    //.Concat(Configuration.Interfaces.Select(i => i.Name))
+    //.Distinct()
+        .OrderBy(n => n);
+    
+    RadzenDataGrid<Client> _clientsGrid;
+    
+    void RemoveClient(Client client) {
+        Iface.Clients.Remove(client);
+        //_clientsGrid.Reload();
+    }
+    
+    void RemoveInterface(Interface iface) {
+        Configuration.Wireguard.Interfaces.Remove(iface);
+        _navigationManager.NavigateTo("wireguard");
+    }
+    
+    void AddClient() {
+        _navigationManager.NavigateTo($"/add-{nameof(Client).ToLower()}?{nameof(Interface)}={Iface.Id}");
+    }
+}

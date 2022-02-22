@@ -1,0 +1,18 @@
+﻿@code {
+    string user = "admin";
+    string? email;
+    string GreetingMessage => $"Hi, {user}";
+    string GravatarEmail => email ?? "user@example.com";
+}
+
+<RadzenProfileMenu>
+    <Template>  
+        <RadzenGravatar Email="@GravatarEmail"/>
+    </Template>
+    <ChildContent>
+        <RadzenProfileMenuItem Text="@GreetingMessage"/>
+        <hr class="my-0 mx-1"/>
+        <RadzenProfileMenuItem Text="Account" Path="account" Icon="account_circle"/>
+        <RadzenProfileMenuItem Text="Logout" Path="logout" Icon="logout"/>
+    </ChildContent>
+</RadzenProfileMenu>

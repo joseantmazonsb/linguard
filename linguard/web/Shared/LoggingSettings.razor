@@ -1,0 +1,54 @@
+﻿@using Linguard.Core.Configuration
+@using Linguard.Core.Models
+@namespace Linguard.Web.Shared
+
+<div>
+    <div class="row mb-2">
+        <div class="col">
+            <div class="row">
+                <div class="col">
+                    <RadzenLabel class="mb-2" Text="Path to log file"/>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <RadzenTextBox Value="" Placeholder="/path/to/file"/>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <div class="row">
+                <div class="col">
+                    <RadzenLabel class="mb-2" Text="Level"/>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <RadzenDropDown TValue="string" AllowClear="false" Placeholder="Select a log level"
+                                    Data="@Enum.GetNames(typeof(Log.LogLevel)).Select(s => s.ToString())"
+                                    Value="@Configuration.Level.ToString()"
+                                    Change="l => Configuration.Level = Enum.Parse<Log.LogLevel>((string) l)"
+                                    />
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <RadzenCheckBox TValue="bool" Name="OverwriteCheckBox" 
+                            Trim="true" Value="@Configuration.Overwrite" 
+                            Change="b => Configuration.Overwrite = b"
+            />
+            <RadzenLabel Text="Overwrite" Component="OverwriteCheckBox" 
+                         Style="margin-left: 8px; vertical-align: middle;" />
+        </div>
+    </div>
+    
+</div>
+
+@code {
+    [Parameter]
+    public ILoggingConfiguration Configuration { get; set; }
+}

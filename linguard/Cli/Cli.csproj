@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net6.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AssemblyName>Linguard.Cli</AssemblyName>
+        <RootNamespace>Linguard.Cli</RootNamespace>
+        <PackageId>Linguard.Cli</PackageId>
+        <PackageVersion>2.0.0</PackageVersion>
+        <Title>linguard-cli</Title>
+        <Authors>José Antonio Mazón San Bartolomé</Authors>
+        <Company>José Antonio Mazón San Bartolomé</Company>
+        <Product>Linguard</Product>
+        <VersionPrefix>2.0.0</VersionPrefix>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Core\Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="CommandLineParser" Version="2.8.0" />
+      <PackageReference Include="FluentValidation" Version="10.3.6" />
+      <PackageReference Include="Typin" Version="3.1.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Update="NLog.config">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,89 @@
+﻿@using Linguard.Core.Configuration
+@using Linguard.Core.Models
+@namespace Linguard.Web.Shared
+
+<div>
+    <!-- Default endpoint and dns -->
+    <div class="row mb-2">
+        <div class="col">
+            <div class="row">
+                <div class="col">
+                    <RadzenLabel class="mb-2" Text="Endpoint"/>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <RadzenTextBox class="w-100" Value="@Configuration.Endpoint?.ToString()" Placeholder="vpn.example.com"/>
+                </div>
+            </div>
+        </div>
+        <div class="col mb-2">
+            <div class="row">
+                <div class="col">
+                    <RadzenLabel class="mb-2" Text="Primary DNS"/>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <RadzenTextBox class="w-100" Value="@Configuration.PrimaryDns?.ToString()" Placeholder="dns1.example.com"/>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="row">
+                <div class="col">
+                    <RadzenLabel class="mb-2" Text="Secondary DNS"/>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <RadzenTextBox class="w-100" Value="@Configuration.SecondaryDns?.ToString()" Placeholder="dns2.example.com"/>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Binaries -->
+    <div class="row">
+        <div class="col">
+            <div class="row">
+                <div class="col">
+                    <RadzenLabel class="mb-2" Text="Path to wg"/>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <RadzenTextBox class="w-100" Value="@Configuration.WireguardBin" Placeholder="/usr/bin/wg"/>
+                </div>
+            </div>
+        </div>
+        <div class="col mb-2">
+            <div class="row">
+                <div class="col">
+                    <RadzenLabel class="mb-2" Text="Path to wg-quick"/>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <RadzenTextBox class="w-100" Value="@Configuration.WireguardQuickBin" Placeholder="/usr/bin/wg-quick"/>
+                </div>
+            </div>
+        </div>
+        <div class="col mb-2">
+            <div class="row">
+                <div class="col">
+                    <RadzenLabel class="mb-2" Text="Path to iptables"/>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <RadzenTextBox class="w-100" Value="@Configuration.IptablesBin" Placeholder="/usr/sbin/iptables"/>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public IWireguardConfiguration Configuration { get; set; }
+}

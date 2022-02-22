@@ -15,9 +15,9 @@ function run {
     ln -s "$EXPORTED_PATH" "$DATA_PATH"
     chown -R linguard:linguard "$DATA_PATH"
     chown -R linguard:linguard "$EXPORTED_PATH"
-    # Start uwsgi
+    # Start server
     ls -l "$EXPORTED_PATH"
-    sudo -u linguard /usr/bin/uwsgi --yaml "$DATA_PATH/uwsgi.yaml"
+    sudo -u linguard dotnet "$INSTALL_PATH/Linguard.Web.Dll"
 }
 
 flag_file="$EXPORTED_PATH/.times_ran"

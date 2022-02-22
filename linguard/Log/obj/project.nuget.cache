@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "DbN6ZXzE3V3xmQG8h17p0U3xYuP3RMuQ5XTzRQJxi2R/6nt+LpyhCJ+hNMgMZPEhqceSMc0jA805TQc18Zs/3Q==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\theyu\\repos\\linguard\\Linguard\\Log\\Log.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\theyu\\.nuget\\packages\\nlog\\4.7.13\\nlog.4.7.13.nupkg.sha512"
+  ],
+  "logs": []
+}

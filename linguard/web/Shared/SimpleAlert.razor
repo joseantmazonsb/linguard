@@ -1,0 +1,26 @@
+﻿@namespace Linguard.Web.Shared
+
+<div class="alert alert-@(Type.ToString().ToLower())" role="alert">
+  @Text
+</div>
+
+@code {
+
+    public enum AlertType {
+        Primary,
+        Secondary,
+        Success,
+        Danger,
+        Warning,
+        Info,
+        Light,
+        Dark
+    }
+    
+    [Parameter]
+    public string Text { get; set; }
+
+    [Parameter]
+    public AlertType Type { get; set; } = AlertType.Info;
+
+}

@@ -1,0 +1,91 @@
+﻿@page "/network"
+@using Linguard.Core.Utils
+@using System.Net.NetworkInformation
+@using System.Net.Sockets
+
+@code {
+    const string Title = "Network";
+}
+
+<PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
+
+<RadzenHeading Text="@Title" class="mb-3"/>
+<p>Here's all system's network interfaces:</p>
+<RadzenDataGrid AllowFiltering="true" AllowPaging="true" AllowSorting="true" 
+                AllowColumnResize="true"
+                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                Data="@_interfaces" TItem="NetworkInterfaceViewModel" ColumnWidth="200px" 
+                CellRender="@CellRender">
+    <Columns>
+        <RadzenDataGridColumn TItem="NetworkInterfaceViewModel" Property="Name" Title="Name">
+            <FooterTemplate>
+                Total: <b>@_interfaces.Count()</b>
+            </FooterTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="NetworkInterfaceViewModel" Property="Description" Title="Description"/>
+        <RadzenDataGridColumn TItem="NetworkInterfaceViewModel" Property="IPv4" Title="IPv4"/>
+        <RadzenDataGridColumn TItem="NetworkInterfaceViewModel" Property="IPv6" Title="IPv6"/>
+        <RadzenDataGridColumn TItem="NetworkInterfaceViewModel" Property="Mac" Title="MAC"/>
+        <RadzenDataGridColumn TItem="NetworkInterfaceViewModel" Title="Status" Width="100px" Resizable="false">
+            <Template Context="data">
+                <span class="rz-cell-data" Style="color: white">@data.Status.ToString()</span>
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+
+    class NetworkInterfaceViewModel {
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public string IPv4 { get; set; }
+        public string IPv6 { get; set; }
+        public string Mac { get; set; }
+        public OperationalStatus Status { get; set; }
+    }
+    
+    ICollection<NetworkInterfaceViewModel> _interfaces;
+
+    protected override void OnInitialized() {
+        _interfaces = new List<NetworkInterfaceViewModel>();
+        var interfaces = NetworkInterface.GetAllNetworkInterfaces()
+            .OrderBy(i => i.Name)
+            .ToList();
+        foreach (var iface in interfaces) {
+            var addresses = iface.GetIPProperties().UnicastAddresses;
+            var ipv4 = addresses.FirstOrDefault(
+                a => a.Address.AddressFamily == AddressFamily.InterNetwork);
+            var ipv6 = addresses.FirstOrDefault(
+                a => a.Address.AddressFamily == AddressFamily.InterNetworkV6);
+            var mac = iface.GetPhysicalAddress().ToString();
+            var macStr = string.IsNullOrEmpty(mac)
+                ? "None" 
+                : string.Join(":", Enumerable.Range(0, 6).Select(i => mac.Substring(i * 2, 2)));
+            var view = new NetworkInterfaceViewModel {
+                Name = iface.Name,
+                Description = iface.Description,
+                Mac = macStr,
+                IPv4 = ipv4 != default ? $"{ipv4.Address}/{ipv4.PrefixLength}" : "None",
+                IPv6 = ipv6 != default ? $"{ipv6.Address}/{ipv6.PrefixLength}" : "None",
+                Status = iface.OperationalStatus
+            };
+            _interfaces.Add(view);
+        }
+    }
+
+    static void CellRender(DataGridCellRenderEventArgs<NetworkInterfaceViewModel> args) {
+        if (args.Column.Title != "Status") return;
+        switch (args.Data.Status) {
+            case OperationalStatus.Up:
+                args.Attributes.Add("class", "bg-success");
+                break;
+            case OperationalStatus.Down:
+                args.Attributes.Add("class", "bg-danger");
+                break;
+            default:
+                args.Attributes.Add("class", "bg-warning");
+                break;
+        }
+    }
+}

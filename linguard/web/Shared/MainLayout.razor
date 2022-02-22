@@ -1,0 +1,58 @@
+﻿@using Linguard.Core.Utils
+@inherits LayoutComponentBase
+
+<RadzenDialog />
+<RadzenNotification />
+<RadzenTooltip />
+<RadzenContextMenu />
+
+<RadzenLayout>
+  <ChildContent>
+    <RadzenHeader>
+      <ChildContent>
+        <div class="row justify-content-start align-items-center">
+          <div class="col-6 d-flex align-items-center">
+            <RadzenSidebarToggle Click="@ToggleSidebar"/>
+            @if (AssemblyInfo.Version.ProductVersion != default && AssemblyInfo.Version.ProductVersion.Contains("-")) {
+              <RadzenLabel class="me-2" Text="@AssemblyInfo.Product"/>
+              <RadzenBadge IsPill="true" Text="dev" BadgeStyle="BadgeStyle.Warning" />
+            }
+            else {
+              <RadzenLabel Text="@AssemblyInfo.Product"/>
+            }
+          </div>
+          <div class="col-6 text-right">
+            <ProfileMenu></ProfileMenu>
+          </div>
+        </div>
+      </ChildContent>
+    </RadzenHeader>
+    <RadzenBody @ref="_body">
+      <ChildContent>
+        <RadzenContentContainer Name="main">
+        @Body
+        </RadzenContentContainer>
+      </ChildContent>
+    </RadzenBody>
+    <RadzenSidebar @ref="_sidebar">
+      <ChildContent>
+        <Sidebar></Sidebar>
+      </ChildContent>
+    </RadzenSidebar>
+    <RadzenFooter>
+      <ChildContent>
+        <Footer></Footer>
+      </ChildContent>
+    </RadzenFooter>
+  </ChildContent>
+</RadzenLayout>
+
+@code {
+  private RadzenSidebar _sidebar;
+  private RadzenBody _body;
+
+  async void ToggleSidebar() {
+    await InvokeAsync(() => _sidebar.Toggle());
+    await InvokeAsync(() => _body.Toggle());
+  }
+}

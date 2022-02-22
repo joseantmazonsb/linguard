@@ -1,0 +1,55 @@
+﻿@page "/about"
+@using Linguard.Core.Utils
+@code {
+    const string Title = "About";
+}
+<PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
+
+<RadzenHeading Text="@Title" class="mb-3"/>
+<p>Linguard aims to provide a clean, simple yet powerful web GUI to manage your WireGuard server.</p>
+
+<h2 class="mb-3">Backers</h2>
+<div class="row">
+    <div class="col-xxl-4">
+        <RadzenCard>
+            <div class="flex-row">
+                <RadzenImage class="rounded-circle float-left mr-3"
+                             Style="width: 100px; height: 100px;"
+                             Path="https://media-exp1.licdn.com/dms/image/C4D03AQGIkY_WLYv-kg/profile-displayphoto-shrink_800_800/0/1596406446234?e=1650499200&v=beta&t=LNvMxj6fTB6uXXXxvX2gINkggpQjDSGZxV6_qPSPXnQ"/>
+                <h4>José Antonio Mazón San Bartolomé</h4>
+                <p class="mt-0">Alicante, Spain</p>
+                <a style="color: inherit" href="https://github.com/joseantmazonsb" class="me-1"><i class="fa-brands fa-github"></i></a>
+                <a style="color: inherit" href="https://www.linkedin.com/in/joseantmazonsb/"><i class="fa-brands fa-linkedin"></i></a>
+            </div>
+        </RadzenCard>
+    </div>
+</div>
+
+<h2 class="mt-4 mb-3">Open Source licenses</h2>
+<div class="row">
+    <div class="col-xxl-4">
+        <div class="list-group">
+            <a href="https://github.com/radzenhq/radzen-blazor" class="list-group-item list-group-item-action">
+                <i class="fa-brands fa-github"></i> Radzen
+            </a>
+            <a href="https://github.com/twbs/bootstrap" class="list-group-item list-group-item-action">
+                <i class="fa-brands fa-bootstrap"></i> Bootstrap
+            </a>
+            <a href="https://github.com/FortAwesome/Font-Awesome" class="list-group-item list-group-item-action">
+                <i class="fa-brands fa-font-awesome"></i> Font Awesome
+            </a>
+            <a href="https://github.com/NLog/NLog" class="list-group-item list-group-item-action">
+                <i class="fa-brands fa-github"></i> NLog
+            </a>
+            <a href="https://github.com/bchavez/Bogus" class="list-group-item list-group-item-action">
+                <i class="fa-brands fa-github"></i> Bogus
+            </a>
+            <a href="https://github.com/FluentValidation/FluentValidation" class="list-group-item list-group-item-action">
+                <i class="fa-brands fa-github"></i> Fluent Validation
+            </a>
+            <a href="https://github.com/omar/ByteSize" class="list-group-item list-group-item-action">
+                <i class="fa-brands fa-github"></i> ByteSize
+            </a>
+        </div>       
+    </div>        
+</div>

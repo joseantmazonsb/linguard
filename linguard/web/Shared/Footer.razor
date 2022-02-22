@@ -1,0 +1,15 @@
+﻿@using Linguard.Core.Utils
+
+@code {
+    static string _version = AssemblyInfo.Version.ProductVersion;
+    string _versionLink = $"https://github.com/joseantmazonsb/linguard/releases/tag/v{_version}";
+    string _repoLink = "https://github.com/joseantmazonsb/linguard";
+    string _licenseLink = "https://github.com/joseantmazonsb/linguard/blob/main/LICENSE.md";
+}
+
+<div>
+    @AssemblyInfo.Product <a href="@_versionLink">@_version</a>
+    <div style="float: right">
+        <a href="@_repoLink">Github</a> &middot; <a href="@_licenseLink">License</a>
+    </div>
+</div>
