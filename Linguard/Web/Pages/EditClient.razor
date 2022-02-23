@@ -1,0 +1,61 @@
+﻿@page "/client/{id:guid}"
+@using Linguard.Core.Utils
+@using Linguard.Core.Managers
+@using Linguard.Core.Models.Wireguard
+@using Linguard.Core.Services
+@using Linguard.Core.Configuration
+
+@inject IConfigurationManager _configurationManager
+@inject IWireguardService _wireguardService
+@inject NotificationService _notificationService
+@inject DialogService _dialogService
+@inject NavigationManager _navigationManager
+@inject IJSRuntime _js
+
+
+@code {
+    const string Title = "Client";
+    [Parameter]
+    public Guid Id { get; set; }
+    
+    IConfiguration Configuration => _configurationManager.Configuration;
+    Client? Client => Configuration.Wireguard.Interfaces
+        .SelectMany(i => i.Clients)
+        .SingleOrDefault(i => i.Id == Id);
+}
+
+<PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
+
+@if (Client == default) {
+    <p>Oops, it looks like the client you are looking for does not exist.</p>
+    return;
+}
+
+<RadzenHeading Text="@Title" class="mb-3"/>
+
+<RadzenCard>
+    <RadzenAccordion Multiple="true">
+        <Items>
+            <RadzenAccordionItem Text="Actions" Icon="construction">
+                <PeerActions Peer="Client"/>
+            </RadzenAccordionItem>
+            <RadzenAccordionItem Selected="true" Text="Configuration" Icon="settings">
+                <RadzenCard class="my-2">
+                    <RadzenTemplateForm Data="@Client" Submit="@((Client args) => { Submit(args); })">
+                        <ClientConfigurationForm Client="Client" ShowWireguardKeys="true"/>
+                    </RadzenTemplateForm>
+                </RadzenCard>
+            </RadzenAccordionItem>
+            <RadzenAccordionItem Text="Traffic data" Icon="swap_vert">
+                <TrafficInfo Peer="Client"></TrafficInfo>
+            </RadzenAccordionItem>
+        </Items>
+    </RadzenAccordion>
+</RadzenCard>
+
+
+@code {
+    private void Submit(Client args) {
+        throw new NotImplementedException();
+    }
+}

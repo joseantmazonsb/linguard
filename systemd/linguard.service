@@ -7,7 +7,9 @@ Type=simple
 Restart=always
 User=linguard
 WorkingDirectory=/var/www/linguard/web
+ExecStartPre=export LinguardWorkdir=/var/www/linguard/web
 ExecStart=/var/www/linguard/web/Linguard.Web
+ExecStop=unset export LinguardWorkdir
 
 [Install]
 WantedBy=multi-user.target

@@ -1,0 +1,60 @@
+﻿@page "/interface/{interfaceId:guid}/add-client"
+
+@using Linguard.Core.Utils
+@using Linguard.Core.Managers
+@using Linguard.Core.Models.Wireguard
+@using Linguard.Core.Services
+@using Linguard.Core.Configuration
+@using FluentValidation
+
+<PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
+
+<RadzenHeading Text="@Title" class="mb-3"/>
+
+@if (Interface == default) {
+    <p>Oops, it looks like the interface you want to create a client for does not exist.</p>
+    return;
+}
+
+<RadzenCard class="my-2">
+    <RadzenTemplateForm Data="@Client" Submit="@((Client args) => { Submit(args); })">
+        <ClientConfigurationForm Client="Client" Interface="Interface" SubmitText="Add"/>
+    </RadzenTemplateForm>
+</RadzenCard>
+
+@inject IConfigurationManager _configurationManager
+@inject IWireguardService _wireguardService
+@inject NotificationService _notificationService
+@inject DialogService _dialogService
+@inject NavigationManager _navigationManager
+@inject IJSRuntime _js
+@inject AbstractValidator<Client> _validator
+@inject IClientGenerator _generator
+
+
+@code {
+    const string Title = "Add client";
+    
+    [Parameter]
+    public Guid InterfaceId { get; set; }
+    
+    IConfiguration Configuration => _configurationManager.Configuration;
+    private Interface? Interface { get; set; }
+    private Client Client { get; set; }
+    
+    protected override void OnInitialized() {
+        Interface = Configuration.Wireguard.Interfaces
+            .SingleOrDefault(i => i.Id.Equals(InterfaceId));
+        if (Interface == default) return;
+        Client = _generator.Generate(Interface);
+    }
+
+    private void Submit(Client client) {
+        var result = _validator.Validate(client);
+        if (result.IsValid) {
+            Interface!.Clients.Add(client);
+            _configurationManager.Save();
+            _navigationManager.NavigateTo("wireguard");
+        }
+    }
+}

@@ -1,0 +1,209 @@
+﻿@using Linguard.Core.Models.Wireguard
+@using Linguard.Core.Services
+@using Linguard.Core.Managers
+@using Linguard.Core.Configuration
+@namespace Linguard.Web.Shared
+
+<div>
+    <!-- Name and description -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="row mb-2">
+                <div class="col">
+                    <RadzenLabel Text="Name"/>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-xxl-10">
+                    <RadzenTextBox Placeholder="Michael Scott" Trim="true" Value="@Client.Name"
+                                   class="w-100"/>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col">
+                    <RadzenLabel Text="Description"/>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-xxl-10">
+                    <RadzenTextArea Placeholder="A brief (or long) description" Trim="true"
+                                    Value="@Client.Description" class="w-100"/>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Interface, endpoint and dns -->
+    <div class="row mb-2">
+        <div class="col-md-6">
+            <div class="row">
+                <div class="col">
+                    <RadzenLabel Text="Interface"/>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-xxl-10">
+                    <RadzenDropDown TValue="string" AllowClear="false" Placeholder="Select an interface"
+                                    Data="@Configuration.Wireguard.Interfaces.Select(i => i.Name)" 
+                                    Value="@Interface?.Name" class="w-100"
+                                    Change="o => Interface = Configuration.Wireguard.Interfaces
+                                    .SingleOrDefault(i => i.Name.Equals(o))">
+                    </RadzenDropDown>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row mb-2">
+        <div class="col-md-6">
+            <div class="row">
+                <div class="col">
+                    <RadzenLabel class="mb-2" Text="Endpoint"/>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-xxl-10">
+                    <RadzenTextBox class="w-100" Value="@Client.Endpoint.ToString()" Placeholder="vpn.example.com"/>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6 mb-2">
+            <div class="row">
+                <div class="col">
+                    <RadzenLabel class="mb-2" Text="Primary DNS"/>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-xxl-10">
+                    <RadzenTextBox class="w-100" Value="@Client.PrimaryDns.ToString()" Placeholder="dns1.example.com"/>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="row">
+                <div class="col">
+                    <RadzenLabel class="mb-2" Text="Secondary DNS"/>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-xxl-10">
+                    <RadzenTextBox class="w-100" Value="@Client.SecondaryDns?.ToString()" Placeholder="dns2.example.com"/>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Addresses -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="row mb-2">
+                <div class="col">
+                    <RadzenLabel Text="IPv4"/>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-xxl-10">
+                    <RadzenTextBox Placeholder="0.0.0.0/24" Trim="true" 
+                                   Value="@Client.IPv4Address?.ToString()"
+                                   class="w-100"/>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="row mb-2">
+                <div class="col">
+                    <RadzenLabel Text="IPv6"/>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-xxl-10">
+                    <RadzenTextBox Placeholder="43bf:534f:a9b2:8773:0545:8963:fc28:80fd" 
+                                   Trim="true" Value="@Client.IPv6Address?.ToString()"
+                                   class="w-100"/>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Keys -->
+    @if (ShowWireguardKeys) {
+        <div class="row">
+            <div class="col-md-6">
+                <div class="row mb-2">
+                    <div class="col">
+                        <RadzenLabel Text="Public key"/>
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-xxl-10">
+                        <RadzenTextBox Trim="true" Value="@Client.PublicKey"
+                                       class="w-100" Disabled="true"/>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="row mb-2">
+                    <div class="col">
+                        <RadzenLabel Text="Private key"/>
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-xxl-10">
+                        <RadzenTextBox Trim="true" Value="@Client.PrivateKey"
+                                       class="w-100" Disabled="true"/>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    <!-- Nat switch -->
+    <div class="row mb-2">
+        <div class="col-xxl-10">
+            <div class="row mb-2">
+                <div class="col">
+                    <p>Nat</p>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col d-flex">
+                    <RadzenSwitch Value="@Client.Nat" Change="b => Client.Nat = b"/>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Submit button -->
+    <div class="row mt-3 d-flex">
+        <div class="col-md-12 align-items-end">
+            <RadzenButton ButtonType="ButtonType.Submit" Icon="@SubmitIcon" Text="@SubmitText" class="me-2"
+                          ButtonStyle="ButtonStyle.Primary"/>
+        </div>
+    </div>
+</div>
+
+@inject IConfigurationManager _configurationManager
+@inject IWireguardService _wireguardService
+
+@code {
+    [Parameter]
+    public Client Client { get; set; }
+
+    [Parameter]
+    public bool ShowWireguardKeys { get; set; }
+
+    [Parameter]
+    public string SubmitText { get; set; } = "Save";
+
+    [Parameter]
+    public string SubmitIcon { get; set; } = "save";
+
+    [Parameter]
+    public Interface? Interface { get; set; }
+    
+    private IConfiguration Configuration => _configurationManager.Configuration;
+
+    protected override void OnInitialized() {
+        base.OnInitialized();
+        if (Interface == default) {
+            Interface = _wireguardService.GetInterface(Client);
+        }
+    }
+
+}

@@ -1,0 +1,123 @@
+﻿@using Linguard.Core.Models.Wireguard
+@using Linguard.Core.Services
+@using Linguard.Web.Services
+@using Linguard.Core.Managers
+@using System.Net.NetworkInformation
+
+<div class="row my-2 d-flex">
+    <div class="col-md-12 align-items-end">
+        @if (Peer is Interface) {
+            @if (InterfaceNames.Contains(Peer.Name)) {
+                <RadzenButton Icon="stop" ButtonStyle="ButtonStyle.Danger" title="Stop"
+                              Click="StopInterface"/>
+            }
+            else {
+                <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Success" title="Start"
+                              Click="StartInterface"/>
+            }
+        }
+        <RadzenButton ButtonType="ButtonType.Button" Icon="download" title="Download"
+                      ButtonStyle="ButtonStyle.Secondary"
+                      Click="() => _webService.DownloadWireguardModel(Peer)"/>
+        <RadzenButton ButtonType="ButtonType.Button" Icon="qr_code" title="Show QR code"
+                      ButtonStyle="ButtonStyle.Light"
+                      Click="() => ShowQrCode(Peer)"/>
+        <RadzenButton ButtonType="ButtonType.Button" Icon="delete"
+                      ButtonStyle="ButtonStyle.Danger" title="Delete"
+                      Click="() => ConfirmRemoveWireguardPeer(Peer)"/>
+    </div>
+</div>
+
+@inject IConfigurationManager _configurationManager
+@inject IWireguardService _wireguardService
+@inject IWebService _webService;
+@inject NotificationService _notificationService
+@inject DialogService _dialogService
+@inject NavigationManager _navigationManager
+
+@code {
+    
+    [Parameter]
+    public IWireguardPeer Peer { get; set; }
+    
+    IEnumerable<string> InterfaceNames => NetworkInterface.GetAllNetworkInterfaces()
+        .Select(i => i.Name)
+    //.Concat(Configuration.Interfaces.Select(i => i.Name))
+    //.Distinct()
+        .OrderBy(n => n);
+
+    #region Interface only methods
+    
+    void StartInterface() {
+        try {
+            _wireguardService.StartInterface((Interface) Peer);
+        }
+        catch (Exception e) {
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = "Unable to start interface",
+                Detail = e.Message
+            });
+        }
+    }
+    
+    void StopInterface() {
+        try {
+            _wireguardService.StopInterface((Interface) Peer);
+        }
+        catch (Exception e) {
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = "Unable to stop interface",
+                Detail = e.Message
+            });
+        }
+    }
+
+    #endregion
+
+    async void ShowQrCode(IWireguardPeer peer) {
+        var qr = $"data:image/png;base64, {Convert.ToBase64String(_webService.GetQrCode(peer))}" ;
+        await _dialogService.OpenAsync($"Configuration of {peer.Name}", ds =>
+            @<div>
+                <div class="row">
+                    <div class="col text-center">
+                        <RadzenImage Path="@qr" Style="display: block; width: 25rem;"/>
+                    </div>
+                </div>
+            </div>, 
+            new DialogOptions {
+                Style = "min-height:auto;min-width:auto;width:auto"
+            }
+            );
+    }
+    
+    async void ConfirmRemoveWireguardPeer(IWireguardPeer peer) {
+        var peerType = peer.GetType().Name.ToLower();
+        var remove = await _dialogService.Confirm(
+            $"Are you sure you want to delete {peer.Name}? This cannot be undone.", 
+            $"Delete {peerType} {peer.Name}",
+            new ConfirmOptions {
+                OkButtonText = "Yes",
+                CancelButtonText = "No",
+                CloseDialogOnOverlayClick = true,
+            });
+        if (remove == default || !remove.Value) return;
+        RemovePeer();
+        
+        void RemovePeer() {
+            try {
+                _webService.RemoveWireguardModel(peer);
+                _navigationManager.NavigateTo("wireguard");
+            }
+            catch (Exception e) {
+                _notificationService.Notify(new NotificationMessage {
+                    Severity = NotificationSeverity.Error,
+                    Summary = $"Unable to remove {peerType} {peer.Name}",
+                    Detail = e.Message
+                });
+            }
+        }
+    }
+
+}
