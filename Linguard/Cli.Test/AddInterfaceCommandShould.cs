@@ -2,6 +2,7 @@
 using System.Net.NetworkInformation;
 using System.Threading.Tasks;
 using Castle.Core.Internal;
+using Core.Test.Mocks;
 using FluentAssertions;
 using Linguard.Cli.Commands;
 using Typin.Attributes;
@@ -60,7 +61,7 @@ public class AddInterfaceCommandShould {
         var commandName = command.GetAttribute<CommandAttribute>().Name!;
         var app = Utils.BuildTestApp(command);
 
-        var gateway = NetworkInterface.GetAllNetworkInterfaces().First();
+        var gateway = new NetworkInterfaceMock("eth0").Object;
         var commandLine = $"{commandName} --gateway {gateway.Name}";
         
         await app.App.RunAsync(commandLine);

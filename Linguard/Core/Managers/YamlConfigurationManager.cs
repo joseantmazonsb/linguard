@@ -14,6 +14,8 @@ public class YamlConfigurationManager : FileConfigurationManager {
     private static readonly string[] SupportedExtensions = {"yaml", "yml"};
 
     private FileInfo? _configurationFile;
+    private readonly ICommandRunner _commandRunner;
+
     protected sealed override FileInfo ConfigurationFile {
         get {
             if (_configurationFile != default) return _configurationFile;
@@ -28,11 +30,11 @@ public class YamlConfigurationManager : FileConfigurationManager {
         }
     }
 
-    public override async void LoadDefaults() {
+    public override void LoadDefaults() {
         LoadWebDefaults();
         LoadLoggingDefaults();
         LoadTrafficDefaults();
-        await LoadWireguardDefaults();
+        LoadWireguardDefaults();
     }
 
     private void LoadWebDefaults() {
@@ -48,13 +50,13 @@ public class YamlConfigurationManager : FileConfigurationManager {
         Configuration.Traffic.Enabled = true;
         Configuration.Traffic.StorageDriver = new JsonTrafficStorageDriver();
     }
-    private async Task LoadWireguardDefaults() {
+    private void LoadWireguardDefaults() {
         Configuration.Wireguard.Interfaces = new HashSet<Interface>();
-        Configuration.Wireguard.IptablesBin = new CommandRunner()
+        Configuration.Wireguard.IptablesBin = _commandRunner
             .Run("whereis iptables | tr ' ' '\n' | grep bin").Stdout;
-        Configuration.Wireguard.WireguardBin = new CommandRunner()
+        Configuration.Wireguard.WireguardBin = _commandRunner
             .Run("whereis wg | tr ' ' '\n' | grep bin").Stdout;
-        Configuration.Wireguard.WireguardQuickBin = new CommandRunner()
+        Configuration.Wireguard.WireguardQuickBin = _commandRunner
             .Run("whereis wg-quick | tr ' ' '\n' | grep bin").Stdout;
         Configuration.Wireguard.Interfaces = new();
         Configuration.Wireguard.PrimaryDns = new("8.8.8.8", UriKind.RelativeOrAbsolute);
@@ -65,7 +67,9 @@ public class YamlConfigurationManager : FileConfigurationManager {
             : new(publicIp.ToString(), UriKind.RelativeOrAbsolute);
     }
 
-    public YamlConfigurationManager(IConfiguration configuration, IWorkingDirectory workingDirectory) 
-        : base(configuration, workingDirectory, new YamlConfigurationSerializer()) {
+    public YamlConfigurationManager(IConfiguration configuration, IWorkingDirectory workingDirectory, 
+        IConfigurationSerializer serializer, ICommandRunner commandRunner) 
+        : base(configuration, workingDirectory, serializer) {
+        _commandRunner = commandRunner;
     }
 }

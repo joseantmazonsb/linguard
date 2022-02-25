@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using Linguard.Cli.Middlewares;
 using Linguard.Core.Configuration;
+using Linguard.Core.Configuration.Serialization;
 using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Models.Wireguard.Validators;
@@ -17,9 +18,10 @@ namespace Linguard.Cli;
 public class CliStartup : ICliStartup {
 
     public void ConfigureServices(IServiceCollection services) {
-        var manager = new YamlConfigurationManager(new Configuration(), new WorkingDirectory());
-        services.AddSingleton<IConfigurationManager>(manager);
-        
+        services.AddSingleton<IConfigurationManager, YamlConfigurationManager>();
+        services.AddTransient<IConfiguration, Configuration>();
+        services.AddTransient<IWorkingDirectory, WorkingDirectory>();
+        services.AddSingleton<IConfigurationSerializer>(DefaultYamlConfigurationSerializer.Instance);
         services.AddTransient<ILogger, NLogLogger>();
         services.AddTransient<ICommandRunner, CommandRunner>();
         services.AddTransient<IWireguardService, WireguardService>();

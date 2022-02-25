@@ -1,5 +1,6 @@
 using FluentValidation;
 using Linguard.Core.Configuration;
+using Linguard.Core.Configuration.Serialization;
 using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Models.Wireguard.Validators;
@@ -10,6 +11,7 @@ using Linguard.Web.Middlewares;
 using Linguard.Web.Services;
 using QRCoder;
 using Radzen;
+using IConfiguration = Linguard.Core.Configuration.IConfiguration;
 using ILogger = Linguard.Log.ILogger;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,16 +20,19 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
-var manager = new YamlConfigurationManager(new Configuration(), new WorkingDirectory());
-builder.Services.AddSingleton<IConfigurationManager>(manager);
+builder.Services.AddSingleton<IConfigurationManager, YamlConfigurationManager>();
+builder.Services.AddTransient<IConfiguration, Configuration>();
+builder.Services.AddTransient<IWorkingDirectory, WorkingDirectory>();
+builder.Services.AddSingleton<IConfigurationSerializer>(DefaultYamlConfigurationSerializer.Instance);
 builder.Services.AddTransient<ILogger, NLogLogger>();
 builder.Services.AddTransient<ICommandRunner, CommandRunner>();
 builder.Services.AddTransient<IWireguardService, WireguardService>();
-builder.Services.AddTransient<IWebService, WebService>();
 builder.Services.AddTransient<IInterfaceGenerator, DefaultInterfaceGenerator>();
 builder.Services.AddTransient<IClientGenerator, DefaultClientGenerator>();
 builder.Services.AddTransient<AbstractValidator<Interface>, InterfaceValidator>();
 builder.Services.AddTransient<AbstractValidator<Client>, ClientValidator>();
+
+builder.Services.AddTransient<IWebService, WebService>();
 builder.Services.AddTransient<QRCodeGenerator, QRCodeGenerator>();
 builder.Services.AddScoped<ConfigurationSetupMiddleware>();
 
@@ -35,6 +40,7 @@ builder.Services.AddScoped<DialogService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<TooltipService>();
 builder.Services.AddScoped<ContextMenuService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

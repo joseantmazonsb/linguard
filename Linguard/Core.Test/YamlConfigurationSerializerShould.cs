@@ -2,14 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.NetworkInformation;
+using Core.Test.Mocks;
 using FluentAssertions;
 using Linguard.Core;
 using Linguard.Core.Configuration;
-using Linguard.Core.Configuration.Serialization;
 using Linguard.Core.Drivers.TrafficStorage;
 using Linguard.Core.Models;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Log;
+using Moq;
 using Xunit;
 
 namespace Core.Test; 
@@ -21,7 +22,7 @@ public class YamlConfigurationSerializerShould {
     const string yaml = @"!Configuration
 Wireguard: !Wireguard
   Interfaces:
-  - Gateway: Ethernet
+  - Gateway: eth0
     Port: 0
     Auto: false
     Clients:
@@ -67,6 +68,9 @@ Wireguard: !Wireguard
       Description: 
     OnUp: []
     OnDown: []
+    PrimaryDns: ''
+    SecondaryDns: ''
+    Endpoint: ''
     Id: 00000000-0000-0000-0000-000000000000
     PublicKey: 
     PrivateKey: 
@@ -77,6 +81,9 @@ Wireguard: !Wireguard
   IptablesBin: iptables
   WireguardBin: wg
   WireguardQuickBin: wg-quick
+  PrimaryDns: ''
+  SecondaryDns: ''
+  Endpoint: ''
 Logging: !Logging
   Level: Debug
   Overwrite: false
@@ -93,7 +100,7 @@ Traffic: !Traffic
 
     [Fact]
     public void Deserialize() {
-        var serializer = new YamlConfigurationSerializer();
+        var serializer = YamlConfigurationSerializerMock.Instance;
         var config = serializer.Deserialize(yaml);
         config.Logging.Should().NotBeNull();
         config.Wireguard.Should().NotBeNull();
@@ -123,7 +130,7 @@ Traffic: !Traffic
                 Interfaces = new HashSet<Interface> {new() {
                     Name = "wg1",
                     IPv4Address = IPAddressCidr.Parse("1.1.1.1/24"),
-                    Gateway = NetworkInterface.GetAllNetworkInterfaces().First(),
+                    Gateway = new NetworkInterfaceMock("eth0").Object,
                     Clients = new []{
                         new Client {
                             Endpoint = new Uri("vpn.example.com", UriKind.RelativeOrAbsolute),
@@ -148,7 +155,7 @@ Traffic: !Traffic
                 WireguardQuickBin = "wg-quick"
             }
         };
-        var serializer = new YamlConfigurationSerializer();
+        var serializer = YamlConfigurationSerializerMock.Instance;
         var output = serializer.Serialize(config);
         output.Trim().Should().Be(yaml.Trim());
     }
