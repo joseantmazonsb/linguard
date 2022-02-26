@@ -19,7 +19,6 @@ public class DefaultInterfaceGenerator : IInterfaceGenerator {
     }
 
     public Interface Generate() {
-        
         return new Faker<Interface>()
             .RuleFor(i => i.Auto, true)
             .RuleFor(i => i.Description, f => f.Lorem.Sentence())

@@ -1,7 +1,10 @@
 ﻿@namespace Linguard.Web.Shared
 
-<div class="alert alert-@(Type.ToString().ToLower())" role="alert">
-  @Text
+<div class="alert alert-@(Type.ToString().ToLower()) d-flex pb-0" role="alert">
+    @if (WithIcon) {
+        <RadzenIcon class="flex-shrink-0 me-2" Icon="@Icon"/>
+    }
+    <p>@Text</p>
 </div>
 
 @code {
@@ -23,4 +26,14 @@
     [Parameter]
     public AlertType Type { get; set; } = AlertType.Info;
 
+    [Parameter]
+    public bool WithIcon { get; set; } = true;
+
+    private string Icon =>
+        Type switch {
+            AlertType.Success => "check_circle",
+            AlertType.Danger => "error",
+            AlertType.Warning => "warning",
+            _ => "info"
+        };
 }

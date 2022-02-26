@@ -14,7 +14,6 @@
 @inject IWireguardService _wireguardService
 @inject IWebService _webService;
 @inject NotificationService _notificationService
-@inject DialogService _dialogService
 @inject NavigationManager _navigationManager
 @inject IJSRuntime _js
 @inject AbstractValidator<Interface> _validator
@@ -26,7 +25,12 @@
     public Guid Id { get; set; }
     
     IConfiguration Configuration => _configurationManager.Configuration;
-    Interface Iface => _generator.Generate();
+    Interface Iface { get; set; }
+
+    protected override void OnInitialized() {
+        base.OnInitialized();
+        Iface = _generator.Generate();
+    }
 
 }
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>

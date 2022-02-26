@@ -30,7 +30,14 @@
     <RadzenBody @ref="_body">
       <ChildContent>
         <RadzenContentContainer Name="main">
-        @Body
+          <ErrorBoundary @ref="errorBoundary">
+              <ChildContent>
+                  @Body
+              </ChildContent>
+            <ErrorContent>
+              <UnhandledError Exception="context"/>
+            </ErrorContent>
+          </ErrorBoundary>
         </RadzenContentContainer>
       </ChildContent>
     </RadzenBody>
@@ -51,8 +58,15 @@
   private RadzenSidebar _sidebar;
   private RadzenBody _body;
 
-  async void ToggleSidebar() {
+  private ErrorBoundary? errorBoundary;
+
+  async Task ToggleSidebar() {
     await InvokeAsync(() => _sidebar.Toggle());
     await InvokeAsync(() => _body.Toggle());
+  }
+  
+  protected override void OnParametersSet()
+  {
+    errorBoundary?.Recover();
   }
 }

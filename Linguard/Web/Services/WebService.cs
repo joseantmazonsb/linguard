@@ -25,19 +25,19 @@ public class WebService : IWebService {
     private IWireguardConfiguration Configuration => ConfigurationManager.Configuration.Wireguard;
     private QRCodeGenerator QrCodeGenerator {get; set; }
 
-    public async void Download(string data, string filename) {
+    public async Task Download(string data, string filename) {
         var bytes = Encoding.UTF8.GetBytes(data);
         var fileStream = new MemoryStream(bytes);
         using var streamRef = new DotNetStreamReference(fileStream);
         await JsRuntime.InvokeVoidAsync("downloadFileFromStream", filename, streamRef);
     }
 
-    public void DownloadConfiguration() {
-        Download(ConfigurationManager.Export(), $"{AssemblyInfo.Product.ToLower()}.config");
+    public Task DownloadConfiguration() {
+        return Download(ConfigurationManager.Export(), $"{AssemblyInfo.Product.ToLower()}.config");
     }
 
-    public void DownloadWireguardModel(IWireguardPeer peer) {
-        Download(WireguardService.GenerateWireguardConfiguration(peer), $"{peer.Name}.conf");
+    public Task DownloadWireguardModel(IWireguardPeer peer) {
+        return Download(WireguardService.GenerateWireguardConfiguration(peer), $"{peer.Name}.conf");
     }
     
     public void RemoveWireguardModel(IWireguardPeer peer) {

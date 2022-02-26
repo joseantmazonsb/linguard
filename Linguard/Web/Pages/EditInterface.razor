@@ -102,7 +102,7 @@
             </RadzenCard>
         </RadzenAccordionItem>
         <RadzenAccordionItem Text="Traffic data" Icon="swap_vert">
-            <TrafficInfo Peer="Iface"/>
+            <RealTimeTraffic Peer="Iface"/>
         </RadzenAccordionItem>
     </Items>
 </RadzenAccordion>
@@ -125,7 +125,7 @@
         _navigationManager.NavigateTo($"{nameof(Client).ToLower()}/{client.Id}");
     }
 
-    async void ConfirmRemoveWireguardPeer(IWireguardPeer peer) {
+    async Task ConfirmRemoveWireguardPeer(IWireguardPeer peer) {
         var peerType = peer.GetType().Name.ToLower();
         var remove = await _dialogService.Confirm(
             $"Are you sure you want to delete {peer.Name}? This cannot be undone.", 
@@ -174,7 +174,7 @@
             $"/{nameof(Interface)}/{Iface.Id}/add-{nameof(Client).ToLower()}");
     }
     
-    async void ShowQrCode(IWireguardPeer peer) {
+    async Task ShowQrCode(IWireguardPeer peer) {
         var qr = $"data:image/png;base64, {Convert.ToBase64String(_webService.GetQrCode(peer))}" ;
         await _dialogService.OpenAsync($"Configuration of {peer.Name}", ds =>
             @<div>

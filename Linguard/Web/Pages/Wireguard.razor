@@ -198,7 +198,7 @@
         _navigationManager.NavigateTo($"/add-{nameof(Interface).ToLower()}");
     }
     
-    async void ConfirmRemoveWireguardPeer(IWireguardPeer peer) {
+    async Task ConfirmRemoveWireguardPeer(IWireguardPeer peer) {
         var peerType = peer.GetType().Name.ToLower();
         var remove = await _dialogService.Confirm(
             $"Are you sure you want to delete {peer.Name}? This cannot be undone.", 
@@ -247,7 +247,7 @@
         _interfacesGrid.Reload();
     }
     
-    async void ShowQrCode(IWireguardPeer peer) {
+    async Task ShowQrCode(IWireguardPeer peer) {
         var qr = $"data:image/png;base64, {Convert.ToBase64String(_webService.GetQrCode(peer))}" ;
         await _dialogService.OpenAsync($"Configuration of {peer.Name}", ds =>
             @<div>
