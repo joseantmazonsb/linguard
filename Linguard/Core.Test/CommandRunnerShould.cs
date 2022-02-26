@@ -15,7 +15,7 @@ public class CommandRunnerShould {
     
     [Fact]
     public void RunPipedCommands() {
-        var result = new CommandRunner().Run("gci | sort -Property Name");
+        var result = new CommandRunner().Run("gci | sort-object -Property Name");
         result.Success.Should().BeTrue();
         result.Stdout.Should().NotBeEmpty();
         result.Stderr.Should().BeEmpty();
