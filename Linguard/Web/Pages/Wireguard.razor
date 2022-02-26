@@ -39,7 +39,7 @@
         <RadzenDataGridColumn TItem="Interface" Title="Actions" Resizable="false" 
                               Filterable="false" Sortable="false">
             <Template Context="data">
-                @if (_interfaces.SingleOrDefault(i => i.Name.Equals(data.Name)) == default) {
+                @if (_wireguardService.IsInterfaceUp(data)) {
                     <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Success" title="Start"
                                   Click="() => StartInterface(data)" />
                 }
@@ -118,12 +118,11 @@
     IConfiguration Configuration => _configurationManager.Configuration;
     ICollection<Interface> _wireguardInterfaces;
     ICollection<Client> _clients;
-    ICollection<NetworkInterface> _interfaces;
     bool _startingAll;
     bool _stoppingAll;
 
     protected override void OnInitialized() {
-        _interfaces = NetworkInterface.GetAllNetworkInterfaces();
+        NetworkInterface.GetAllNetworkInterfaces();
         _wireguardInterfaces = Configuration.Wireguard.Interfaces
             .OrderBy(i => i.Name)
             .ToList();
@@ -132,14 +131,9 @@
             .ToList();
     }
 
-    void RefreshNetworkInterfaces() {
-        _interfaces = NetworkInterface.GetAllNetworkInterfaces();
-    }
-
     void StartInterface(Interface iface) {
         try {
             _wireguardService.StartInterface(iface);
-            RefreshNetworkInterfaces();
             _interfacesGrid.Reload();
         }
         catch (Exception e) {
@@ -154,7 +148,6 @@
     void StopInterface(Interface @interface) {
         try {
             _wireguardService.StopInterface(@interface);
-            RefreshNetworkInterfaces();
             _interfacesGrid.Reload();
         }
         catch (Exception e) {

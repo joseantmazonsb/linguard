@@ -37,7 +37,7 @@
     <div class="col">
         <h1 class="mb-3">
             @Title
-            @if (InterfaceNames.Contains(Iface.Name)) {
+            @if (_wireguardService.IsInterfaceUp(Iface)) {
                 <RadzenBadge class="float-end" IsPill="true" Text="up" BadgeStyle="BadgeStyle.Success" />
             }
             else {

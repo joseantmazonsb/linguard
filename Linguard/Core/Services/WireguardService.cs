@@ -1,12 +1,11 @@
-﻿using System.Linq.Expressions;
-using System.Net.NetworkInformation;
+﻿using System.Net.NetworkInformation;
 using System.Text;
-using System.Text.RegularExpressions;
 using Linguard.Core.Configuration;
 using Linguard.Core.Managers;
 using Linguard.Core.Models;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.OS;
+using Linguard.Core.Services.Exceptions;
 using Linguard.Core.Utils;
 
 namespace Linguard.Core.Services; 
@@ -25,26 +24,39 @@ public class WireguardService : IWireguardService {
     public Interface? GetInterface(Client client) => Configuration.Interfaces
         .SingleOrDefault(i => i.Clients.Contains(client));
 
+    public bool IsInterfaceUp(Interface iface) {
+        return NetworkInterface.GetAllNetworkInterfaces()
+            .Any(i => i.Name.Equals(iface.Name) && i.OperationalStatus == OperationalStatus.Up);
+    }
+
+    public bool IsInterfaceDown(Interface iface) {
+        return !IsInterfaceUp(iface);
+    }
+    
     public void StartInterface(Interface @interface) {
         var result = _commandRunner
             .Run($"sudo {Configuration.WireguardQuickBin} up {@interface.Name}");
-        if (!result.Success) throw new Exception(result.Stderr);
+        if (!result.Success) throw new WireguardException(result.Stderr);
     }
 
     public void StopInterface(Interface @interface) {
         var result = _commandRunner
             .Run($"sudo {Configuration.WireguardQuickBin} down {@interface.Name}");
-        if (!result.Success) throw new Exception(result.Stderr);
+        if (!result.Success) throw new WireguardException(result.Stderr);
     }
 
     public string? GenerateWireguardPrivateKey() {
-        return _commandRunner
-            .Run($"sudo {Configuration.WireguardBin} genkey").Stdout;
+        var result = _commandRunner
+            .Run($"sudo {Configuration.WireguardBin} genkey");
+        if (!result.Success) throw new WireguardException(result.Stderr);
+        return result.Stdout;
     }
     
     public string? GenerateWireguardPublicKey(string privateKey) {
-        return _commandRunner
-            .Run($"echo {privateKey} | sudo {Configuration.WireguardBin} pubkey").Stdout;
+        var result = _commandRunner
+            .Run($"echo {privateKey} | sudo {Configuration.WireguardBin} pubkey");
+        if (!result.Success) throw new WireguardException(result.Stderr);
+        return result.Stdout;
     }
 
     public string[] GenerateOnUpRules(string interfaceName, NetworkInterface gateway) {
@@ -81,8 +93,7 @@ public class WireguardService : IWireguardService {
             return WireguardDumpParser.GetLastHandshake(rawData, client);
         }
         catch (Exception e) {
-            // TODO: log
-            return default;
+            throw new WireguardException($"Unable to obtain last handshake for client {client.Name}", e);
         }
     }
     
@@ -103,10 +114,9 @@ public class WireguardService : IWireguardService {
         var rawData = _commandRunner
             .Run($"{Configuration.WireguardBin} show {iface.Name} dump")
             .Stdout;
-        if (string.IsNullOrEmpty(rawData)) {
-            return Enumerable.Empty<TrafficData>();
-        }
-        return WireguardDumpParser.GetTrafficData(rawData, iface);
+        return string.IsNullOrEmpty(rawData) 
+            ? Enumerable.Empty<TrafficData>() 
+            : WireguardDumpParser.GetTrafficData(rawData, iface);
     }
 
     private string GenerateWireguardConfiguration(Interface @interface) {
@@ -163,7 +173,7 @@ public class WireguardService : IWireguardService {
         }
     }
 
-    private string GetWireguardAddress(IWireguardPeer peer) {
+    private static string GetWireguardAddress(IWireguardPeer peer) {
         string address;
         if (peer.IPv4Address != default) {
             address = peer.IPv4Address.ToString();

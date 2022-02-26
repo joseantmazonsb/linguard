@@ -6,6 +6,8 @@ namespace Linguard.Core.Services;
 
 public interface IWireguardService {
     Interface? GetInterface(Client client);
+    bool IsInterfaceUp(Interface iface);
+    bool IsInterfaceDown(Interface iface);
     void StartInterface(Interface @interface);
     void StopInterface(Interface @interface);
     string? GenerateWireguardPrivateKey();
