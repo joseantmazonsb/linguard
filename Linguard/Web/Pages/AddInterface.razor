@@ -5,7 +5,6 @@
 @using Linguard.Core.Services
 @using Linguard.Core.Managers
 @using Linguard.Core.Configuration
-@using System.Net.NetworkInformation
 @using FluentValidation
 @using Linguard.Core.Models.Wireguard.Validators
 @using Linguard.Web.Services
@@ -40,215 +39,15 @@
 <h2>Configuration</h2>
 <RadzenCard class="mb-3">
     <RadzenTemplateForm Data="@Iface" Submit="@((Interface args) => { Submit(args); })">
-        <!-- Name and description -->
-        <div class="row">
-            <div class="col-md-6">
-                <div class="row mb-2">
-                    <div class="col">
-                        <RadzenLabel Text="Name"/>
-                    </div>
-                </div>
-                <div class="row mb-2">
-                    <div class="col-xxl-10">
-                        <RadzenTextBox Placeholder="wg0" Trim="true" Value="@Iface.Name"
-                                       Style="width: 100%" MaxLength="@InterfaceValidator.MaxNameLength"/>
-                    </div>
-                </div>
-                <div class="row mb-2">
-                    <div class="col">
-                        <RadzenLabel Text="Description"/>
-                    </div>
-                </div>
-                <div class="row mb-2">
-                    <div class="col-xxl-10">
-                        <RadzenTextArea Placeholder="A brief (or long) description" Trim="true"
-                                        Value="@Iface.Description" Style="width: 100%"/>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- Gateway and port -->
-        <div class="row">
-            <div class="col-md-6">
-                <div class="row mb-2">
-                    <div class="col">
-                        <RadzenLabel Text="Gateway"/>
-                    </div>
-                </div>
-                <div class="row mb-2">
-                    <div class="col-xxl-10">
-                        <RadzenDropDown TValue="string" AllowClear="false" Placeholder="Select a gateway"
-                                        Data="@InterfaceNames" Value="@Iface.Gateway.Name"
-                                        Change="OnGatewayChanged" Style="width: 100%">
-                        </RadzenDropDown>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="row mb-2">
-                    <div class="col">
-                        <RadzenLabel Text="Port"/>
-                    </div>
-                </div>
-                <div class="row mb-2">
-                    <div class="col-xxl-10">
-                        <RadzenNumeric TValue="int" Placeholder="1337" Min="1" Max="65535"
-                                       Value="@Iface.Port"
-                                       Style="width: 100%"/>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- Addresses -->
-        <div class="row">
-            <div class="col-md-6">
-                <div class="row mb-2">
-                    <div class="col">
-                        <RadzenLabel Text="IPv4"/>
-                    </div>
-                </div>
-                <div class="row mb-2">
-                    <div class="col-xxl-10">
-                        <RadzenTextBox Placeholder="0.0.0.0/24" Trim="true" 
-                                       Value="@Iface.IPv4Address.ToString()"
-                                       Style="width: 100%"/>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="row mb-2">
-                    <div class="col">
-                        <RadzenLabel Text="IPv6"/>
-                    </div>
-                </div>
-                <div class="row mb-2">
-                    <div class="col-xxl-10">
-                        <RadzenTextBox Placeholder="43bf:534f:a9b2:8773:0545:8963:fc28:80fd" 
-                                       Trim="true" Value="@Iface.IPv6Address.ToString()"
-                                       Style="width: 100%"/>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- Rules -->
-        <div class="row">
-            <div class="col-md-6">
-                <div class="row mb-2">
-                        <div class="col">
-                            <RadzenLabel Text="On up"/>
-                        </div>
-                </div>
-                <div class="row mb-2">
-                    <div class="col-xxl-10">
-                        <RadzenDataGrid @ref="_onUpGrid" AllowColumnResize="true" AllowFiltering="true" AllowPaging="true"
-                                        AllowSorting="true"
-                                        Data="@Iface.OnUp"
-                                        FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
-                                        TItem="string">
-                            <Columns>
-                                <RadzenDataGridColumn TItem="string" Property="ToString()" Title="Rule">
-                                    <FooterTemplate>
-                                        Total: <b>@Iface.OnUp.Count</b>
-                                    </FooterTemplate>
-                                </RadzenDataGridColumn>
-                                <RadzenDataGridColumn TItem="string" Title="Actions" Resizable="false"
-                                                      Filterable="false" Sortable="false" Width="95px">
-                                    <Template Context="data">
-                                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" title="Edit"/>
-                                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Light" title="Delete"/>
-                                    </Template>
-                                </RadzenDataGridColumn>
-                            </Columns>
-                        </RadzenDataGrid>
-                    </div>
-                </div>
-                <div class="row mb-2">
-                    <div class="col">
-                        @*<RadzenButton Icon="add_circle_outline" style="margin-bottom: 10px" Text="Add new" 
-                                      Click="@InsertRow" Disabled=@(orderToInsert != null) />*@
-                        <RadzenButton Icon="add_circle_outline" style="margin-bottom: 10px" Text="Add rule"
-                                      ButtonStyle="ButtonStyle.Secondary"/>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="row mb-2">
-                    <div class="col">
-                        <RadzenLabel Text="On down"/>
-                    </div>
-                </div>
-                <div class="row mb-2">
-                    <div class="col-xxl-10">
-                        <RadzenDataGrid @ref="_onDownGrid" AllowColumnResize="true" AllowFiltering="true" AllowPaging="true"
-                                        AllowSorting="true"
-                                        Data="@Iface.OnDown"
-                                        FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
-                                        TItem="string">
-                            <Columns>
-                                <RadzenDataGridColumn TItem="string" Property="ToString()" Title="Rule">
-                                    <FooterTemplate>
-                                        Total: <b>@Iface.OnDown.Count</b>
-                                    </FooterTemplate>
-                                </RadzenDataGridColumn>
-                                <RadzenDataGridColumn TItem="string" Title="Actions" Resizable="false"
-                                                      Filterable="false" Sortable="false" Width="95px">
-                                    <Template Context="data">
-                                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" title="Edit"/>
-                                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Light" title="Delete"/>
-                                    </Template>
-                                </RadzenDataGridColumn>
-                            </Columns>
-                        </RadzenDataGrid>
-                    </div>
-                </div>
-                <div class="row mb-2">
-                    <div class="col">
-                        @*<RadzenButton Icon="add_circle_outline" style="margin-bottom: 10px" Text="Add new" 
-                                      Click="@InsertRow" Disabled=@(orderToInsert != null) />*@
-                        <RadzenButton Icon="add_circle_outline" style="margin-bottom: 10px" Text="Add rule"
-                                      ButtonStyle="ButtonStyle.Secondary"/>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- Auto checkbox -->
-        <div class="row mb-2">
-            <div class="col-xxl-10">
-                <RadzenCheckBox TValue="bool" Name="AutoCheckBox" 
-                                Trim="true" Value="@Iface.Auto" 
-                                Change="b => Iface.Auto = b"
-                />
-                <RadzenLabel Text="Auto" Component="AutoCheckBox" 
-                             Style="margin-left: 8px; vertical-align: middle;" />
-            </div>
-        </div>
-        <!-- Save button -->
-        <div class="row mt-3 d-flex">
-            <div class="col-md-12 align-items-end">
-                <RadzenButton ButtonType="ButtonType.Submit" Icon="save" Text="Add" class="me-2"
-                              ButtonStyle="ButtonStyle.Primary"/>
-            </div>
-        </div>
+        <InterfaceConfigurationForm Iface="Iface" ShowWireguardKeys="false" SubmitText="Add"/>
     </RadzenTemplateForm>
 </RadzenCard>
-
 
 @code {
 
     RadzenDataGrid<string> _onUpGrid;
     RadzenDataGrid<string> _onDownGrid;
-    
-    IEnumerable<string> InterfaceNames => NetworkInterface.GetAllNetworkInterfaces()
-        .Select(i => i.Name)
-    //.Concat(Configuration.Interfaces.Select(i => i.Name))
-    //.Distinct()
-        .OrderBy(n => n);
-    
-    void OnGatewayChanged(object gatewayName) {
-        Iface!.Gateway = NetworkInterface.GetAllNetworkInterfaces()
-            .SingleOrDefault(i => i.Name.Equals(gatewayName))!;
-    }
-    
+
     void Submit(Interface iface) {
         var result = _validator.Validate(iface);
         if (result.IsValid) {

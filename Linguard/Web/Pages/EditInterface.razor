@@ -4,7 +4,6 @@
 @using Linguard.Core.Services
 @using Linguard.Core.Managers
 @using Linguard.Core.Configuration
-@using System.Net.NetworkInformation
 @using FluentValidation
 @using Linguard.Web.Services
 
@@ -162,13 +161,7 @@
                 break;
         }
     }
-    
-    IEnumerable<string> InterfaceNames => NetworkInterface.GetAllNetworkInterfaces()
-        .Select(i => i.Name)
-    //.Concat(Configuration.Interfaces.Select(i => i.Name))
-    //.Distinct()
-        .OrderBy(n => n);
-    
+
     RadzenDataGrid<Client> _clientsGrid;
 
     void AddClient() {

@@ -36,8 +36,4 @@
       <_ContentIncludedByDefault Remove="wwwroot\ts\helper.ts" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="Middlewares" />
-    </ItemGroup>
-
 </Project>
