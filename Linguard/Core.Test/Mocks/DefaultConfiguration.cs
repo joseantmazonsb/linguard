@@ -6,7 +6,7 @@ using Moq;
 
 namespace Core.Test.Mocks;
 
-public class DefaultConfiguration : Mock<IConfiguration> {
+public sealed class DefaultConfiguration : Mock<IConfiguration> {
 
     public DefaultConfiguration() {
         SetupProperty(c => c.Wireguard, new Mock<IWireguardConfiguration>().
@@ -17,5 +17,6 @@ public class DefaultConfiguration : Mock<IConfiguration> {
             .SetupProperty(c => c.StorageDriver, new Mock<ITrafficStorageDriver>().Object)
             .Object);
         SetupProperty(c => c.Web, new Mock<IWebConfiguration>().Object);
+        Setup(o => o.Clone()).Returns(Object);
     }
 }

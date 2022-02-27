@@ -14,6 +14,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Core.Test", "Core.Test\Core
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Web", "Web\Web.csproj", "{5447985B-643D-41BB-A6AC-786A3AAD87EA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebMock", "WebMock\WebMock.csproj", "{F5C5CEA6-068A-4E40-B889-04F52101A996}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -48,5 +50,9 @@ Global
 		{5447985B-643D-41BB-A6AC-786A3AAD87EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5447985B-643D-41BB-A6AC-786A3AAD87EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5447985B-643D-41BB-A6AC-786A3AAD87EA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F5C5CEA6-068A-4E40-B889-04F52101A996}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F5C5CEA6-068A-4E40-B889-04F52101A996}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F5C5CEA6-068A-4E40-B889-04F52101A996}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F5C5CEA6-068A-4E40-B889-04F52101A996}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

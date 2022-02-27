@@ -1,30 +1,34 @@
+using Core.Test.Mocks;
 using FluentValidation;
-using Linguard.Core.Configuration;
-using Linguard.Core.Configuration.Serialization;
-using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Models.Wireguard.Validators;
-using Linguard.Core.OS;
 using Linguard.Core.Services;
+using Linguard.Core.Utils;
 using Linguard.Log;
 using Linguard.Web.Services;
 using QRCoder;
 using Radzen;
-using IConfiguration = Linguard.Core.Configuration.IConfiguration;
+using WebMock;
 using ILogger = Linguard.Log.ILogger;
 
-var builder = WebApplication.CreateBuilder(args);
+var root = Path.Combine(new DirectoryInfo(Directory.GetCurrentDirectory()).Parent!.FullName, "Web",
+    "wwwroot");
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions {
+    WebRootPath = root,
+    Args = args,
+    ApplicationName = AssemblyInfo.Product
+});
+
+//var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
-builder.Services.AddSingleton<IConfigurationManager, YamlConfigurationManager>();
-builder.Services.AddTransient<IConfiguration, Configuration>();
-builder.Services.AddTransient<IWorkingDirectory, WorkingDirectory>();
-builder.Services.AddSingleton<IConfigurationSerializer>(DefaultYamlConfigurationSerializer.Instance);
+var manager = new DefaultConfigurationManager().Object;
+builder.Services.AddSingleton(manager);
 builder.Services.AddTransient<ILogger, NLogLogger>();
-builder.Services.AddTransient<ICommandRunner, CommandRunner>();
+builder.Services.AddSingleton(new CommandRunnerMock().Object);
 builder.Services.AddTransient<IWireguardService, WireguardService>();
 builder.Services.AddTransient<IInterfaceGenerator, DefaultInterfaceGenerator>();
 builder.Services.AddTransient<IClientGenerator, DefaultClientGenerator>();
@@ -33,7 +37,7 @@ builder.Services.AddTransient<AbstractValidator<Client>, ClientValidator>();
 
 builder.Services.AddTransient<IWebService, WebService>();
 builder.Services.AddTransient<QRCodeGenerator, QRCodeGenerator>();
-builder.Services.AddTransient<ILifetimeService, LifetimeService>();
+builder.Services.AddSingleton(new LifetimeServiceMock(manager).Object);
 
 builder.Services.AddScoped<DialogService>();
 builder.Services.AddScoped<NotificationService>();
