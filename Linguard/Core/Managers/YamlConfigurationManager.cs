@@ -11,7 +11,7 @@ public class YamlConfigurationManager : DefaultFileConfigurationManager {
     };
 
     public YamlConfigurationManager(IConfiguration configuration, IWorkingDirectory workingDirectory, 
-        ICommandRunner commandRunner, IConfigurationSerializer serializer) 
-        : base(configuration, workingDirectory, commandRunner, serializer) {
+        ISystemWrapper systemWrapper, IConfigurationSerializer serializer) 
+        : base(configuration, workingDirectory, systemWrapper, serializer) {
     }
 }

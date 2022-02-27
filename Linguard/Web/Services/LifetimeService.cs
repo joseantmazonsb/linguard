@@ -15,16 +15,16 @@ public class LifetimeService : ILifetimeService {
     private static readonly string WorkingDirectoryEnvironmentVariable = $"{AssemblyInfo.Product}Workdir";
     
     private readonly Log.ILogger _logger;
-    private readonly IInterfaceService _interfaceService;
+    private readonly IWireguardService _wireguardService;
     private readonly IConfigurationManager _configurationManager;
     private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
     
     #endregion
     
-    public LifetimeService(IConfigurationManager configurationManager, IInterfaceService interfaceService, 
+    public LifetimeService(IConfigurationManager configurationManager, IWireguardService wireguardService, 
         Log.ILogger logger) {
         _configurationManager = configurationManager;
-        _interfaceService = interfaceService;
+        _wireguardService = wireguardService;
         _logger = logger;
     }
 
@@ -85,7 +85,7 @@ public class LifetimeService : ILifetimeService {
         var started = 0;
         foreach (var iface in interfaces) {
             try {
-                _interfaceService.StartInterface(iface);
+                _wireguardService.StartInterface(iface);
                 started++;
             }
             catch (Exception e) {
@@ -102,7 +102,7 @@ public class LifetimeService : ILifetimeService {
         var stopped = 0;
         foreach (var iface in interfaces) {
             try {
-                _interfaceService.StopInterface(iface);
+                _wireguardService.StopInterface(iface);
                 stopped++;
             }
             catch (Exception e) {

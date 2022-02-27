@@ -2,11 +2,7 @@
 @using Linguard.Core.Utils
 @using System.Net.NetworkInformation
 @using System.Net.Sockets
-@using Linguard.Core.Services
-
-@code {
-    const string Title = "Network";
-}
+@using Linguard.Core.OS
 
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
 
@@ -35,8 +31,9 @@
     </Columns>
 </RadzenDataGrid>
 
-@inject IInterfaceService _interfaceService
+@inject ISystemWrapper _systemWrapper
 @code {
+    const string Title = "Network";
 
     class NetworkInterfaceViewModel {
         public string Name { get; set; }
@@ -51,7 +48,7 @@
 
     protected override void OnInitialized() {
         _interfaces = new List<NetworkInterfaceViewModel>();
-        var interfaces = _interfaceService.NetworkInterfaces
+        var interfaces = _systemWrapper.NetworkInterfaces
             .OrderBy(i => i.Name)
             .ToList();
         foreach (var iface in interfaces) {

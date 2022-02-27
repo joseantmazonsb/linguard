@@ -33,7 +33,7 @@
 @inject NotificationService _notificationService
 @inject DialogService _dialogService
 @inject NavigationManager _navigationManager
-@inject IInterfaceService _interfaceService
+@inject IWireguardService _wireguardService
 
 @code {
     
@@ -50,7 +50,7 @@
     
     void StartInterface() {
         try {
-            _interfaceService.StartInterface((Interface) Peer);
+            _wireguardService.StartInterface((Interface) Peer);
         }
         catch (Exception e) {
             _notificationService.Notify(new NotificationMessage {
@@ -63,7 +63,7 @@
     
     void StopInterface() {
         try {
-            _interfaceService.StopInterface((Interface) Peer);
+            _wireguardService.StopInterface((Interface) Peer);
         }
         catch (Exception e) {
             _notificationService.Notify(new NotificationMessage {

@@ -4,16 +4,9 @@
 @using Linguard.Core.Managers
 @using System.Net.NetworkInformation
 @using Linguard.Core.Configuration
+@using Linguard.Core.OS
 @using Linguard.Core.Services
 @using Linguard.Web.Services
-
-@inject IConfigurationManager _configurationManager
-@inject IInterfaceService _interfaceService
-@inject IWebService _webService
-@inject NotificationService _notificationService
-@inject DialogService _dialogService
-@inject NavigationManager _navigationManager
-@inject IJSRuntime _js
 
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
 
@@ -39,7 +32,7 @@
         <RadzenDataGridColumn TItem="Interface" Title="Actions" Resizable="false" 
                               Filterable="false" Sortable="false">
             <Template Context="data">
-                @if (_interfaceService.IsInterfaceDown(data)) {
+                @if (_systemWrapper.IsInterfaceDown(data)) {
                     <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Success" title="Start"
                                   Click="() => StartInterface(data)" />
                 }
@@ -92,8 +85,8 @@
         <RadzenDataGridColumn TItem="Client" Property="IPv6Address" Title="IPv6"/>
         <RadzenDataGridColumn TItem="Client" Title="Interface">
             <Template Context="data">
-                <a href="/interface/@(_interfaceService.GetInterface(data)?.Id)">
-                    @(_interfaceService.GetInterface(data)?.Name)
+                <a href="/interface/@(_wireguardService.GetInterface(data)?.Id)">
+                    @(_wireguardService.GetInterface(data)?.Name)
                 </a>
             </Template>
         </RadzenDataGridColumn>
@@ -112,6 +105,15 @@
         </RadzenDataGridColumn>
     </Columns>
 </RadzenDataGrid>
+
+@inject IConfigurationManager _configurationManager
+@inject IWebService _webService
+@inject NotificationService _notificationService
+@inject DialogService _dialogService
+@inject NavigationManager _navigationManager
+@inject IJSRuntime _js
+@inject IWireguardService _wireguardService
+@inject ISystemWrapper _systemWrapper
 
 @code {
     const string Title = "Wireguard";
@@ -133,7 +135,7 @@
 
     void StartInterface(Interface iface) {
         try {
-            _interfaceService.StartInterface(iface);
+            _wireguardService.StartInterface(iface);
             _interfacesGrid.Reload();
         }
         catch (Exception e) {
@@ -147,7 +149,7 @@
     
     void StopInterface(Interface @interface) {
         try {
-            _interfaceService.StopInterface(@interface);
+            _wireguardService.StopInterface(@interface);
             _interfacesGrid.Reload();
         }
         catch (Exception e) {

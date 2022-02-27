@@ -8,7 +8,7 @@ namespace Linguard.Core.Managers;
 public abstract class FileConfigurationManager : ConfigurationManagerBase {
     
     protected FileConfigurationManager(IConfiguration configuration, IWorkingDirectory workingDirectory, 
-        ICommandRunner commandRunner, IConfigurationSerializer serializer) : base(configuration, workingDirectory, commandRunner) {
+        ISystemWrapper systemWrapper, IConfigurationSerializer serializer) : base(configuration, workingDirectory, systemWrapper) {
         Configuration = configuration;
         WorkingDirectory = workingDirectory;
         Serializer = serializer;

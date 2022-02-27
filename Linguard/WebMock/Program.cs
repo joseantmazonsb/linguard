@@ -26,12 +26,12 @@ builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
 var manager = new DefaultConfigurationManager().Object;
+var systemMock = new SystemMock().Object;
+var wireguardServiceMock = new WireguardServiceMock(systemMock).Object;
 builder.Services.AddSingleton(manager);
+builder.Services.AddSingleton(systemMock);
+builder.Services.AddSingleton(wireguardServiceMock);
 builder.Services.AddTransient<ILogger, NLogLogger>();
-var commandRunner = new CommandRunnerMock().Object;
-builder.Services.AddSingleton(commandRunner);
-builder.Services.AddSingleton(new InterfaceServiceMock(manager).Object);
-builder.Services.AddTransient<IWireguardService, WireguardService>();
 builder.Services.AddTransient<IInterfaceGenerator, DefaultInterfaceGenerator>();
 builder.Services.AddTransient<IClientGenerator, DefaultClientGenerator>();
 builder.Services.AddTransient<AbstractValidator<Interface>, InterfaceValidator>();

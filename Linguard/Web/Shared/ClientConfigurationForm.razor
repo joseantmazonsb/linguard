@@ -179,7 +179,7 @@
 </div>
 
 @inject IConfigurationManager _configurationManager
-@inject IInterfaceService _interfaceService
+@inject IWireguardService _wireguardService
 
 @code {
     [Parameter]
@@ -202,7 +202,7 @@
     protected override void OnInitialized() {
         base.OnInitialized();
         if (Interface == default) {
-            Interface = _interfaceService.GetInterface(Client);
+            Interface = _wireguardService.GetInterface(Client);
         }
     }
 

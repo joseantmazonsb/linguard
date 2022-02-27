@@ -10,13 +10,13 @@ namespace Linguard.Core.Managers;
 
 public abstract class ConfigurationManagerBase : IConfigurationManager {
     
-    private readonly ICommandRunner _commandRunner;
+    private readonly ISystemWrapper _systemWrapper;
 
     protected ConfigurationManagerBase(IConfiguration configuration, IWorkingDirectory workingDirectory, 
-        ICommandRunner commandRunner) {
+        ISystemWrapper systemWrapper) {
         Configuration = configuration;
         WorkingDirectory = workingDirectory;
-        _commandRunner = commandRunner;
+        _systemWrapper = systemWrapper;
     }
     
     public IConfiguration Configuration { get; set; }
@@ -44,12 +44,12 @@ public abstract class ConfigurationManagerBase : IConfigurationManager {
     }
     private void LoadWireguardDefaults() {
         Configuration.Wireguard.Interfaces = new HashSet<Interface>();
-        Configuration.Wireguard.IptablesBin = _commandRunner
-            .Run("whereis iptables | tr ' ' '\n' | grep bin").Stdout;
-        Configuration.Wireguard.WireguardBin = _commandRunner
-            .Run("whereis wg | tr ' ' '\n' | grep bin").Stdout;
-        Configuration.Wireguard.WireguardQuickBin = _commandRunner
-            .Run("whereis wg-quick | tr ' ' '\n' | grep bin").Stdout;
+        Configuration.Wireguard.IptablesBin = _systemWrapper
+            .RunCommand("whereis iptables | tr ' ' '\n' | grep bin").Stdout;
+        Configuration.Wireguard.WireguardBin = _systemWrapper
+            .RunCommand("whereis wg | tr ' ' '\n' | grep bin").Stdout;
+        Configuration.Wireguard.WireguardQuickBin = _systemWrapper
+            .RunCommand("whereis wg-quick | tr ' ' '\n' | grep bin").Stdout;
         Configuration.Wireguard.Interfaces = new();
         Configuration.Wireguard.PrimaryDns = new("8.8.8.8", UriKind.RelativeOrAbsolute);
         Configuration.Wireguard.SecondaryDns = new("8.8.4.4", UriKind.RelativeOrAbsolute);

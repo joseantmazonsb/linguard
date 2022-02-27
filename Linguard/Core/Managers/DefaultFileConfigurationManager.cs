@@ -8,8 +8,8 @@ namespace Linguard.Core.Managers;
 public abstract class DefaultFileConfigurationManager : FileConfigurationManager {
     
     protected DefaultFileConfigurationManager(IConfiguration configuration, IWorkingDirectory workingDirectory, 
-        ICommandRunner commandRunner, IConfigurationSerializer serializer) 
-        : base(configuration, workingDirectory, commandRunner, serializer) {
+        ISystemWrapper systemWrapper, IConfigurationSerializer serializer) 
+        : base(configuration, workingDirectory, systemWrapper, serializer) {
     }
 
     private FileInfo? _configurationFile;

@@ -5,6 +5,7 @@
 @using Linguard.Core.Managers
 @using Linguard.Core.Configuration
 @using FluentValidation
+@using Linguard.Core.OS
 @using Linguard.Web.Services
 
 @inject IConfigurationManager _configurationManager
@@ -15,7 +16,7 @@
 @inject NavigationManager _navigationManager
 @inject IJSRuntime _js
 @inject AbstractValidator<Interface> _validator
-@inject IInterfaceService _interfaceService
+@inject ISystemWrapper _systemWrapper
 
 @code {
     const string Title = "Interface";
@@ -37,7 +38,7 @@
     <div class="col">
         <h1 class="mb-3">
             @Title
-            @if (_interfaceService.IsInterfaceUp(Iface)) {
+            @if (_systemWrapper.IsInterfaceUp(Iface)) {
                 <RadzenBadge class="float-end" IsPill="true" Text="up" BadgeStyle="BadgeStyle.Success" />
             }
             else {

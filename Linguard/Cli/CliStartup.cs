@@ -23,7 +23,7 @@ public class CliStartup : ICliStartup {
         services.AddTransient<IWorkingDirectory, WorkingDirectory>();
         services.AddSingleton<IConfigurationSerializer>(DefaultYamlConfigurationSerializer.Instance);
         services.AddTransient<ILogger, NLogLogger>();
-        services.AddTransient<ICommandRunner, CommandRunner>();
+        services.AddTransient<ISystemWrapper, Core.OS.SystemWrapper>();
         services.AddTransient<IWireguardService, WireguardService>();
         services.AddTransient<IInterfaceGenerator, DefaultInterfaceGenerator>();
         services.AddTransient<IClientGenerator, DefaultClientGenerator>();
