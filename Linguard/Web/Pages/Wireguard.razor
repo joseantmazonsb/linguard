@@ -39,7 +39,7 @@
         <RadzenDataGridColumn TItem="Interface" Title="Actions" Resizable="false" 
                               Filterable="false" Sortable="false">
             <Template Context="data">
-                @if (_wireguardService.IsInterfaceUp(data)) {
+                @if (_wireguardService.IsInterfaceDown(data)) {
                     <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Success" title="Start"
                                   Click="() => StartInterface(data)" />
                 }
