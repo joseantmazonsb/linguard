@@ -5,7 +5,7 @@ using FluentAssertions;
 using Linguard.Core.Configuration;
 using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
-using Linguard.Core.Utils;
+using Linguard.Core.Utils.Wireguard;
 using Moq;
 using Xunit;
 

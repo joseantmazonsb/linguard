@@ -1,12 +1,12 @@
 ﻿@page "/interface/{id:guid}"
-@using Linguard.Core.Utils
-@using Linguard.Core.Models.Wireguard
-@using Linguard.Core.Services
 @using Linguard.Core.Managers
-@using Linguard.Core.Configuration
-@using FluentValidation
+@using Linguard.Core.Models.Wireguard
 @using Linguard.Core.OS
+@using Linguard.Core.Services
+@using Linguard.Core.Utils
 @using Linguard.Web.Services
+@using FluentValidation
+@using Linguard.Core.Configuration
 
 @inject IConfigurationManager _configurationManager
 @inject IWireguardService _wireguardService
@@ -16,7 +16,7 @@
 @inject NavigationManager _navigationManager
 @inject IJSRuntime _js
 @inject AbstractValidator<Interface> _validator
-@inject ISystemWrapper _systemWrapper
+@inject ISystemWrapper _system
 
 @code {
     const string Title = "Interface";
@@ -38,7 +38,7 @@
     <div class="col">
         <h1 class="mb-3">
             @Title
-            @if (_systemWrapper.IsInterfaceUp(Iface)) {
+            @if (_system.IsInterfaceUp(Iface)) {
                 <RadzenBadge class="float-end" IsPill="true" Text="up" BadgeStyle="BadgeStyle.Success" />
             }
             else {

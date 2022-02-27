@@ -4,6 +4,7 @@ using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Services;
 using Linguard.Core.Utils;
+using Linguard.Core.Utils.Wireguard;
 using Microsoft.JSInterop;
 using QRCoder;
 
@@ -37,7 +38,7 @@ public class WebService : IWebService {
     }
 
     public Task DownloadWireguardModel(IWireguardPeer peer) {
-        return Download(WireguardService.GenerateWireguardConfiguration(peer), $"{peer.Name}.conf");
+        return Download(WireguardUtils.GenerateWireguardConfiguration(peer), $"{peer.Name}.conf");
     }
     
     public void RemoveWireguardModel(IWireguardPeer peer) {
@@ -53,7 +54,7 @@ public class WebService : IWebService {
 
     public byte[] GetQrCode(IWireguardPeer peer) {
         var qrCodeData = QrCodeGenerator.CreateQrCode(
-            WireguardService.GenerateWireguardConfiguration(peer), QRCodeGenerator.ECCLevel.Q);
+            WireguardUtils.GenerateWireguardConfiguration(peer), QRCodeGenerator.ECCLevel.Q);
         return new PngByteQRCode(qrCodeData).GetGraphic(20);
     }
 

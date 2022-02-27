@@ -10,7 +10,7 @@ namespace Core.Test;
 public class SystemShould {
     
     private static readonly Mock<IConfigurationManager> ConfigurationManagerMock = new DefaultConfigurationManager();
-    private readonly ISystemWrapper _systemWrapper = new Linguard.Core.OS.SystemWrapper(ConfigurationManagerMock.Object);
+    private readonly ISystemWrapper _systemWrapper = new SystemWrapper(ConfigurationManagerMock.Object);
     
     [Fact]
     public void RunSingleCommand() {

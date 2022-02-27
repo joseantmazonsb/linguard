@@ -4,18 +4,20 @@ using Bogus;
 using Linguard.Core.Configuration;
 using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
+using Linguard.Core.Utils.Wireguard;
 
 namespace Linguard.Core.Services; 
 
 public class DefaultInterfaceGenerator : IInterfaceGenerator {
-    private readonly IWireguardService _wireguard;
+    private readonly IWireguardService _wireguardService;
     private readonly IConfigurationManager _configurationManager;
     private const int MaxTries = 100;
     private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
 
-    public DefaultInterfaceGenerator(IConfigurationManager configurationManager, IWireguardService wireguard) {
+    public DefaultInterfaceGenerator(IConfigurationManager configurationManager, 
+        IWireguardService wireguardService) {
         _configurationManager = configurationManager;
-        _wireguard = wireguard;
+        _wireguardService = wireguardService;
     }
 
     public Interface Generate() {
@@ -54,12 +56,12 @@ public class DefaultInterfaceGenerator : IInterfaceGenerator {
                 return default;
             })
             .RuleFor(i => i.OnDown, 
-                (_, i) => _wireguard.GenerateOnDownRules(i.Name, i.Gateway))
+                (_, i) => WireguardUtils.GenerateOnDownRules(Configuration.IptablesBin, i.Name, i.Gateway))
             .RuleFor(i => i.OnUp, 
-                (_, i) => _wireguard.GenerateOnUpRules(i.Name, i.Gateway))
-            .RuleFor(i => i.PrivateKey, _wireguard.GenerateWireguardPrivateKey())
+                (_, i) => WireguardUtils.GenerateOnUpRules(Configuration.IptablesBin, i.Name, i.Gateway))
+            .RuleFor(i => i.PrivateKey, _wireguardService.GenerateWireguardPrivateKey())
             .RuleFor(i => i.PublicKey, 
-                (_, i) => _wireguard.GenerateWireguardPublicKey(i.PrivateKey))
+                (_, i) => _wireguardService.GenerateWireguardPublicKey(i.PrivateKey))
             .RuleFor(i => i.IPv4Address, f => {
                 for (var tries = 0; tries < MaxTries; tries++) {
                     var addr = f.Internet.IpAddress();

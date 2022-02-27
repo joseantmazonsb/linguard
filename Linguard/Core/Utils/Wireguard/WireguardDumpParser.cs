@@ -3,7 +3,7 @@ using ByteSizeLib;
 using Linguard.Core.Models;
 using Linguard.Core.Models.Wireguard;
 
-namespace Linguard.Core.Utils; 
+namespace Linguard.Core.Utils.Wireguard; 
 
 public static class WireguardDumpParser {
 

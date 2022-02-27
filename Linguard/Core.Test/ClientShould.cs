@@ -1,19 +1,13 @@
 ﻿using System;
-using Core.Test.Mocks;
 using FluentAssertions;
 using Linguard.Core;
-using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
-using Linguard.Core.Services;
-using Moq;
+using Linguard.Core.Utils.Wireguard;
 using Xunit;
 
 namespace Core.Test; 
 
 public class ClientShould {
-    private static readonly Mock<IConfigurationManager> ConfigurationManagerMock = new DefaultConfigurationManager();
-    private static IWireguardService WireguardService => 
-        new WireguardService(ConfigurationManagerMock.Object, new Linguard.Core.OS.SystemWrapper(ConfigurationManagerMock.Object));
     [Fact]
     public void CreateValidWireguardConfig() {
         
@@ -43,7 +37,7 @@ PersistentKeepalive = 25";
             AllowedIPs = new[] { IPAddressCidr.Parse("1.1.2.0/24") },
             PrimaryDns = new Uri("8.8.8.8", UriKind.RelativeOrAbsolute)
         };
-        var output = WireguardService.GenerateWireguardConfiguration(peer);
+        var output = WireguardUtils.GenerateWireguardConfiguration(peer);
         output.Should().Be(expected);
     }
     
@@ -78,7 +72,7 @@ Endpoint = vpn2.example.com";
             PrimaryDns = new Uri("dns1.example.com", UriKind.RelativeOrAbsolute),
             SecondaryDns = new Uri("dns2.example.com", UriKind.RelativeOrAbsolute),
         };
-        var output = WireguardService.GenerateWireguardConfiguration(peer);
+        var output = WireguardUtils.GenerateWireguardConfiguration(peer);
         output.Trim().Should().Be(expected.Trim());
     }
 }

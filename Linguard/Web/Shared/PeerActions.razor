@@ -1,13 +1,11 @@
-﻿@using Linguard.Core.Models.Wireguard
+﻿@using Linguard.Web.Services
 @using Linguard.Core.Services
-@using Linguard.Web.Services
-@using Linguard.Core.Managers
-@using System.Net.NetworkInformation
-
+@using Linguard.Core.OS
+@using Linguard.Core.Models.Wireguard
 <div class="row my-2 d-flex">
     <div class="col-md-12 align-items-end">
-        @if (Peer is Interface) {
-            @if (InterfaceNames.Contains(Peer.Name)) {
+        @if (Peer is Interface iface) {
+            @if (_system.IsInterfaceUp(iface)) {
                 <RadzenButton Icon="stop" ButtonStyle="ButtonStyle.Danger" title="Stop"
                               Click="StopInterface"/>
             }
@@ -28,29 +26,25 @@
     </div>
 </div>
 
-@inject IConfigurationManager _configurationManager
 @inject IWebService _webService;
 @inject NotificationService _notificationService
 @inject DialogService _dialogService
 @inject NavigationManager _navigationManager
 @inject IWireguardService _wireguardService
+@inject ISystemWrapper _system
 
 @code {
     
     [Parameter]
     public IWireguardPeer Peer { get; set; }
     
-    IEnumerable<string> InterfaceNames => NetworkInterface.GetAllNetworkInterfaces()
-        .Select(i => i.Name)
-    //.Concat(Configuration.Interfaces.Select(i => i.Name))
-    //.Distinct()
-        .OrderBy(n => n);
-
     #region Interface only methods
     
     void StartInterface() {
         try {
             _wireguardService.StartInterface((Interface) Peer);
+            // TODO: find a more elegant way to update the up/down badge
+            _navigationManager.NavigateTo(_navigationManager.Uri, true);
         }
         catch (Exception e) {
             _notificationService.Notify(new NotificationMessage {
@@ -64,6 +58,8 @@
     void StopInterface() {
         try {
             _wireguardService.StopInterface((Interface) Peer);
+            // TODO: find a more elegant way to update the up/down badge
+            _navigationManager.NavigateTo(_navigationManager.Uri, true);
         }
         catch (Exception e) {
             _notificationService.Notify(new NotificationMessage {

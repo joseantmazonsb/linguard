@@ -61,7 +61,8 @@ public class ListClientsCommandShould {
     }
 
     private Interface GenerateInterface(IConfigurationManager configuration) {
-        return new DefaultInterfaceGenerator(configuration, WireguardServiceMock.Object).Generate();
+        return new DefaultInterfaceGenerator(configuration, WireguardServiceMock.Object)
+            .Generate();
     }
     
     private Client GeneratePeer(IConfigurationManager configuration, Interface iface) {

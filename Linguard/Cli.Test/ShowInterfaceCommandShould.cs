@@ -34,7 +34,8 @@ public class ShowInterfaceCommandShould {
         output.Should().Be(iface.ToString().Trim());
     }
 
-    private Interface GenerateInterface(IConfigurationManager configuration) {
-        return new DefaultInterfaceGenerator(configuration, WireguardServiceMock.Object).Generate();
+    private static Interface GenerateInterface(IConfigurationManager configuration) {
+        return new DefaultInterfaceGenerator(configuration, 
+            WireguardServiceMock.Object).Generate();
     }
 }

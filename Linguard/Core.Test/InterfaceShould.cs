@@ -1,22 +1,15 @@
 using System;
 using System.Linq;
 using System.Net.NetworkInformation;
-using Core.Test.Mocks;
 using FluentAssertions;
 using Linguard.Core;
-using Linguard.Core.Managers;
-using Xunit;
 using Linguard.Core.Models.Wireguard;
-using Linguard.Core.Services;
-using Moq;
+using Linguard.Core.Utils.Wireguard;
+using Xunit;
 
 namespace Core.Test;
 
 public class InterfaceShould {
-    private static readonly Mock<IConfigurationManager> ConfigurationManagerMock = new DefaultConfigurationManager();
-    private static IWireguardService WireguardService => 
-        new WireguardService(ConfigurationManagerMock.Object, new Linguard.Core.OS.SystemWrapper(ConfigurationManagerMock.Object));
-
     [Fact]
     public void CreateValidWireguardConfiguration() {
         
@@ -86,7 +79,7 @@ AllowedIPs = 1.1.1.2/32, 9f87:8784:c972:21f4:62b6:34a0:80e4:43df/128
                 }
             }
         };
-        var output = WireguardService.GenerateWireguardConfiguration(iface);
+        var output = WireguardUtils.GenerateWireguardConfiguration(iface);
         output.Trim().Should().Be(expected.Trim());
     }
 }

@@ -151,6 +151,7 @@ public class AddClientCommandShould {
     }
 
     private Interface GenerateInterface(IConfigurationManager configuration) {
-        return new DefaultInterfaceGenerator(configuration, WireguardServiceMock.Object).Generate();
+        return new DefaultInterfaceGenerator(configuration, 
+            WireguardServiceMock.Object).Generate();
     }
 }

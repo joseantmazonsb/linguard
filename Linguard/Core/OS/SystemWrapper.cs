@@ -4,6 +4,7 @@ using Linguard.Core.Configuration;
 using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Services.Exceptions;
+using Linguard.Core.Utils.Wireguard;
 
 namespace Linguard.Core.OS; 
 
@@ -27,13 +28,16 @@ public class SystemWrapper : ISystemWrapper {
     }
 
     public void AddNetworkInterface(Interface iface) {
-        var result = RunCommand($"sudo {Configuration.WireguardQuickBin} up {iface.Name}");
+        var filepath = _configurationManager.WorkingDirectory.GetInterfaceConfigurationFile(iface).FullName;
+        File.WriteAllText(filepath, WireguardUtils.GenerateWireguardConfiguration(iface));
+        var result = RunCommand($"sudo {Configuration.WireguardQuickBin} up {filepath}");
         if (!result.Success) throw new WireguardException(result.Stderr);
     }
 
     public void RemoveNetworkInterface(Interface iface) {
-        var result = RunCommand($"sudo {Configuration.WireguardQuickBin} up {iface.Name}");
+        var result = RunCommand($"sudo {Configuration.WireguardQuickBin} down {iface.Name}");
         if (!result.Success) throw new WireguardException(result.Stderr);
+        _configurationManager.WorkingDirectory.GetInterfaceConfigurationFile(iface).Delete();
     }
     
     public bool IsInterfaceUp(Interface iface) {
