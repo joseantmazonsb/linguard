@@ -2,7 +2,7 @@
 
 namespace Linguard.Core.Models.Wireguard; 
 
-public class Interface : WireguardPeerBase {
+public class Interface : WireguardPeerBase, ICloneable {
     public NetworkInterface Gateway { get; set; }
     public int Port { get; set; }
     public bool Auto { get; set; }
@@ -53,7 +53,11 @@ public class Interface : WireguardPeerBase {
                $"Primary DNS: {PrimaryDns}{Environment.NewLine}" +
                $"Secondary DNS: {SecondaryDns}";
     }
-    
+
+    public object Clone() {
+        return MemberwiseClone();
+    }
+
     public override string Brief() {
         return $"Name: {Name}, " +
                $"Port: {Port}, " +

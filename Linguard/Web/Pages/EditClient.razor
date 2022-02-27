@@ -4,6 +4,7 @@
 @using Linguard.Core.Models.Wireguard
 @using Linguard.Core.Services
 @using Linguard.Core.Configuration
+@using FluentValidation
 
 @inject IConfigurationManager _configurationManager
 @inject IWireguardService _wireguardService
@@ -11,7 +12,7 @@
 @inject DialogService _dialogService
 @inject NavigationManager _navigationManager
 @inject IJSRuntime _js
-
+@inject AbstractValidator<Client> _validator
 
 @code {
     const string Title = "Client";
@@ -21,7 +22,7 @@
     IConfiguration Configuration => _configurationManager.Configuration;
     Client? Client => Configuration.Wireguard.Interfaces
         .SelectMany(i => i.Clients)
-        .SingleOrDefault(i => i.Id == Id);
+        .SingleOrDefault(i => i.Id == Id)?.Clone() as Client;
 }
 
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
@@ -56,6 +57,12 @@
 
 @code {
     private void Submit(Client args) {
-        throw new NotImplementedException();
+        var result = _validator.Validate(args);
+        if (result.IsValid) {
+            _configurationManager.Save();
+            _notificationService.Notify(NotificationSeverity.Success, "Client saved!");
+            return;
+        }
+        _notificationService.Notify(NotificationSeverity.Error, "Unable to save client.");
     }
 }

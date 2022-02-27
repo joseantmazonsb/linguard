@@ -24,7 +24,7 @@
     public Guid Id { get; set; }
     
     IConfiguration Configuration => _configurationManager.Configuration;
-    Interface? Iface => Configuration.Wireguard.Interfaces.SingleOrDefault(i => i.Id == Id);
+    Interface? Iface => Configuration.Wireguard.Interfaces.SingleOrDefault(i => i.Id == Id)?.Clone() as Interface;
 
 }
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
@@ -117,9 +117,10 @@
         var result = _validator.Validate(args);
         if (result.IsValid) {
             _configurationManager.Save();
-            _navigationManager.NavigateTo("wireguard");
+            _notificationService.Notify(NotificationSeverity.Success, "Interface saved!");
             return;
         }
+        _notificationService.Notify(NotificationSeverity.Error, "Unable to save interface.");
     }
 
     void EditWireguardClient(Client client) {

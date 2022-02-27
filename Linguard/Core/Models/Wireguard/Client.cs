@@ -1,6 +1,6 @@
 ﻿namespace Linguard.Core.Models.Wireguard; 
 
-public class Client : WireguardPeerBase {
+public class Client : WireguardPeerBase, ICloneable {
     public ICollection<IPAddressCidr> AllowedIPs { get; set; } = new List<IPAddressCidr>();
     public bool Nat { get; set; }
     public Uri PrimaryDns { get; set; }
@@ -41,5 +41,9 @@ public class Client : WireguardPeerBase {
                $"Private key: {PrivateKey}{Environment.NewLine}" +
                $"Public key: {PublicKey}{Environment.NewLine}" +
                $"AllowedIPs: {string.Join(", ", AllowedIPs.Select(ip => ip.ToString()))}";
+    }
+
+    public object Clone() {
+        return MemberwiseClone();
     }
 }
