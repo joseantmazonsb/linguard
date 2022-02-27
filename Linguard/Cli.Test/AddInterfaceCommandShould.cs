@@ -1,6 +1,4 @@
-﻿using System.Linq;
-using System.Net.NetworkInformation;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Castle.Core.Internal;
 using Core.Test.Mocks;
 using FluentAssertions;

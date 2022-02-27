@@ -26,6 +26,7 @@ builder.Services.AddSingleton<IConfigurationSerializer>(DefaultYamlConfiguration
 builder.Services.AddTransient<ILogger, NLogLogger>();
 builder.Services.AddTransient<ICommandRunner, CommandRunner>();
 builder.Services.AddTransient<IWireguardService, WireguardService>();
+builder.Services.AddTransient<IInterfaceService, InterfaceService>();
 builder.Services.AddTransient<IInterfaceGenerator, DefaultInterfaceGenerator>();
 builder.Services.AddTransient<IClientGenerator, DefaultClientGenerator>();
 builder.Services.AddTransient<AbstractValidator<Interface>, InterfaceValidator>();

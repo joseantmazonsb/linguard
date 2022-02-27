@@ -15,7 +15,9 @@ namespace Core.Test;
 
 public class InterfaceShould {
     private static readonly Mock<IConfigurationManager> ConfigurationManagerMock = new DefaultConfigurationManager();
-    private static IWireguardService WireguardService => new WireguardService(ConfigurationManagerMock.Object, new CommandRunner());
+    private static IWireguardService WireguardService => 
+        new WireguardService(ConfigurationManagerMock.Object, new CommandRunner(), 
+            new InterfaceService(ConfigurationManagerMock.Object, new CommandRunner()));
 
     [Fact]
     public void CreateValidWireguardConfiguration() {

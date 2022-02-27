@@ -13,7 +13,9 @@ namespace Core.Test;
 
 public class ClientShould {
     private static readonly Mock<IConfigurationManager> ConfigurationManagerMock = new DefaultConfigurationManager();
-    private static IWireguardService WireguardService => new WireguardService(ConfigurationManagerMock.Object, new CommandRunner());
+    private static IWireguardService WireguardService => 
+        new WireguardService(ConfigurationManagerMock.Object, new CommandRunner(), 
+        new InterfaceService(ConfigurationManagerMock.Object, new CommandRunner()));
     [Fact]
     public void CreateValidWireguardConfig() {
         

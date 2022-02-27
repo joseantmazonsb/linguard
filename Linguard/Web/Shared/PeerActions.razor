@@ -29,11 +29,11 @@
 </div>
 
 @inject IConfigurationManager _configurationManager
-@inject IWireguardService _wireguardService
 @inject IWebService _webService;
 @inject NotificationService _notificationService
 @inject DialogService _dialogService
 @inject NavigationManager _navigationManager
+@inject IInterfaceService _interfaceService
 
 @code {
     
@@ -50,7 +50,7 @@
     
     void StartInterface() {
         try {
-            _wireguardService.StartInterface((Interface) Peer);
+            _interfaceService.StartInterface((Interface) Peer);
         }
         catch (Exception e) {
             _notificationService.Notify(new NotificationMessage {
@@ -63,7 +63,7 @@
     
     void StopInterface() {
         try {
-            _wireguardService.StopInterface((Interface) Peer);
+            _interfaceService.StopInterface((Interface) Peer);
         }
         catch (Exception e) {
             _notificationService.Notify(new NotificationMessage {

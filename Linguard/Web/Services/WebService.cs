@@ -12,18 +12,20 @@ namespace Linguard.Web.Services;
 public class WebService : IWebService {
     
     public WebService(IJSRuntime jsRuntime, IWireguardService wireguardService, 
-        IConfigurationManager configurationManager, QRCodeGenerator qrCodeGenerator) {
+        IConfigurationManager configurationManager, QRCodeGenerator qrCodeGenerator, IInterfaceService interfaceService) {
         JsRuntime = jsRuntime;
         WireguardService = wireguardService;
         ConfigurationManager = configurationManager;
         QrCodeGenerator = qrCodeGenerator;
+        InterfaceService = interfaceService;
     }
 
-    private IJSRuntime JsRuntime { get; set; }
-    private IWireguardService WireguardService { get; set; }
-    private IConfigurationManager ConfigurationManager { get; set; }
+    private IJSRuntime JsRuntime { get; }
+    private IWireguardService WireguardService { get; }
+    private IInterfaceService InterfaceService { get; }
+    private IConfigurationManager ConfigurationManager { get; }
     private IWireguardConfiguration Configuration => ConfigurationManager.Configuration.Wireguard;
-    private QRCodeGenerator QrCodeGenerator {get; set; }
+    private QRCodeGenerator QrCodeGenerator {get; }
 
     public async Task Download(string data, string filename) {
         var bytes = Encoding.UTF8.GetBytes(data);
@@ -58,7 +60,7 @@ public class WebService : IWebService {
     }
 
     private void RemoveClient(Client client) {
-        WireguardService.GetInterface(client)?.Clients.Remove(client);
+        InterfaceService.GetInterface(client)?.Clients.Remove(client);
         ConfigurationManager.Save();
     }
     

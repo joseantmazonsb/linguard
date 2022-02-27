@@ -13,37 +13,16 @@ namespace Linguard.Core.Services;
 public class WireguardService : IWireguardService {
     private readonly IConfigurationManager _configurationManager;
     private readonly ICommandRunner _commandRunner;
-    
-    public WireguardService(IConfigurationManager configurationManager, ICommandRunner commandRunner) {
+    private readonly IInterfaceService _interfaceService;
+
+    public WireguardService(IConfigurationManager configurationManager, ICommandRunner commandRunner,
+        IInterfaceService interfaceService) {
         _configurationManager = configurationManager;
         _commandRunner = commandRunner;
+        _interfaceService = interfaceService;
     }
 
     private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
-
-    public Interface? GetInterface(Client client) => Configuration.Interfaces
-        .SingleOrDefault(i => i.Clients.Contains(client));
-
-    public bool IsInterfaceUp(Interface iface) {
-        return NetworkInterface.GetAllNetworkInterfaces()
-            .Any(i => i.Name.Equals(iface.Name) && i.OperationalStatus == OperationalStatus.Up);
-    }
-
-    public bool IsInterfaceDown(Interface iface) {
-        return !IsInterfaceUp(iface);
-    }
-    
-    public void StartInterface(Interface @interface) {
-        var result = _commandRunner
-            .Run($"sudo {Configuration.WireguardQuickBin} up {@interface.Name}");
-        if (!result.Success) throw new WireguardException(result.Stderr);
-    }
-
-    public void StopInterface(Interface @interface) {
-        var result = _commandRunner
-            .Run($"sudo {Configuration.WireguardQuickBin} down {@interface.Name}");
-        if (!result.Success) throw new WireguardException(result.Stderr);
-    }
 
     public string? GenerateWireguardPrivateKey() {
         var result = _commandRunner
@@ -87,7 +66,7 @@ public class WireguardService : IWireguardService {
 
     public DateTime GetLastHandshake(Client client) {
         var rawData = _commandRunner
-            .Run($"{Configuration.WireguardBin} show {GetInterface(client).Name} dump")
+            .Run($"{Configuration.WireguardBin} show {_interfaceService.GetInterface(client).Name} dump")
             .Stdout;
         try {
             return WireguardDumpParser.GetLastHandshake(rawData, client);
@@ -106,7 +85,7 @@ public class WireguardService : IWireguardService {
     }
     
     public TrafficData? GetTrafficData(Client client) {
-        var data = GetTrafficData(GetInterface(client));
+        var data = GetTrafficData(_interfaceService.GetInterface(client));
         return data.SingleOrDefault(e => e.Peer.Equals(client));
     }
 

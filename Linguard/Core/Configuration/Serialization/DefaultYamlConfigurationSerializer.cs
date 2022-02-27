@@ -1,6 +1,4 @@
 ﻿using Linguard.Core.Drivers.TrafficStorage;
-using YamlDotNet.Core;
-using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
 namespace Linguard.Core.Configuration.Serialization; 

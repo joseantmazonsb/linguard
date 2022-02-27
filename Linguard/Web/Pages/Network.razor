@@ -2,6 +2,7 @@
 @using Linguard.Core.Utils
 @using System.Net.NetworkInformation
 @using System.Net.Sockets
+@using Linguard.Core.Services
 
 @code {
     const string Title = "Network";
@@ -34,6 +35,7 @@
     </Columns>
 </RadzenDataGrid>
 
+@inject IInterfaceService _interfaceService
 @code {
 
     class NetworkInterfaceViewModel {
@@ -49,11 +51,11 @@
 
     protected override void OnInitialized() {
         _interfaces = new List<NetworkInterfaceViewModel>();
-        var interfaces = NetworkInterface.GetAllNetworkInterfaces()
+        var interfaces = _interfaceService.NetworkInterfaces
             .OrderBy(i => i.Name)
             .ToList();
         foreach (var iface in interfaces) {
-            var addresses = iface.GetIPProperties().UnicastAddresses;
+            var addresses = iface.GetIPProperties().UnicastAddresses.ToList();
             var ipv4 = addresses.FirstOrDefault(
                 a => a.Address.AddressFamily == AddressFamily.InterNetwork);
             var ipv6 = addresses.FirstOrDefault(

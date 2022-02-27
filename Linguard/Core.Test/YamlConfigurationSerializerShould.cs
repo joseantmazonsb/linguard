@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Net.NetworkInformation;
 using Core.Test.Mocks;
 using FluentAssertions;
 using Linguard.Core;
@@ -10,7 +8,6 @@ using Linguard.Core.Drivers.TrafficStorage;
 using Linguard.Core.Models;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Log;
-using Moq;
 using Xunit;
 
 namespace Core.Test; 
