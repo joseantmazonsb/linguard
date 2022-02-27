@@ -1,26 +1,25 @@
 ﻿using Linguard.Core.Configuration;
 using Linguard.Core.Configuration.Exceptions;
 using Linguard.Core.Configuration.Serialization;
+using Linguard.Core.OS;
 
 namespace Linguard.Core.Managers; 
 
-public abstract class FileConfigurationManager : IConfigurationManager {
+public abstract class FileConfigurationManager : ConfigurationManagerBase {
     
     protected FileConfigurationManager(IConfiguration configuration, IWorkingDirectory workingDirectory, 
-        IConfigurationSerializer serializer) {
+        ICommandRunner commandRunner, IConfigurationSerializer serializer) : base(configuration, workingDirectory, commandRunner) {
         Configuration = configuration;
         WorkingDirectory = workingDirectory;
         Serializer = serializer;
     }
 
-    public IConfiguration Configuration { get; set; }
-    public IWorkingDirectory WorkingDirectory { get; set; }
     protected abstract FileInfo ConfigurationFile { get; }
     private IConfigurationSerializer Serializer { get; }
 
-    public abstract void LoadDefaults();
-
-    public void Load() {
+    public abstract string[] SupportedExtensions { get; }
+    
+    public override void Load() {
         if (!ConfigurationFile.Exists) {
             throw new ConfigurationNotLoadedError(
                 $"Configuration file '{ConfigurationFile.FullName}' does not exist."
@@ -36,8 +35,7 @@ public abstract class FileConfigurationManager : IConfigurationManager {
             );
         }
     }
-
-    public void Save() {
+    public override void Save() {
         try {
             File.WriteAllText(ConfigurationFile.FullName, Export());
         }
@@ -47,8 +45,7 @@ public abstract class FileConfigurationManager : IConfigurationManager {
             );
         }
     }
-
-    public string Export() {
+    public override string Export() {
         return Serializer.Serialize(Configuration);
     }
 }

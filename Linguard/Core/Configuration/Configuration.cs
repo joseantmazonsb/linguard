@@ -1,7 +1,6 @@
 ﻿namespace Linguard.Core.Configuration; 
 
 public class Configuration : IConfiguration {
-
     public IWireguardConfiguration Wireguard { get; set; } = new WireguardConfiguration();
     public ILoggingConfiguration Logging { get; set; } = new LoggingConfiguration();
     public IWebConfiguration Web { get; set; } = new WebConfiguration();
@@ -9,10 +8,14 @@ public class Configuration : IConfiguration {
     
     public object Clone() {
         var clone = (IConfiguration) MemberwiseClone();
-        clone.Wireguard = (IWireguardConfiguration) Wireguard.Clone();
-        clone.Logging = (ILoggingConfiguration) Logging.Clone();
-        clone.Web = (IWebConfiguration) Web.Clone();
-        clone.Traffic = (ITrafficConfiguration) Traffic.Clone();
+        var cloneableProperties = GetType().GetProperties()
+            .Where(p => p.PropertyType.GetInterfaces().Contains(typeof(ICloneable)));
+        foreach (var property in cloneableProperties) {
+            var propertyValue = property.GetValue(this);
+            var propertyClone = propertyValue?.GetType().GetMethod(nameof(Clone))
+                !.Invoke(propertyValue, Array.Empty<object>());
+            property.SetValue(clone, propertyClone);
+        }
         return clone;
     }
 }
