@@ -28,4 +28,10 @@ public interface IWireguardConfiguration : ICloneable {
     /// Default endpoint for all peers if none specified at interface level.  
     /// </summary>
     public Uri? Endpoint { get; set; }
+    /// <summary>
+    /// Get the interface associated to a given client or <c>default</c> if none.
+    /// </summary>
+    /// <param name="client"></param>
+    /// <returns></returns>
+    Interface? GetInterface(Client client);
 }

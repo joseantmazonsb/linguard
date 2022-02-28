@@ -50,6 +50,7 @@ public class WebService : IWebService {
                 RemoveInterface(iface);
                 break;
         }
+        ConfigurationManager.Save();
     }
 
     public byte[] GetQrCode(IWireguardPeer peer) {
@@ -59,12 +60,11 @@ public class WebService : IWebService {
     }
 
     private void RemoveClient(Client client) {
-        WireguardService.GetInterface(client)?.Clients.Remove(client);
-        ConfigurationManager.Save();
+        WireguardService.RemoveClient(client);
+        Configuration.GetInterface(client)?.Clients.Remove(client);
     }
     
     private void RemoveInterface(Interface iface) {
         Configuration.Interfaces.Remove(iface);
-        ConfigurationManager.Save();
     }
 }

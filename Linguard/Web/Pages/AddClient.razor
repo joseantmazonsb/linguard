@@ -52,6 +52,7 @@
     private void Submit(Client client) {
         var result = _validator.Validate(client);
         if (result.IsValid) {
+            _wireguardService.AddClient(Interface, client);
             Interface!.Clients.Add(client);
             _configurationManager.Save();
             _navigationManager.NavigateTo("wireguard");

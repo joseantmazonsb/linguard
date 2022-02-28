@@ -85,8 +85,8 @@
         <RadzenDataGridColumn TItem="Client" Property="IPv6Address" Title="IPv6"/>
         <RadzenDataGridColumn TItem="Client" Title="Interface">
             <Template Context="data">
-                <a href="/interface/@(_wireguardService.GetInterface(data)?.Id)">
-                    @(_wireguardService.GetInterface(data)?.Name)
+                <a href="/interface/@(Configuration.Wireguard.GetInterface(data)?.Id)">
+                    @(Configuration.Wireguard.GetInterface(data)?.Name)
                 </a>
             </Template>
         </RadzenDataGridColumn>

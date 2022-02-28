@@ -27,7 +27,7 @@ builder.Services.AddServerSideBlazor();
 
 var manager = new DefaultConfigurationManager().Object;
 var systemMock = new SystemMock().Object;
-var wireguardServiceMock = new WireguardServiceMock(manager, systemMock).Object;
+var wireguardServiceMock = new WireguardServiceMock(systemMock).Object;
 builder.Services.AddSingleton(manager);
 builder.Services.AddSingleton(systemMock);
 builder.Services.AddSingleton(wireguardServiceMock);

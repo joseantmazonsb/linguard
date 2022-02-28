@@ -19,9 +19,6 @@ public class WireguardService : IWireguardService {
 
     private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
 
-    public Interface? GetInterface(Client client) => Configuration.Interfaces
-        .SingleOrDefault(i => i.Clients.Contains(client));
-    
     public void StartInterface(Interface @interface) {
         var result = _systemWrapper
             .RunCommand($"sudo {Configuration.WireguardQuickBin} up {@interface.Name}");
@@ -41,7 +38,8 @@ public class WireguardService : IWireguardService {
         if (!result.Success) throw new WireguardException(result.Stderr);
     }
 
-    public void RemoveClient(Interface iface, Client client) {
+    public void RemoveClient(Client client) {
+        var iface = Configuration.GetInterface(client);
         var cmd = $"sudo {Configuration.WireguardQuickBin} set {iface.Name} peer {client.PublicKey} remove";
         var result = _systemWrapper.RunCommand(cmd);
         if (!result.Success) throw new WireguardException(result.Stderr);
@@ -63,7 +61,7 @@ public class WireguardService : IWireguardService {
 
     public DateTime GetLastHandshake(Client client) {
         var rawData = _systemWrapper
-            .RunCommand($"{Configuration.WireguardBin} show {GetInterface(client).Name} dump")
+            .RunCommand($"{Configuration.WireguardBin} show {Configuration.GetInterface(client).Name} dump")
             .Stdout;
         try {
             return WireguardDumpParser.GetLastHandshake(rawData, client);
@@ -82,7 +80,7 @@ public class WireguardService : IWireguardService {
     }
     
     public TrafficData? GetTrafficData(Client client) {
-        var data = GetTrafficData(GetInterface(client));
+        var data = GetTrafficData(Configuration.GetInterface(client));
         return data.SingleOrDefault(e => e.Peer.Equals(client));
     }
 
