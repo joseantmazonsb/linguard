@@ -1,15 +1,18 @@
 using System;
 using System.Linq;
-using System.Net.NetworkInformation;
+using Core.Test.Mocks;
 using FluentAssertions;
 using Linguard.Core;
 using Linguard.Core.Models.Wireguard;
+using Linguard.Core.OS;
 using Linguard.Core.Utils.Wireguard;
 using Xunit;
 
 namespace Core.Test;
 
 public class InterfaceShould {
+    private readonly ISystemWrapper _system = new SystemMock().Object;
+
     [Fact]
     public void CreateValidWireguardConfiguration() {
         
@@ -42,17 +45,17 @@ AllowedIPs = 1.1.1.2/32, 9f87:8784:c972:21f4:62b6:34a0:80e4:43df/128
             IPv6Address = IPAddressCidr.Parse("47cc:ec62:b8b4:d4c0:9c90:4c5c:1df5:a13f/64"),
             PublicKey = "c892a52a-1fad-4564-af83-641744cd4dc3",
             PrivateKey = "16116afc-3068-4ff5-88e0-0662ef57641a",
-            OnUp = new [] {
+            OnUp = new Rule[] {
                 "/usr/sbin/iptables -I FORWARD -i wg0 -j ACCEPT",
                 "/usr/sbin/iptables -I FORWARD -o wg0 -j ACCEPT",
                 "/usr/sbin/iptables -t nat -I POSTROUTING -o eth0 -j MASQUERADE"
                 },
-            OnDown = new [] {
+            OnDown = new Rule[] {
                 "/usr/sbin/iptables -D FORWARD -i wg0 -j ACCEPT",
                 "/usr/sbin/iptables -D FORWARD -o wg0 -j ACCEPT",
                 "/usr/sbin/iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE"
             },
-            Gateway = NetworkInterface.GetAllNetworkInterfaces().First(),
+            Gateway = _system.NetworkInterfaces.First(),
             Clients = new[] {
                 new Client {
                     Endpoint = new Uri("vpn.example.com", UriKind.RelativeOrAbsolute),

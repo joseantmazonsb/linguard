@@ -6,6 +6,7 @@ using FluentAssertions;
 using Linguard.Cli.Commands;
 using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
+using Linguard.Core.OS;
 using Linguard.Core.Services;
 using Moq;
 using Typin.Attributes;
@@ -152,6 +153,6 @@ public class AddClientCommandShould {
 
     private Interface GenerateInterface(IConfigurationManager configuration) {
         return new DefaultInterfaceGenerator(configuration, 
-            WireguardServiceMock.Object).Generate();
+            WireguardServiceMock.Object, new SystemWrapper(configuration)).Generate();
     }
 }

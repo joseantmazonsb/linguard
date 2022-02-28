@@ -4,20 +4,23 @@ using Bogus;
 using Linguard.Core.Configuration;
 using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
+using Linguard.Core.OS;
 using Linguard.Core.Utils.Wireguard;
 
 namespace Linguard.Core.Services; 
 
 public class DefaultInterfaceGenerator : IInterfaceGenerator {
     private readonly IWireguardService _wireguardService;
+    private readonly ISystemWrapper _system;
     private readonly IConfigurationManager _configurationManager;
     private const int MaxTries = 100;
     private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
 
     public DefaultInterfaceGenerator(IConfigurationManager configurationManager, 
-        IWireguardService wireguardService) {
+        IWireguardService wireguardService, ISystemWrapper system) {
         _configurationManager = configurationManager;
         _wireguardService = wireguardService;
+        _system = system;
     }
 
     public Interface Generate() {
@@ -32,7 +35,7 @@ public class DefaultInterfaceGenerator : IInterfaceGenerator {
             .RuleFor(i => i.Auto, true)
             .RuleFor(i => i.Description, f => f.Lorem.Sentence())
             .RuleFor(i => i.Gateway, f => {
-                var gateways = NetworkInterface.GetAllNetworkInterfaces()
+                var gateways = _system.NetworkInterfaces
                     .Where(i => i.NetworkInterfaceType != NetworkInterfaceType.Loopback)
                     .ToArray();
                 return f.PickRandomParam(gateways);

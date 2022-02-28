@@ -6,8 +6,8 @@ namespace Linguard.Core.Utils.Wireguard;
 
 public static class WireguardUtils {
 
-    public static string[] GenerateOnUpRules(string iptablesBin, string interfaceName, NetworkInterface gateway) {
-        return new[] {
+    public static ICollection<Rule> GenerateOnUpRules(string iptablesBin, string interfaceName, NetworkInterface gateway) {
+        return new List<Rule> {
             $"{iptablesBin} -I FORWARD -i {interfaceName} -j ACCEPT",
             $"{iptablesBin} -I FORWARD -o {interfaceName} -j ACCEPT",
             $"{iptablesBin} -t nat -I POSTROUTING -o {gateway.Name} -j MASQUERADE",
@@ -16,8 +16,8 @@ public static class WireguardUtils {
         };
     }
 
-    public static string[] GenerateOnDownRules(string iptablesBin, string interfaceName, NetworkInterface gateway) {
-        return new[] {
+    public static ICollection<Rule> GenerateOnDownRules(string iptablesBin, string interfaceName, NetworkInterface gateway) {
+        return new List<Rule> {
             $"{iptablesBin} -D FORWARD -i {interfaceName} -j ACCEPT",
             $"{iptablesBin} -D FORWARD -o {interfaceName} -j ACCEPT",
             $"{iptablesBin} -t nat -D POSTROUTING -o {gateway.Name} -j MASQUERADE",

@@ -1,6 +1,6 @@
-﻿@using Linguard.Core.Models.Wireguard
+﻿@using Linguard.Core.OS
+@using Linguard.Core.Models.Wireguard
 @using Linguard.Core.Models.Wireguard.Validators
-@using System.Net.NetworkInformation
 @namespace Linguard.Web.Shared
 
 <div>
@@ -177,22 +177,33 @@
             <div class="row mb-2">
                 <div class="col-xxl-10">
                     <RadzenDataGrid @ref="_onUpGrid" AllowColumnResize="true" AllowFiltering="true" AllowPaging="true"
-                                    AllowSorting="true"
+                                    AllowSorting="true" EditMode="DataGridEditMode.Single"
                                     Data="@Iface.OnUp"
                                     FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
-                                    TItem="string">
+                                    TItem="Rule">
                         <Columns>
-                            <RadzenDataGridColumn TItem="string" Property="ToString()" Title="Rule">
+                            <RadzenDataGridColumn TItem="Rule" Property="Command" Title="Rule">
+                                <EditTemplate Context="data">
+                                    <RadzenTextBox @bind-Value="@data.Command" class="w-100"/>
+                                </EditTemplate>
                                 <FooterTemplate>
                                     Total: <b>@Iface.OnUp.Count</b>
                                 </FooterTemplate>
                             </RadzenDataGridColumn>
-                            <RadzenDataGridColumn TItem="string" Title="Actions" Resizable="false"
-                                                  Filterable="false" Sortable="false" Width="95px">
+                            <RadzenDataGridColumn TItem="Rule" Title="Actions" Resizable="false"
+                                                  Filterable="false" Sortable="false" Width="120px">
                                 <Template Context="data">
-                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" title="Edit"/>
-                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Light" title="Delete"/>
+                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" title="Edit"
+                                                  Click="_ => EditRow(data, _onUpGrid)"/>
+                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Light" title="Delete"
+                                                  Click="_ => DeleteRow(data, _onUpGrid)"/>
                                 </Template>
+                                <EditTemplate Context="data">
+                                    <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Class="m-1"
+                                                  Click="_ => SaveRow(data, _onUpGrid)"/>
+                                    <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Light" Class="m-1"
+                                                  Click="_ => CancelEditRow(data, _onUpGrid)"/>
+                                </EditTemplate>
                             </RadzenDataGridColumn>
                         </Columns>
                     </RadzenDataGrid>
@@ -200,10 +211,9 @@
             </div>
             <div class="row mb-2">
                 <div class="col">
-                    @*<RadzenButton Icon="add_circle_outline" style="margin-bottom: 10px" Text="Add new" 
-                                  Click="@InsertRow" Disabled=@(orderToInsert != null) />*@
                     <RadzenButton Icon="add_circle_outline" style="margin-bottom: 10px" Text="Add rule"
-                                  ButtonStyle="ButtonStyle.Secondary"/>
+                                  ButtonStyle="ButtonStyle.Secondary"
+                                  Click="() => AddRow(_onUpGrid)"/>
                 </div>
             </div>
         </div>
@@ -215,23 +225,32 @@
             </div>
             <div class="row mb-2">
                 <div class="col-xxl-10">
-                    <RadzenDataGrid @ref="_onDownGrid" AllowColumnResize="true" AllowFiltering="true" AllowPaging="true"
-                                    AllowSorting="true"
-                                    Data="@Iface.OnDown"
-                                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
-                                    TItem="string">
+                    <RadzenDataGrid @ref="_onDownGrid" TItem="Rule" AllowColumnResize="true" AllowFiltering="true" 
+                                    AllowPaging="true" AllowSorting="true" EditMode="DataGridEditMode.Single" 
+                                    Data="@Iface.OnDown" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
                         <Columns>
-                            <RadzenDataGridColumn TItem="string" Property="ToString()" Title="Rule">
+                            <RadzenDataGridColumn TItem="Rule" Title="Rule" Property="Command">
+                                <EditTemplate Context="data">
+                                    <RadzenTextBox @bind-Value="@data.Command" class="w-100"/>
+                                </EditTemplate>
                                 <FooterTemplate>
                                     Total: <b>@Iface.OnDown.Count</b>
                                 </FooterTemplate>
                             </RadzenDataGridColumn>
-                            <RadzenDataGridColumn TItem="string" Title="Actions" Resizable="false"
-                                                  Filterable="false" Sortable="false" Width="95px">
+                            <RadzenDataGridColumn TItem="Rule" Title="Actions" Resizable="false"
+                                                  Filterable="false" Sortable="false" Width="120px">
                                 <Template Context="data">
-                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" title="Edit"/>
-                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Light" title="Delete"/>
+                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" title="Edit"
+                                                  Click="_ => EditRow(data, _onDownGrid)"/>
+                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Light" title="Delete"
+                                                  Click="_ => DeleteRow(data, _onDownGrid)"/>
                                 </Template>
+                                <EditTemplate Context="data">
+                                    <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Class="m-1"
+                                                  Click="_ => SaveRow(data, _onDownGrid)"/>
+                                    <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Light" Class="m-1"
+                                                  Click="_ => CancelEditRow(data, _onDownGrid)"/>
+                                </EditTemplate>
                             </RadzenDataGridColumn>
                         </Columns>
                     </RadzenDataGrid>
@@ -239,10 +258,9 @@
             </div>
             <div class="row mb-2">
                 <div class="col">
-                    @*<RadzenButton Icon="add_circle_outline" style="margin-bottom: 10px" Text="Add new" 
-                                  Click="@InsertRow" Disabled=@(orderToInsert != null) />*@
                     <RadzenButton Icon="add_circle_outline" style="margin-bottom: 10px" Text="Add rule"
-                                  ButtonStyle="ButtonStyle.Secondary"/>
+                                  ButtonStyle="ButtonStyle.Secondary" 
+                                  Click="() => _onDownGrid.InsertRow(new Rule())"/>
                 </div>
             </div>
         </div>
@@ -271,6 +289,8 @@
     </div>
 </div>
 
+@inject ISystemWrapper _system
+
 @code {
     [Parameter]
     public Interface Iface { get; set; }
@@ -284,17 +304,56 @@
     [Parameter]
     public string SubmitIcon { get; set; } = "save";
     
-    RadzenDataGrid<string> _onUpGrid;
-    RadzenDataGrid<string> _onDownGrid;
+    RadzenDataGrid<Rule> _onUpGrid;
+    RadzenDataGrid<Rule> _onDownGrid;
+
+    private string previousRuleCommand = string.Empty;
+    private bool _appendingRule;
     
-    IEnumerable<string> InterfaceNames => NetworkInterface.GetAllNetworkInterfaces()
+    IEnumerable<string> InterfaceNames => _system.NetworkInterfaces
         .Select(i => i.Name)
         //.Concat(Configuration.Interfaces.Select(i => i.Name))
         //.Distinct()
         .OrderBy(n => n);
     
     void OnGatewayChanged(object gatewayName) {
-        Iface.Gateway = NetworkInterface.GetAllNetworkInterfaces()
+        Iface.Gateway = _system.NetworkInterfaces
             .SingleOrDefault(i => i.Name.Equals(gatewayName))!;
+    }
+    
+    async Task EditRow(Rule data, RadzenDataGrid<Rule> grid) {
+        previousRuleCommand = new string(data.Command);
+        await grid.EditRow(data);
+    }
+    
+    async Task SaveRow(Rule data, RadzenDataGrid<Rule> grid) {
+        previousRuleCommand = string.Empty;
+        await grid.UpdateRow(data);
+        _appendingRule = false;
+    }
+    
+    async Task CancelEditRow(Rule data, RadzenDataGrid<Rule> grid) {
+        data.Command = previousRuleCommand;
+        previousRuleCommand = string.Empty;
+        grid.CancelEditRow(data);
+        if (_appendingRule) {
+            await DeleteRow(data, grid);
+        }
+        _appendingRule = false;
+    }
+    
+    async Task DeleteRow(Rule data, RadzenDataGrid<Rule> grid) {
+        if (grid.Equals(_onDownGrid)) Iface.OnDown.Remove(data);
+        else if (grid.Equals(_onUpGrid)) Iface.OnUp.Remove(data);
+        await grid.Reload();
+    }
+
+    async Task AddRow(RadzenDataGrid<Rule> grid) {
+        _appendingRule = true;
+        var rule = new Rule();
+        if (grid.Equals(_onDownGrid)) Iface.OnDown.Add(rule);
+        else if (grid.Equals(_onUpGrid)) Iface.OnUp.Add(rule);
+        await grid.Reload();
+        await EditRow(rule, grid);
     }
 }

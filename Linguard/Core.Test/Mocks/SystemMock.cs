@@ -1,13 +1,21 @@
-﻿using System.Net.NetworkInformation;
-using Core.Test.Mocks;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Net.NetworkInformation;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.OS;
 using Moq;
 
-namespace WebMock; 
+namespace Core.Test.Mocks; 
 
 public class SystemMock : Mock<ISystemWrapper> {
-    private readonly List<NetworkInterface> _networkInterfaces = new();
+
+    private readonly List<NetworkInterface> _networkInterfaces = new() {
+        new NetworkInterfaceMock("eth0", OperationalStatus.Up).Object,
+        new NetworkInterfaceMock("eth1", OperationalStatus.Down).Object,
+        new NetworkInterfaceMock("wlan0", OperationalStatus.Up).Object,
+        new NetworkInterfaceMock("wlan1").Object
+    };
+
     public SystemMock() {
         SetupGet(o => o.NetworkInterfaces).Returns(_networkInterfaces);
         

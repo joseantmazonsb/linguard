@@ -1,9 +1,9 @@
-﻿using System.Net.NetworkInformation;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using FluentValidation;
 using FluentValidation.Results;
 using Linguard.Core.Configuration;
 using Linguard.Core.Managers;
+using Linguard.Core.OS;
 using Linguard.Core.Utils.Comparers;
 
 namespace Linguard.Core.Models.Wireguard.Validators; 
@@ -15,9 +15,11 @@ public class InterfaceValidator : AbstractValidator<Interface> {
     
     private readonly IConfigurationManager _configurationManager;
     private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
+    private readonly ISystemWrapper _system;
 
-    public InterfaceValidator(IConfigurationManager configurationManager) {
+    public InterfaceValidator(IConfigurationManager configurationManager, ISystemWrapper system) {
         _configurationManager = configurationManager;
+        _system = system;
     }
 
     public override ValidationResult Validate(ValidationContext<Interface> context) {
@@ -51,7 +53,7 @@ public class InterfaceValidator : AbstractValidator<Interface> {
             .WithMessage($"{field} {Validation.CannotBeEmpty}")
             .DependentRules(() => {
                 RuleFor(i => i.Gateway)
-                    .Must(i => NetworkInterface.GetAllNetworkInterfaces()
+                    .Must(i => _system.NetworkInterfaces
                         .Contains(i, new NetworkInterfaceNameComparer()))
                     .WithMessage(Validation.InvalidGateway);
             });

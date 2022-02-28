@@ -4,6 +4,7 @@ using FluentValidation;
 using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Models.Wireguard.Validators;
+using Linguard.Core.OS;
 using Linguard.Core.Services;
 using Moq;
 using Xunit;
@@ -14,9 +15,12 @@ public class DefaultInterfaceGeneratorShould {
 
     private static readonly Mock<IConfigurationManager> ConfigurationManagerMock = new DefaultConfigurationManager();
     private static readonly Mock<IWireguardService> WireguardServiceMock = new();
-    private static IInterfaceGenerator Generator => 
-        new DefaultInterfaceGenerator(ConfigurationManagerMock.Object, WireguardServiceMock.Object);
-    private static AbstractValidator<Interface> Validator => new InterfaceValidator(ConfigurationManagerMock.Object);
+    private static readonly ISystemWrapper SystemWrapper = new SystemWrapper(ConfigurationManagerMock.Object);
+
+    private static IInterfaceGenerator Generator =>
+        new DefaultInterfaceGenerator(ConfigurationManagerMock.Object, WireguardServiceMock.Object, SystemWrapper);
+    private static AbstractValidator<Interface> Validator => 
+        new InterfaceValidator(ConfigurationManagerMock.Object, SystemWrapper);
 
     [Fact]
     public void AlwaysGenerateValidInterfaces() {

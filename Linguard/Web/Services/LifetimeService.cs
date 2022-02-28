@@ -3,6 +3,7 @@ using Linguard.Core.Configuration;
 using Linguard.Core.Configuration.Exceptions;
 using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
+using Linguard.Core.OS;
 using Linguard.Core.Services;
 using Linguard.Core.Utils;
 
@@ -15,6 +16,7 @@ public class LifetimeService : ILifetimeService {
     private static readonly string WorkingDirectoryEnvironmentVariable = $"{AssemblyInfo.Product}Workdir";
     
     private readonly Log.ILogger _logger;
+    private readonly ISystemWrapper _system;
     private readonly IWireguardService _wireguardService;
     private readonly IConfigurationManager _configurationManager;
     private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
@@ -22,10 +24,11 @@ public class LifetimeService : ILifetimeService {
     #endregion
     
     public LifetimeService(IConfigurationManager configurationManager, IWireguardService wireguardService, 
-        Log.ILogger logger) {
+        Log.ILogger logger, ISystemWrapper system) {
         _configurationManager = configurationManager;
         _wireguardService = wireguardService;
         _logger = logger;
+        _system = system;
     }
 
     public void OnAppStarted() {
@@ -113,7 +116,7 @@ public class LifetimeService : ILifetimeService {
     }
 
     private IEnumerable<Interface> GetStartedInterfaces() {
-        var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces()
+        var networkInterfaces = _system.NetworkInterfaces
             .Where(i => i.OperationalStatus == OperationalStatus.Up);
         return Configuration.Interfaces
             .Where(i => networkInterfaces.Any(ni => ni.Name.Equals(i.Name)));

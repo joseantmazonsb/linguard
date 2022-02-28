@@ -1,12 +1,11 @@
 ﻿@page "/wireguard"
-@using Linguard.Core.Utils
-@using Linguard.Core.Models.Wireguard
 @using Linguard.Core.Managers
-@using System.Net.NetworkInformation
-@using Linguard.Core.Configuration
+@using Linguard.Core.Models.Wireguard
 @using Linguard.Core.OS
 @using Linguard.Core.Services
+@using Linguard.Core.Utils
 @using Linguard.Web.Services
+@using Linguard.Core.Configuration
 
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
 
@@ -124,7 +123,6 @@
     bool _stoppingAll;
 
     protected override void OnInitialized() {
-        NetworkInterface.GetAllNetworkInterfaces();
         _wireguardInterfaces = Configuration.Wireguard.Interfaces
             .OrderBy(i => i.Name)
             .ToList();

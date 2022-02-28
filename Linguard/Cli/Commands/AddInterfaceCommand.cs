@@ -54,10 +54,10 @@ public class AddInterfaceCommand : ICommand {
     public bool? Auto { get; set; } = default;
     
     [CommandOption("onUp", Description = "Commands to execute right after the interface is brought up.")]
-    public ICollection<string>? OnUp { get; set; } = default;
+    public ICollection<Rule>? OnUp { get; set; } = default;
     
     [CommandOption("onDown", Description = "Commands to execute right after the interface is brought down.")]
-    public ICollection<string>? OnDown { get; set; } = default;
+    public ICollection<Rule>? OnDown { get; set; } = default;
     
     [CommandOption("pubkey", Description = "The peer's public key.")]
     public string? PublicKey { get; set; } = default;
