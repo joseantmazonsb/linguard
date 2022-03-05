@@ -24,7 +24,7 @@ builder.Services.AddTransient<IConfiguration, Configuration>();
 builder.Services.AddTransient<IWorkingDirectory, WorkingDirectory>();
 builder.Services.AddSingleton<IConfigurationSerializer>(DefaultYamlConfigurationSerializer.Instance);
 builder.Services.AddTransient<ILogger, NLogLogger>();
-builder.Services.AddTransient<ISystemWrapper, Linguard.Core.OS.SystemWrapper>();
+builder.Services.AddTransient<ISystemWrapper, SystemWrapper>();
 builder.Services.AddTransient<IWireguardService, WireguardService>();
 builder.Services.AddTransient<IInterfaceGenerator, DefaultInterfaceGenerator>();
 builder.Services.AddTransient<IClientGenerator, DefaultClientGenerator>();

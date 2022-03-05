@@ -16,8 +16,7 @@ public class YamlConfigurationSerializerShould {
 
     #region Yaml string
 
-    const string yaml = @"!Configuration
-Wireguard: !Wireguard
+    const string yaml = @"Wireguard:
   Interfaces:
   - Gateway: eth0
     Port: 0
@@ -44,27 +43,27 @@ Wireguard: !Wireguard
       PrimaryDns: ''
       SecondaryDns: ''
       Endpoint: 192.168.0.1
-      Id: 00000000-0000-0000-0000-000000000000
+      Id: 00000000-0000-0000-0000-000000000001
       PublicKey: 
       PrivateKey: 
       IPv4Address: 1.1.1.3/30
       IPv6Address: ''
       Name: peer2
       Description: 
-    - AllowedIPs: []
+    - AllowedIPs: 
       Nat: false
       PrimaryDns: ''
       SecondaryDns: ''
       Endpoint: ''
-      Id: 00000000-0000-0000-0000-000000000000
+      Id: 00000000-0000-0000-0000-000000000002
       PublicKey: 
       PrivateKey: 
       IPv4Address: 1.1.1.4/30
       IPv6Address: ''
       Name: peer3
       Description: 
-    OnUp: []
-    OnDown: []
+    OnUp: 
+    OnDown: 
     PrimaryDns: ''
     SecondaryDns: ''
     Endpoint: ''
@@ -81,16 +80,16 @@ Wireguard: !Wireguard
   PrimaryDns: ''
   SecondaryDns: ''
   Endpoint: ''
-Logging: !Logging
+Logging:
   Level: Debug
   Overwrite: false
-Web: !Web
+Web:
   LoginAttempts: 10
   SecretKey: ''
   Style: Default
-Traffic: !Traffic
+Traffic:
   Enabled: false
-  StorageDriver: !Json
+  StorageDriver:
     TimestampFormat: aaa
 ";
     #endregion
@@ -128,22 +127,29 @@ Traffic: !Traffic
                     Name = "wg1",
                     IPv4Address = IPAddressCidr.Parse("1.1.1.1/24"),
                     Gateway = new NetworkInterfaceMock("eth0").Object,
-                    Clients = new []{
-                        new Client {
+                    Clients = new HashSet<Client> {
+                        new() {
                             Endpoint = new Uri("vpn.example.com", UriKind.RelativeOrAbsolute),
                             Name = "peer1",
                             IPv4Address = IPAddressCidr.Parse("1.1.1.2/30"),
-                            AllowedIPs = new HashSet<IPAddressCidr> {IPAddressCidr.Parse("1.1.1.0/24"), IPAddressCidr.Parse("1.1.2.0/24")},
+                            AllowedIPs = new HashSet<IPAddressCidr> {
+                                IPAddressCidr.Parse("1.1.1.0/24"), IPAddressCidr.Parse("1.1.2.0/24")
+                            },
+                            Id = Guid.Parse("00000000-0000-0000-0000-000000000000")
                         },
-                        new Client {
+                        new() {
                             Endpoint = new Uri("192.168.0.1", UriKind.RelativeOrAbsolute),
                             Name = "peer2",
                             IPv4Address = IPAddressCidr.Parse("1.1.1.3/30"),
-                            AllowedIPs = new HashSet<IPAddressCidr> {IPAddressCidr.Parse("1.1.1.0/24"), IPAddressCidr.Parse("1.1.2.0/24")}
+                            AllowedIPs = new HashSet<IPAddressCidr> {
+                                IPAddressCidr.Parse("1.1.1.0/24"), IPAddressCidr.Parse("1.1.2.0/24")
+                            },
+                            Id = Guid.Parse("00000000-0000-0000-0000-000000000001")
                         },
-                        new Client {
+                        new() {
                             Name = "peer3",
                             IPv4Address = IPAddressCidr.Parse("1.1.1.4/30"),
+                            Id = Guid.Parse("00000000-0000-0000-0000-000000000002")
                         }
                     }
                 }},
@@ -155,5 +161,30 @@ Traffic: !Traffic
         var serializer = YamlConfigurationSerializerMock.Instance;
         var output = serializer.Serialize(config);
         output.Trim().Should().Be(yaml.Trim());
+    }
+
+    [Fact]
+    public void SerializeEmpty() {
+        const string yaml = @"Wireguard: 
+Logging: 
+Web: 
+Traffic: 
+";
+        var serializer = YamlConfigurationSerializerMock.Instance;
+        var output = serializer.Serialize(new Configuration());
+        output.Should().Be(yaml);
+    }
+    
+    [Fact]
+    public void DeserializeEmpty() {
+        const string yaml = @"Wireguard: 
+Logging: 
+Web: 
+Traffic: 
+";
+        var serializer = YamlConfigurationSerializerMock.Instance;
+        var output = serializer.Deserialize(yaml);
+        var config = new Configuration();
+        output.Should().Be(config);
     }
 }

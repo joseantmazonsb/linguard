@@ -1,7 +1,7 @@
 ﻿namespace Linguard.Core.Models.Wireguard; 
 
 public class Client : WireguardPeerBase, ICloneable {
-    public HashSet<IPAddressCidr> AllowedIPs { get; set; } = new();
+    public ISet<IPAddressCidr> AllowedIPs { get; set; }
     public bool Nat { get; set; }
     public Uri PrimaryDns { get; set; }
     public Uri? SecondaryDns { get; set; }

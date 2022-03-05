@@ -43,14 +43,13 @@ public abstract class ConfigurationManagerBase : IConfigurationManager {
         Configuration.Traffic.StorageDriver = new JsonTrafficStorageDriver();
     }
     private void LoadWireguardDefaults() {
-        Configuration.Wireguard.Interfaces = new HashSet<Interface>();
         Configuration.Wireguard.IptablesBin = _systemWrapper
             .RunCommand("whereis iptables | tr ' ' '\n' | grep bin").Stdout;
         Configuration.Wireguard.WireguardBin = _systemWrapper
             .RunCommand("whereis wg | tr ' ' '\n' | grep bin").Stdout;
         Configuration.Wireguard.WireguardQuickBin = _systemWrapper
             .RunCommand("whereis wg-quick | tr ' ' '\n' | grep bin").Stdout;
-        Configuration.Wireguard.Interfaces = new();
+        Configuration.Wireguard.Interfaces = new HashSet<Interface>();
         Configuration.Wireguard.PrimaryDns = new("8.8.8.8", UriKind.RelativeOrAbsolute);
         Configuration.Wireguard.SecondaryDns = new("8.8.4.4", UriKind.RelativeOrAbsolute);
         var publicIp = Network.GetPublicIPAddress();

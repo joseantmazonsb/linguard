@@ -46,19 +46,19 @@ AllowedIPs = 1.1.1.2/32, 9f87:8784:c972:21f4:62b6:34a0:80e4:43df/128
             IPv6Address = IPAddressCidr.Parse("47cc:ec62:b8b4:d4c0:9c90:4c5c:1df5:a13f/64"),
             PublicKey = "c892a52a-1fad-4564-af83-641744cd4dc3",
             PrivateKey = "16116afc-3068-4ff5-88e0-0662ef57641a",
-            OnUp = new Rule[] {
+            OnUp = new HashSet<Rule> {
                 "/usr/sbin/iptables -I FORWARD -i wg0 -j ACCEPT",
                 "/usr/sbin/iptables -I FORWARD -o wg0 -j ACCEPT",
                 "/usr/sbin/iptables -t nat -I POSTROUTING -o eth0 -j MASQUERADE"
                 },
-            OnDown = new Rule[] {
+            OnDown = new HashSet<Rule> {
                 "/usr/sbin/iptables -D FORWARD -i wg0 -j ACCEPT",
                 "/usr/sbin/iptables -D FORWARD -o wg0 -j ACCEPT",
                 "/usr/sbin/iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE"
             },
             Gateway = _system.NetworkInterfaces.First(),
-            Clients = new[] {
-                new Client {
+            Clients = new HashSet<Client> {
+                new() {
                     Endpoint = new Uri("vpn.example.com", UriKind.RelativeOrAbsolute),
                     Name = "peer1",
                     Nat = true,
@@ -69,7 +69,7 @@ AllowedIPs = 1.1.1.2/32, 9f87:8784:c972:21f4:62b6:34a0:80e4:43df/128
                     AllowedIPs = new HashSet<IPAddressCidr> { IPAddressCidr.Parse("1.1.2.0/24") },
                     PrimaryDns = new Uri("8.8.8.8", UriKind.RelativeOrAbsolute)
                 },
-                new Client {
+                new() {
                     Endpoint = new Uri("vpn2.example.com", UriKind.RelativeOrAbsolute),
                     Name = "peer2",
                     IPv4Address = IPAddressCidr.Parse("1.1.1.2/30"),

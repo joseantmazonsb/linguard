@@ -18,7 +18,7 @@ public class WireguardDumpParserShould {
     public WireguardDumpParserShould() {
         var iface = new Interface {
             Name = "wg1",
-            Clients = new List<Client> {
+            Clients = new HashSet<Client> {
                 new() {
                     PublicKey = "fE/wdxzl0klVp/IR8UcaoGUMjqaWi3jAd7KzHKFS6Ds="
                 },

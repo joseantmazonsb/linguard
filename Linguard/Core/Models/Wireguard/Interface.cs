@@ -6,9 +6,9 @@ public class Interface : WireguardPeerBase, ICloneable {
     public NetworkInterface Gateway { get; set; }
     public int Port { get; set; }
     public bool Auto { get; set; }
-    public ICollection<Client> Clients { get; set; } = new List<Client>();
-    public ICollection<Rule> OnUp { get; set; } = new List<Rule>();
-    public ICollection<Rule> OnDown { get; set; } = new List<Rule>();
+    public ISet<Client> Clients { get; set; }
+    public ISet<Rule> OnUp { get; set; }
+    public ISet<Rule> OnDown { get; set; }
     /// <summary>
     /// Default primary DNS for all peers if none specified.  
     /// </summary>

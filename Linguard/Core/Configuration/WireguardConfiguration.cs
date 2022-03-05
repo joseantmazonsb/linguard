@@ -3,7 +3,7 @@
 namespace Linguard.Core.Configuration; 
 
 public class WireguardConfiguration : IWireguardConfiguration {
-    public HashSet<Interface> Interfaces { get; set; }
+    public ISet<Interface> Interfaces { get; set; }
     public string IptablesBin { get; set; }
     public string WireguardBin { get; set; }
     public string WireguardQuickBin { get; set; }

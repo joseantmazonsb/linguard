@@ -29,6 +29,11 @@ public class YamlConfigurationSerializerBuilder {
         return WithTypeConverter(Activator.CreateInstance<T>());
     }
     
+    public YamlConfigurationSerializerBuilder WithTypeMapping<TFrom, TTo>() where TTo : TFrom {
+        _deserializerBuilder.WithTypeMapping<TFrom, TTo>();
+        return this;
+    }
+    
     public YamlConfigurationSerializer Build() {
         return new YamlConfigurationSerializer(_serializerBuilder.Build(), _deserializerBuilder.Build());
     }

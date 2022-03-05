@@ -25,7 +25,6 @@ public abstract class FileConfigurationManager : ConfigurationManagerBase {
                 $"Configuration file '{ConfigurationFile.FullName}' does not exist."
             );
         }
-
         try {
             Configuration = Serializer.Deserialize(File.ReadAllText(ConfigurationFile.FullName));
         }
