@@ -133,13 +133,13 @@ Traffic: !Traffic
                             Endpoint = new Uri("vpn.example.com", UriKind.RelativeOrAbsolute),
                             Name = "peer1",
                             IPv4Address = IPAddressCidr.Parse("1.1.1.2/30"),
-                            AllowedIPs = new [] {IPAddressCidr.Parse("1.1.1.0/24"), IPAddressCidr.Parse("1.1.2.0/24")},
+                            AllowedIPs = new HashSet<IPAddressCidr> {IPAddressCidr.Parse("1.1.1.0/24"), IPAddressCidr.Parse("1.1.2.0/24")},
                         },
                         new Client {
                             Endpoint = new Uri("192.168.0.1", UriKind.RelativeOrAbsolute),
                             Name = "peer2",
                             IPv4Address = IPAddressCidr.Parse("1.1.1.3/30"),
-                            AllowedIPs = new [] {IPAddressCidr.Parse("1.1.1.0/24"), IPAddressCidr.Parse("1.1.2.0/24")}
+                            AllowedIPs = new HashSet<IPAddressCidr> {IPAddressCidr.Parse("1.1.1.0/24"), IPAddressCidr.Parse("1.1.2.0/24")}
                         },
                         new Client {
                             Name = "peer3",

@@ -1,11 +1,10 @@
 ﻿@page "/interface/{interfaceId:guid}/add-client"
-
-@using Linguard.Core.Utils
 @using Linguard.Core.Managers
 @using Linguard.Core.Models.Wireguard
 @using Linguard.Core.Services
-@using Linguard.Core.Configuration
+@using Linguard.Core.Utils
 @using FluentValidation
+@using Linguard.Core.Configuration
 
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
 
@@ -56,6 +55,9 @@
             Interface!.Clients.Add(client);
             _configurationManager.Save();
             _navigationManager.NavigateTo("wireguard");
+            return;
         }
+        _notificationService.Notify(NotificationSeverity.Error, "Unable to add client.", 
+            string.Join(Environment.NewLine, result.Errors));
     }
 }

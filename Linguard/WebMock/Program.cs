@@ -1,3 +1,4 @@
+using Bogus;
 using Core.Test.Mocks;
 using FluentValidation;
 using Linguard.Core.Models.Wireguard;
@@ -27,7 +28,8 @@ builder.Services.AddServerSideBlazor();
 
 var manager = new DefaultConfigurationManager().Object;
 var systemMock = new SystemMock().Object;
-var wireguardServiceMock = new WireguardServiceMock(systemMock).Object;
+var faker = new Faker();
+var wireguardServiceMock = new WireguardServiceMock(systemMock, faker).Object;
 builder.Services.AddSingleton(manager);
 builder.Services.AddSingleton(systemMock);
 builder.Services.AddSingleton(wireguardServiceMock);

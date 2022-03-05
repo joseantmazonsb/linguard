@@ -46,7 +46,7 @@ public class AddClientCommand : ICommand {
 
     [CommandOption("allowedIps", Description = "Allowed IPs.", 
         Converter = typeof(IPAddressCidrCollectionTypeConverter))]
-    public ICollection<IPAddressCidr>? AllowedIPs { get; set; }
+    public HashSet<IPAddressCidr>? AllowedIPs { get; set; }
     
     [CommandOption("nat", Description = "Whether the peer is behind a NAT.")]
     public bool? Nat { get; set; }

@@ -1,4 +1,5 @@
 ﻿@page "/interface/{id:guid}"
+@using Linguard.Core.Utils.Extensions
 @using Linguard.Core.Managers
 @using Linguard.Core.Models.Wireguard
 @using Linguard.Core.OS
@@ -24,12 +25,12 @@
     public Guid Id { get; set; }
     
     IConfiguration Configuration => _configurationManager.Configuration;
-    Interface? Iface => Configuration.Wireguard.Interfaces.SingleOrDefault(i => i.Id == Id)?.Clone() as Interface;
+    Interface? _iface;
 
 }
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
 
-@if (Iface == default) {
+@if (_iface == default) {
     <p>Oops, it looks like the interface you are looking for does not exist.</p>
     return;
 }
@@ -38,7 +39,7 @@
     <div class="col">
         <h1 class="mb-3">
             @Title
-            @if (_system.IsInterfaceUp(Iface)) {
+            @if (_system.IsInterfaceUp(_iface)) {
                 <RadzenBadge class="float-end" IsPill="true" Text="up" BadgeStyle="BadgeStyle.Success" />
             }
             else {
@@ -52,12 +53,12 @@
 <RadzenAccordion Multiple="true">
     <Items>
         <RadzenAccordionItem Text="Actions" Icon="construction">
-            <PeerActions Peer="Iface"/>
+            <PeerActions Peer="_iface"/>
         </RadzenAccordionItem>
         <RadzenAccordionItem Selected="true" Text="Configuration" Icon="settings">
             <RadzenCard class="my-2">
-                <RadzenTemplateForm Data="@Iface" Submit="@((Interface args) => { Submit(args); })">
-                    <InterfaceConfigurationForm Iface="Iface" ShowWireguardKeys="true"/>
+                <RadzenTemplateForm Data="@_iface" Submit="@((Interface args) => { Submit(args); })">
+                    <InterfaceConfigurationForm Iface="_iface" ShowWireguardKeys="true"/>
                 </RadzenTemplateForm>
             </RadzenCard>
         </RadzenAccordionItem>
@@ -67,22 +68,27 @@
                               Click=@AddClient />
                 <RadzenDataGrid @ref="_clientsGrid" AllowColumnResize="true" AllowFiltering="true" AllowPaging="true"
                                 AllowSorting="true" ColumnWidth="200px"
-                                Data="@Iface.Clients"
+                                Data="@_iface.Clients"
                                 FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
                                 TItem="Client">
                     <Columns>
                         <RadzenDataGridColumn TItem="Client" Property="Name" Title="Name">
                             <FooterTemplate>
-                                Total: <b>@Iface.Clients.Count</b>
+                                Total: <b>@_iface.Clients.Count</b>
                             </FooterTemplate>
                         </RadzenDataGridColumn>
                         <RadzenDataGridColumn TItem="Client" Property="Description" Title="Description"/>
                         <RadzenDataGridColumn TItem="Client" Property="IPv4Address" Title="IPv4"/>
                         <RadzenDataGridColumn TItem="Client" Property="IPv6Address" Title="IPv6"/>
-                        <RadzenDataGridColumn TItem="Client" Property="Nat" Title="NAT"/>
+                        <RadzenDataGridColumn TItem="Client" Title="NAT">
+                            <Template Context="client">
+                                @(client.Nat ? "Yes" : "No")
+                            </Template>
+                        </RadzenDataGridColumn>
                         <RadzenDataGridColumn TItem="Client" Title="Last Handshake">
                             <Template Context="data">
-                                <p>@_wireguardService.GetLastHandshake(data)</p>
+                                @{var handshake = _wireguardService.GetLastHandshake(data);}
+                                @(handshake == default ? "None" : handshake)
                             </Template>
                         </RadzenDataGridColumn>
                         <RadzenDataGridColumn TItem="Client" Title="Actions" Resizable="false"
@@ -103,7 +109,7 @@
             </RadzenCard>
         </RadzenAccordionItem>
         <RadzenAccordionItem Text="Traffic data" Icon="swap_vert">
-            <RealTimeTraffic Peer="Iface"/>
+            <RealTimeTraffic Peer="_iface"/>
         </RadzenAccordionItem>
     </Items>
 </RadzenAccordion>
@@ -113,14 +119,24 @@
 
 @code {
 
-    void Submit(Interface args) {
-        var result = _validator.Validate(args);
+    protected override void OnInitialized() {
+        base.OnInitialized();
+        _iface = Configuration.Wireguard.Interfaces.SingleOrDefault(i => i.Id == Id)?.Clone() as Interface;
+    }
+
+    void Submit(Interface iface) {
+        var result = _validator.Validate(iface);
         if (result.IsValid) {
+            var originalIface = Configuration.Wireguard.Interfaces.SingleOrDefault(i => i.Id == Id);
+            Configuration.Wireguard.Interfaces = Configuration.Wireguard.Interfaces
+                .Replace(originalIface, iface)
+                .ToHashSet();
             _configurationManager.Save();
             _notificationService.Notify(NotificationSeverity.Success, "Interface saved!");
             return;
         }
-        _notificationService.Notify(NotificationSeverity.Error, "Unable to save interface.");
+        _notificationService.Notify(NotificationSeverity.Error, "Unable to save interface.", 
+            string.Join(Environment.NewLine, result.Errors));
     }
 
     void EditWireguardClient(Client client) {
@@ -167,7 +183,7 @@
 
     void AddClient() {
         _navigationManager.NavigateTo(
-            $"/{nameof(Interface)}/{Iface.Id}/add-{nameof(Client).ToLower()}");
+            $"/{nameof(Interface)}/{_iface.Id}/add-{nameof(Client).ToLower()}");
     }
     
     async Task ShowQrCode(IWireguardPeer peer) {

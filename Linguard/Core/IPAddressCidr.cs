@@ -3,14 +3,21 @@ using System.Net.Sockets;
 
 namespace Linguard.Core; 
 
-public class IPAddressCidr {
-    public IPAddress IPAddress { get; set; }
+public class IPAddressCidr : ICloneable {
+    public const byte MinIPPrefix = 0;
+    public const byte MaxIPv4Prefix = 32;
+    public const byte MaxIPv6Prefix = 128;
+    public IPAddress? IPAddress { get; set; }
     public byte Cidr { get; set; }
     
     public IPNetwork IPNetwork => IPNetwork.Parse(IPAddress, Cidr);
-
+    
     public override string ToString() {
         return $"{IPAddress}/{Cidr}";
+    }
+
+    public object Clone() {
+        return Parse(ToString());
     }
 
     public bool Contains(IPAddressCidr address) {
@@ -37,7 +44,7 @@ public class IPAddressCidr {
     }
 
     public static IPAddressCidr Parse(string address) {
-        var split = address.Split("/", 2);
+        var split = address.Split("/", 2, StringSplitOptions.TrimEntries);
         try {
             var ip = IPAddress.Parse(split[0]);
             var cidr = byte.Parse(split[1]);
@@ -61,12 +68,12 @@ public class IPAddressCidr {
     }
 
     private static void AssertRightCidr(IPAddress address, byte cidr) {
-        if (cidr < 0) throw new Exception($"Invalid Cidr: {cidr}");
-        if (address.AddressFamily == AddressFamily.InterNetwork && cidr > 32) {
-            throw new Exception();
+        if (cidr < MinIPPrefix) throw new ArgumentException($"Invalid CIDR mask: {cidr}");
+        if (address.AddressFamily == AddressFamily.InterNetwork && cidr > MaxIPv4Prefix) {
+            throw new ArgumentException($"Invalid CIDR mask for IPv4: {cidr}");
         }
-        if (address.AddressFamily == AddressFamily.InterNetworkV6 && cidr > 64) {
-            throw new Exception();
+        if (address.AddressFamily == AddressFamily.InterNetworkV6 && cidr > MaxIPv6Prefix) {
+            throw new ArgumentException($"Invalid CIDR mask for IPv6: {cidr}");
         }
     }
 }

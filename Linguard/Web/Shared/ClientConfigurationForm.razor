@@ -1,7 +1,10 @@
-﻿@using Linguard.Core.Models.Wireguard
-@using Linguard.Core.Services
+﻿@using Linguard.Core.Utils.Extensions
 @using Linguard.Core.Managers
+@using Linguard.Core.Models.Wireguard
+@using Linguard.Core.Services
 @using Linguard.Core.Configuration
+@using Bogus
+@using Linguard.Core
 @namespace Linguard.Web.Shared
 
 <div>
@@ -15,8 +18,8 @@
             </div>
             <div class="row mb-2">
                 <div class="col-xxl-10">
-                    <RadzenTextBox Placeholder="Michael Scott" Trim="true" Value="@Client.Name"
-                                   class="w-100"/>
+                    <RadzenTextBox class="w-100" Placeholder="Michael Scott" Trim="true" 
+                                   @bind-Value="@Client.Name" />
                 </div>
             </div>
             <div class="row mb-2">
@@ -27,7 +30,7 @@
             <div class="row mb-2">
                 <div class="col-xxl-10">
                     <RadzenTextArea Placeholder="A brief (or long) description" Trim="true"
-                                    Value="@Client.Description" class="w-100"/>
+                                    @bind-Value="@Client.Description" class="w-100"/>
                 </div>
             </div>
         </div>
@@ -45,7 +48,7 @@
                     <RadzenDropDown TValue="string" AllowClear="false" Placeholder="Select an interface"
                                     Data="@Configuration.Wireguard.Interfaces.Select(i => i.Name)" 
                                     Value="@Interface?.Name" class="w-100"
-                                    Change="o => Interface = Configuration.Wireguard.Interfaces
+                                    ValueChanged="o => Interface = Configuration.Wireguard.Interfaces
                                     .SingleOrDefault(i => i.Name.Equals(o))">
                     </RadzenDropDown>
                 </div>
@@ -61,7 +64,8 @@
             </div>
             <div class="row">
                 <div class="col-xxl-10">
-                    <RadzenTextBox class="w-100" Value="@Client.Endpoint.ToString()" Placeholder="vpn.example.com"/>
+                    <RadzenTextBox class="w-100" Value="@Client.Endpoint.ToString()" Placeholder="vpn.example.com"
+                                   ValueChanged="s => Client.Endpoint = new Uri(s, UriKind.RelativeOrAbsolute)"/>
                 </div>
             </div>
         </div>
@@ -75,7 +79,8 @@
             </div>
             <div class="row">
                 <div class="col-xxl-10">
-                    <RadzenTextBox class="w-100" Value="@Client.PrimaryDns.ToString()" Placeholder="dns1.example.com"/>
+                    <RadzenTextBox class="w-100" Value="@Client.PrimaryDns.ToString()" Placeholder="dns1.example.com"
+                                   ValueChanged="s => Client.PrimaryDns = new Uri(s, UriKind.RelativeOrAbsolute)"/>
                 </div>
             </div>
         </div>
@@ -87,7 +92,8 @@
             </div>
             <div class="row">
                 <div class="col-xxl-10">
-                    <RadzenTextBox class="w-100" Value="@Client.SecondaryDns?.ToString()" Placeholder="dns2.example.com"/>
+                    <RadzenTextBox class="w-100" Value="@Client.SecondaryDns?.ToString()" Placeholder="dns2.example.com"
+                                   ValueChanged="s => Client.SecondaryDns = new Uri(s, UriKind.RelativeOrAbsolute)"/>
                 </div>
             </div>
         </div>
@@ -102,9 +108,10 @@
             </div>
             <div class="row mb-2">
                 <div class="col-xxl-10">
-                    <RadzenTextBox Placeholder="0.0.0.0/24" Trim="true" 
+                    <RadzenTextBox class="w-100" Placeholder="0.0.0.0/24" Trim="true" 
                                    Value="@Client.IPv4Address?.ToString()"
-                                   class="w-100"/>
+                                   ValueChanged="s =>  Client.IPv4Address = 
+                                   string.IsNullOrEmpty(s) ? default : IPAddressCidr.Parse(s)"/>
                 </div>
             </div>
         </div>
@@ -116,9 +123,62 @@
             </div>
             <div class="row mb-2">
                 <div class="col-xxl-10">
-                    <RadzenTextBox Placeholder="43bf:534f:a9b2:8773:0545:8963:fc28:80fd" 
+                    <RadzenTextBox class="w-100" Placeholder="43bf:534f:a9b2:8773:0545:8963:fc28:80fd" 
                                    Trim="true" Value="@Client.IPv6Address?.ToString()"
-                                   class="w-100"/>
+                                   ValueChanged="s =>  Client.IPv6Address = 
+                                   string.IsNullOrEmpty(s) ? default : IPAddressCidr.Parse(s)"/>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Allowed IPs -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="row mb-2">
+                <div class="col">
+                    <RadzenLabel Text="Allowed IPs"/>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-xxl-10">
+                    <RadzenDataGrid @ref="_allowedIpsGrid" TItem="IPAddressCidr" AllowColumnResize="true" AllowFiltering="true" 
+                                    AllowPaging="true" AllowSorting="true" EditMode="DataGridEditMode.Single" 
+                                    Data="@Client.AllowedIPs" 
+                                    FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+                        <Columns>
+                            <RadzenDataGridColumn TItem="IPAddressCidr" Title="Allowed IPs" Property="Address">
+                                <EditTemplate Context="data">
+                                    <RadzenTextBox Value="@data.ToString()" class="w-100" 
+                                                   ValueChanged="s => EditAllowedIp(data, s)"/>
+                                </EditTemplate>
+                                <FooterTemplate>
+                                    Total: <b>@Client.AllowedIPs.Count</b>
+                                </FooterTemplate>
+                            </RadzenDataGridColumn>
+                            <RadzenDataGridColumn TItem="IPAddressCidr" Title="Actions" Resizable="false"
+                                                  Filterable="false" Sortable="false" Width="120px">
+                                <Template Context="data">
+                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" title="Edit"
+                                                  Click="_ => EditRow(data)"/>
+                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Light" title="Delete"
+                                                  Click="_ => DeleteRow(data)"/>
+                                </Template>
+                                <EditTemplate Context="data">
+                                    <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Class="m-1"
+                                                  Click="_ => SaveRow(data)"/>
+                                    <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Light" Class="m-1"
+                                                  Click="_ => CancelEditRow(data)"/>
+                                </EditTemplate>
+                            </RadzenDataGridColumn>
+                        </Columns>
+                    </RadzenDataGrid>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col">
+                    <RadzenButton Icon="add_circle_outline" style="margin-bottom: 10px" Text="Add IP"
+                                  ButtonStyle="ButtonStyle.Secondary" 
+                                  Click="@AddRow"/>
                 </div>
             </div>
         </div>
@@ -159,12 +219,12 @@
         <div class="col-xxl-10">
             <div class="row mb-2">
                 <div class="col">
-                    <p>Nat</p>
+                    <p>NAT</p>
                 </div>
             </div>
             <div class="row">
                 <div class="col d-flex">
-                    <RadzenSwitch Value="@Client.Nat" Change="b => Client.Nat = b"/>
+                    <RadzenSwitch @bind-Value="@Client.Nat"/>
                 </div>
             </div>
         </div>
@@ -199,11 +259,60 @@
     
     private IConfiguration Configuration => _configurationManager.Configuration;
 
+    private Faker _faker = new();
+
     protected override void OnInitialized() {
         base.OnInitialized();
         if (Interface == default) {
             Interface = Configuration.Wireguard.GetInterface(Client);
         }
+    }
+    
+    RadzenDataGrid<IPAddressCidr> _allowedIpsGrid;
+
+    private IPAddressCidr previousIp;
+    private bool _appendingIp;
+
+
+    void EditAllowedIp(IPAddressCidr ip, string newValue) {
+        var newIp = IPAddressCidr.Parse(newValue);
+        Client.AllowedIPs = Client.AllowedIPs.Replace(ip, newIp).ToHashSet();
+        _allowedIpsGrid.Reload();
+    }
+    
+    async Task EditRow(IPAddressCidr data) {
+        previousIp = (IPAddressCidr) data.Clone();
+        await _allowedIpsGrid.EditRow(data);
+    }
+    
+    async Task SaveRow(IPAddressCidr data) {
+        previousIp = default;
+        await _allowedIpsGrid.UpdateRow(data);
+        _appendingIp = false;
+    }
+    
+    async Task CancelEditRow(IPAddressCidr data) {
+        data = previousIp;
+        previousIp = default;
+        _allowedIpsGrid.CancelEditRow(data);
+        if (_appendingIp) {
+            await DeleteRow(data);
+        }
+        _appendingIp = false;
+    }
+    
+    async Task DeleteRow(IPAddressCidr data) {
+        Client.AllowedIPs.Remove(data);
+        await _allowedIpsGrid.Reload();
+    }
+
+    async Task AddRow() {
+        _appendingIp = true;
+        var ip = IPAddressCidr.Parse(_faker.Internet.IpAddress(), 
+            _faker.Random.Byte(IPAddressCidr.MinIPPrefix, IPAddressCidr.MaxIPv4Prefix));
+        Client.AllowedIPs.Add(ip);
+        await _allowedIpsGrid.Reload();
+        await EditRow(ip);
     }
 
 }

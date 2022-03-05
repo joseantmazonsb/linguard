@@ -1,25 +1,11 @@
 ﻿namespace Linguard.Core.Models.Wireguard; 
 
 public class Client : WireguardPeerBase, ICloneable {
-    public ICollection<IPAddressCidr> AllowedIPs { get; set; } = new List<IPAddressCidr>();
+    public HashSet<IPAddressCidr> AllowedIPs { get; set; } = new();
     public bool Nat { get; set; }
     public Uri PrimaryDns { get; set; }
     public Uri? SecondaryDns { get; set; }
     public Uri Endpoint { get; set; }
-
-    protected bool Equals(Client other) {
-        return Name == other.Name;
-    }
-
-    public override bool Equals(object? obj) {
-        if (ReferenceEquals(null, obj)) return false;
-        if (ReferenceEquals(this, obj)) return true;
-        return obj.GetType() == GetType() && Equals((Client)obj);
-    }
-
-    public override int GetHashCode() {
-        return Name.GetHashCode();
-    }
 
     public override string Brief() {
         return $"Name: {Name}, " +

@@ -22,20 +22,6 @@ public class Interface : WireguardPeerBase, ICloneable {
     /// </summary>
     public Uri? Endpoint { get; set; }
 
-    protected bool Equals(Interface other) {
-        return Name == other.Name;
-    }
-
-    public override bool Equals(object? obj) {
-        if (ReferenceEquals(null, obj)) return false;
-        if (ReferenceEquals(this, obj)) return true;
-        return obj.GetType() == GetType() && Equals((Interface)obj);
-    }
-
-    public override int GetHashCode() {
-        return Name.GetHashCode();
-    }
-
     public override string ToString() {
         return $"Name: {Name}{Environment.NewLine}" +
                $"Description: {Description}{Environment.NewLine}" +

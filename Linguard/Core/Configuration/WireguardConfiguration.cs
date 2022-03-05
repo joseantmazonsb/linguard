@@ -12,7 +12,10 @@ public class WireguardConfiguration : IWireguardConfiguration {
     public Uri? Endpoint { get; set; }
     public Interface? GetInterface(Client client) => Interfaces
         .SingleOrDefault(i => i.Clients.Contains(client));
-    
+
+    public Interface? GetInterface(Guid clientId) => Interfaces
+        .SingleOrDefault(i => i.Clients.Any(c => c.Id == clientId));
+
     public object Clone() {
         return MemberwiseClone();
     }

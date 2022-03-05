@@ -29,9 +29,16 @@ public interface IWireguardConfiguration : ICloneable {
     /// </summary>
     public Uri? Endpoint { get; set; }
     /// <summary>
-    /// Get the interface associated to a given client or <c>default</c> if none.
+    /// Get the interface associated to the given client or <c>default</c> if none.
     /// </summary>
     /// <param name="client"></param>
     /// <returns></returns>
     Interface? GetInterface(Client client);
+
+    /// <summary>
+    /// Get the interface associated to the client whose id is <c>clientId</c> or <c>default</c> if none.
+    /// </summary>
+    /// <param name="clientId"></param>
+    /// <returns></returns>
+    Interface? GetInterface(Guid clientId);
 }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Linguard.Core.Configuration;
 using Linguard.Core.Drivers.TrafficStorage;
@@ -26,7 +27,20 @@ public sealed class DefaultConfiguration : Mock<IConfiguration> {
             .Returns<Client>(c => 
                 interfaces.SingleOrDefault(i => i.Clients.Contains(c))
             );
-        wireguardConfiguration.SetupProperty(c => c.Interfaces, interfaces);
+        wireguardConfiguration.Setup(o => o.GetInterface(It.IsAny<Guid>()))
+            .Returns<Guid>(id => 
+                interfaces.SingleOrDefault(i => i.Clients.Any(c => c.Id == id))
+            );
+        wireguardConfiguration
+            .SetupProperty(c => c.Interfaces, interfaces)
+            .SetupProperty(c => c.Endpoint,
+                new Uri("vpn.example.com", UriKind.RelativeOrAbsolute))
+            .SetupProperty(c => c.IptablesBin, "iptables")
+            .SetupProperty(c => c.WireguardBin, "wg")
+            .SetupProperty(c => c.WireguardQuickBin, "wg-quick")
+            .SetupProperty(c => c.PrimaryDns,
+                new Uri("8.8.8.8", UriKind.RelativeOrAbsolute))
+            .SetupProperty(c => c.SecondaryDns, default);
         return wireguardConfiguration;
     }
 }

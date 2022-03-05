@@ -1,6 +1,8 @@
 ﻿@using Linguard.Core.OS
 @using Linguard.Core.Models.Wireguard
 @using Linguard.Core.Models.Wireguard.Validators
+@using Linguard.Core
+@using System.Text.RegularExpressions
 @namespace Linguard.Web.Shared
 
 <div>
@@ -14,8 +16,8 @@
             </div>
             <div class="row mb-2">
                 <div class="col-xxl-10">
-                    <RadzenTextBox Placeholder="wg0" Trim="true" Value="@Iface.Name"
-                                   Style="width: 100%" MaxLength="@InterfaceValidator.MaxNameLength"/>
+                    <RadzenTextBox class="w-100" Placeholder="wg0" Trim="true" Value="@Iface.Name"
+                                   ValueChanged="OnNameChanged" MaxLength="@InterfaceValidator.MaxNameLength"/>
                 </div>
             </div>
             <div class="row mb-2">
@@ -41,7 +43,8 @@
             </div>
             <div class="row">
                 <div class="col-xxl-10">
-                    <RadzenTextBox class="w-100" Value="@Iface.Endpoint?.ToString()" Placeholder="vpn.example.com"/>
+                    <RadzenTextBox class="w-100" Value="@Iface.Endpoint?.ToString()" Placeholder="vpn.example.com"
+                                   ValueChanged="s => Iface.Endpoint = new Uri(s, UriKind.RelativeOrAbsolute)"/>
                 </div>
             </div>
         </div>
@@ -55,7 +58,8 @@
             </div>
             <div class="row">
                 <div class="col-xxl-10">
-                    <RadzenTextBox class="w-100" Value="@Iface.PrimaryDns?.ToString()" Placeholder="dns1.example.com"/>
+                    <RadzenTextBox class="w-100" Value="@Iface.PrimaryDns?.ToString()" Placeholder="dns1.example.com"
+                                   ValueChanged="s => Iface.PrimaryDns = new Uri(s, UriKind.RelativeOrAbsolute)"/>
                 </div>
             </div>
         </div>
@@ -67,7 +71,8 @@
             </div>
             <div class="row">
                 <div class="col-xxl-10">
-                    <RadzenTextBox class="w-100" Value="@Iface.SecondaryDns?.ToString()" Placeholder="dns2.example.com"/>
+                    <RadzenTextBox class="w-100" Value="@Iface.SecondaryDns?.ToString()" Placeholder="dns2.example.com"
+                                   ValueChanged="s => Iface.SecondaryDns = new Uri(s, UriKind.RelativeOrAbsolute)"/>
                 </div>
             </div>
         </div>
@@ -82,9 +87,9 @@
             </div>
             <div class="row mb-2">
                 <div class="col-xxl-10">
-                    <RadzenDropDown TValue="string" AllowClear="false" Placeholder="Select a gateway"
-                                    Data="@InterfaceNames" Value="@Iface.Gateway.Name"
-                                    Change="OnGatewayChanged" Style="width: 100%">
+                    <RadzenDropDown class="w-100" TValue="string" AllowClear="false" Placeholder="Select a gateway"
+                                    Data="@InterfaceNames" Value="@Iface.Gateway.Name" 
+                                    ValueChanged="s => OnGatewayChanged(s)">
                     </RadzenDropDown>
                 </div>
             </div>
@@ -97,9 +102,8 @@
             </div>
             <div class="row mb-2">
                 <div class="col-xxl-10">
-                    <RadzenNumeric TValue="int" Placeholder="1337" Min="1" Max="65535"
-                                   Value="@Iface.Port"
-                                   Style="width: 100%"/>
+                    <RadzenNumeric class="w-100" TValue="int" Placeholder="1337" Min="1" Max="65535"
+                                   @bind-Value="@Iface.Port"/>
                 </div>
             </div>
         </div>
@@ -114,9 +118,10 @@
             </div>
             <div class="row mb-2">
                 <div class="col-xxl-10">
-                    <RadzenTextBox Placeholder="0.0.0.0/24" Trim="true" 
-                                   Value="@Iface.IPv4Address.ToString()"
-                                   Style="width: 100%"/>
+                    <RadzenTextBox class="w-100" Placeholder="1.3.3.7/24" Trim="true" 
+                                   Value="@Iface.IPv4Address?.ToString()"
+                                   ValueChanged="s =>  Iface.IPv4Address = 
+                                   string.IsNullOrEmpty(s) ? default : IPAddressCidr.Parse(s)"/>
                 </div>
             </div>
         </div>
@@ -128,9 +133,10 @@
             </div>
             <div class="row mb-2">
                 <div class="col-xxl-10">
-                    <RadzenTextBox Placeholder="43bf:534f:a9b2:8773:0545:8963:fc28:80fd" 
-                                   Trim="true" Value="@Iface.IPv6Address.ToString()"
-                                   Style="width: 100%"/>
+                    <RadzenTextBox class="w-100" Placeholder="43bf:534f:a9b2:8773:0545:8963:fc28:80fd" 
+                                   Trim="true" Value="@Iface.IPv6Address?.ToString()"
+                                   ValueChanged="s => Iface.IPv6Address = 
+                                   string.IsNullOrEmpty(s) ? default : IPAddressCidr.Parse(s)"/>
                 </div>
             </div>
         </div>
@@ -146,8 +152,8 @@
                 </div>
                 <div class="row mb-2">
                     <div class="col-xxl-10">
-                        <RadzenTextBox Trim="true" Value="@Iface.PublicKey"
-                                       Style="width: 100%" Disabled="true"/>
+                        <RadzenTextBox class="w-100" Trim="true" 
+                                       Value="@Iface.PublicKey" Disabled="true"/>
                     </div>
                 </div>
             </div>
@@ -159,8 +165,8 @@
                 </div>
                 <div class="row mb-2">
                     <div class="col-xxl-10">
-                        <RadzenTextBox Trim="true" Value="@Iface.PrivateKey"
-                                       Style="width: 100%" Disabled="true"/>
+                        <RadzenTextBox class="w-100" Trim="true" 
+                                       Value="@Iface.PrivateKey" Disabled="true"/>
                     </div>
                 </div>
             </div>
@@ -275,7 +281,7 @@
             </div>
             <div class="row">
                 <div class="col d-flex">
-                    <RadzenSwitch Value="@Iface.Auto" Change="b => Iface.Auto = b"/>
+                    <RadzenSwitch @bind-Value="@Iface.Auto"/>
                 </div>
             </div>
         </div>
@@ -316,9 +322,22 @@
         //.Distinct()
         .OrderBy(n => n);
     
-    void OnGatewayChanged(object gatewayName) {
-        Iface.Gateway = _system.NetworkInterfaces
+    private void OnNameChanged(string name) {
+        foreach (var rule in Iface.OnUp.Concat(Iface.OnDown)) {
+            rule.Command = Regex.Replace(rule.Command, Iface.Name, name);
+        }
+        Iface.Name = name;
+    }
+    
+    void OnGatewayChanged(string gatewayName) {
+        var newGateway = _system.NetworkInterfaces
             .SingleOrDefault(i => i.Name.Equals(gatewayName))!;
+        foreach (var rule in Iface.OnUp.Concat(Iface.OnDown)) {
+            rule.Command = Regex.Replace(rule.Command, Iface.Gateway.Name, gatewayName);
+        }
+        _onDownGrid.Reload();
+        _onUpGrid.Reload();
+        Iface.Gateway = newGateway;
     }
     
     async Task EditRow(Rule data, RadzenDataGrid<Rule> grid) {
@@ -356,4 +375,5 @@
         await grid.Reload();
         await EditRow(rule, grid);
     }
+
 }

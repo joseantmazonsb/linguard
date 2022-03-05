@@ -54,5 +54,7 @@
             _navigationManager.NavigateTo("wireguard");
             return;
         }
+        _notificationService.Notify(NotificationSeverity.Error, "Unable to add interface.", 
+            string.Join(Environment.NewLine, result.Errors));
     }
 }

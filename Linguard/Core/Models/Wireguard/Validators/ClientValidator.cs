@@ -71,12 +71,14 @@ public class ClientValidator : AbstractValidator<Client> {
     private void SetIpv6Rules() {
         const string field = nameof(Client.IPv6Address);
         RuleFor(c => c.IPv6Address).NotEmpty()
+            .When(c => c.IPv4Address == default)
             .WithMessage($"{field} {Validation.CannotBeEmpty}");
     }
 
     private void SetIPv4Rules() {
         const string field = nameof(Client.IPv4Address);
         RuleFor(c => c.IPv4Address).NotEmpty()
+            .When(c => c.IPv6Address == default)
             .WithMessage($"{field} {Validation.CannotBeEmpty}");
     }
 
@@ -92,8 +94,9 @@ public class ClientValidator : AbstractValidator<Client> {
             .WithMessage($"{field} {Validation.CannotBeEmpty}.")
             .DependentRules(() => {
                 RuleFor(c => c.Name)
-                    .Must(name => !configuration.Interfaces
+                    .Must((client, name) => !configuration.Interfaces
                         .SelectMany(i => i.Clients)
+                        .Where(c => c.Id != client.Id)
                         .Select(c => c.Name).Contains(name))
                     .WithMessage($"{Validation.ClientNameAlreadyInUse}.");
             });

@@ -25,7 +25,7 @@ public class InterfaceValidator : AbstractValidator<Interface> {
     public override ValidationResult Validate(ValidationContext<Interface> context) {
         SetNameRules(Configuration);
         SetPortRules(Configuration);
-        SetIPv4Rules(Configuration);
+        SetIpv4Rules(Configuration);
         SetIpv6Rules(Configuration);
         SetOnUpRules();
         SetOnDownRules();
@@ -70,12 +70,14 @@ public class InterfaceValidator : AbstractValidator<Interface> {
     private void SetIpv6Rules(IWireguardConfiguration configuration) {
         const string field = nameof(Interface.IPv6Address);
         RuleFor(i => i.IPv6Address).NotEmpty()
+            .When(i => i.IPv4Address == default)
             .WithMessage($"{field} {Validation.CannotBeEmpty}");
     }
 
-    private void SetIPv4Rules(IWireguardConfiguration configuration) {
+    private void SetIpv4Rules(IWireguardConfiguration configuration) {
         const string field = nameof(Interface.IPv4Address);
         RuleFor(i => i.IPv4Address).NotEmpty()
+            .When(i => i.IPv6Address == default)
             .WithMessage($"{field} {Validation.CannotBeEmpty}");
     }
 
@@ -102,7 +104,9 @@ public class InterfaceValidator : AbstractValidator<Interface> {
                     .WithMessage($"{field} {Validation.CharactersNotAllowed}: " +
                                  $"{Validation.CharactersAllowedForInterfaceName}.");
                 RuleFor(i => i.Name)
-                    .Must(name => !configuration.Interfaces.Select(i => i.Name).Contains(name))
+                    .Must((iface, name) => !configuration.Interfaces
+                        .Where(i => i.Id != iface.Id)
+                        .Select(i => i.Name).Contains(name))
                     .WithMessage($"{Validation.InterfaceNameAlreadyInUse}.");
             });
     }

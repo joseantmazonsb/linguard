@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Core.Test.Mocks;
 using FluentAssertions;
@@ -65,7 +66,7 @@ AllowedIPs = 1.1.1.2/32, 9f87:8784:c972:21f4:62b6:34a0:80e4:43df/128
                     IPv6Address = IPAddressCidr.Parse("7d1d:0393:2abb:ffbf:58e5:9355:e7d3:4378/64"),
                     PublicKey = "0514b8fe-951f-4bf1-829c-0d327da6e949",
                     PrivateKey = "f0c4e3be-11b6-4f80-8eb3-27f63e488253",
-                    AllowedIPs = new[] { IPAddressCidr.Parse("1.1.2.0/24") },
+                    AllowedIPs = new HashSet<IPAddressCidr> { IPAddressCidr.Parse("1.1.2.0/24") },
                     PrimaryDns = new Uri("8.8.8.8", UriKind.RelativeOrAbsolute)
                 },
                 new Client {
@@ -75,7 +76,7 @@ AllowedIPs = 1.1.1.2/32, 9f87:8784:c972:21f4:62b6:34a0:80e4:43df/128
                     IPv6Address = IPAddressCidr.Parse("9f87:8784:c972:21f4:62b6:34a0:80e4:43df/64"),
                     PublicKey = "4a58a41a-8ed5-4c7d-b2b6-0b9652eec346",
                     PrivateKey = "558afbed-c606-4ad4-b70a-eb48af4004bd",
-                    AllowedIPs = new[] { IPAddressCidr.Parse("1.1.1.0/24"), 
+                    AllowedIPs = new HashSet<IPAddressCidr> { IPAddressCidr.Parse("1.1.1.0/24"), 
                         IPAddressCidr.Parse("9f87:8784:c972:21f4:62b6:34a0:80e4:43de/64")  },
                     PrimaryDns = new Uri("dns1.example.com", UriKind.RelativeOrAbsolute),
                     SecondaryDns = new Uri("dns2.example.com", UriKind.RelativeOrAbsolute),

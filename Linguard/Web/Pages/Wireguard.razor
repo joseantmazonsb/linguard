@@ -26,8 +26,18 @@
             </FooterTemplate>
         </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="Interface" Property="Description" Title="Description"/>
-        <RadzenDataGridColumn TItem="Interface" Property="IPv4Address" Title="IPv4"/>
-        <RadzenDataGridColumn TItem="Interface" Property="IPv6Address" Title="IPv6"/>
+        <RadzenDataGridColumn TItem="Interface" Title="IPv4">
+            <Template Context="iface">
+                @(iface.IPv4Address == default ? "None" : iface.IPv4Address.ToString())
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Interface" Title="IPv6">
+            <Template Context="iface">
+                @(iface.IPv6Address == default ? "None" : iface.IPv6Address.ToString())
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Interface" Title="Gateway" Property="Gateway.Name"/>
+        <RadzenDataGridColumn TItem="Interface" Title="Clients" Property="Clients.Count"/>
         <RadzenDataGridColumn TItem="Interface" Title="Actions" Resizable="false" 
                               Filterable="false" Sortable="false">
             <Template Context="data">
@@ -80,8 +90,21 @@
             </FooterTemplate>
         </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="Client" Property="Description" Title="Description"/>
-        <RadzenDataGridColumn TItem="Client" Property="IPv4Address" Title="IPv4"/>
-        <RadzenDataGridColumn TItem="Client" Property="IPv6Address" Title="IPv6"/>
+        <RadzenDataGridColumn TItem="Client" Title="IPv4">
+            <Template Context="client">
+                @(client.IPv4Address == default ? "None" : client.IPv4Address.ToString())
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Client" Title="IPv6">
+            <Template Context="client">
+                @(client.IPv6Address == default ? "None" : client.IPv6Address.ToString())
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Client" Title="NAT">
+            <Template Context="client">
+                @(client.Nat ? "Yes" : "No")
+            </Template>
+        </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="Client" Title="Interface">
             <Template Context="data">
                 <a href="/interface/@(Configuration.Wireguard.GetInterface(data)?.Id)">

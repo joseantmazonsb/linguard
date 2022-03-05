@@ -30,7 +30,6 @@ public class DefaultClientGenerator : IClientGenerator {
             .RuleFor(c => c.Nat, false)
             .RuleFor(c => c.Description, f => f.Lorem.Sentence())
             .RuleFor(c => c.Name, f => f.Person.FullName)
-            .RuleFor(c => c.Endpoint, new Uri("vpn.example.com", UriKind.RelativeOrAbsolute))
             .RuleFor(c => c.PrivateKey, _wireguard.GenerateWireguardPrivateKey())
             .RuleFor(c => c.PublicKey, 
                 (_, i) => _wireguard.GenerateWireguardPublicKey(i.PrivateKey))
@@ -47,9 +46,14 @@ public class DefaultClientGenerator : IClientGenerator {
                         .Contains(address));
             })
             .RuleFor(c => c.AllowedIPs, (_, p) => {
-                var ips = new List<IPAddressCidr>();
-                if (p.IPv4Address != default) ips.Add(IPAddressCidr.Parse("0.0.0.0/0"));
-                if (p.IPv6Address != default) ips.Add(IPAddressCidr.Parse("::0/0"));
+                var ips = new HashSet<IPAddressCidr> {
+                    p.IPv4Address == default
+                        ? IPAddressCidr.Parse("0.0.0.0/0")
+                        : IPAddressCidr.Parse(p.IPv4Address.IPAddress, 32),
+                    p.IPv6Address == default
+                        ? IPAddressCidr.Parse("::0/0")
+                        : IPAddressCidr.Parse(p.IPv6Address.IPAddress, 128)
+                };
                 return ips;
             })
             .RuleFor(c => c.Endpoint, iface.Endpoint 

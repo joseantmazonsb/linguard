@@ -32,4 +32,18 @@ public abstract class WireguardPeerBase : IWireguardPeer {
     public string Name { get; set; }
     public string Description { get; set; }
     public abstract string Brief();
+    
+    protected bool Equals(WireguardPeerBase other) {
+        return Id == other.Id;
+    }
+
+    public override bool Equals(object? obj) {
+        if (ReferenceEquals(null, obj)) return false;
+        if (ReferenceEquals(this, obj)) return true;
+        return obj.GetType() == GetType() && Equals((WireguardPeerBase)obj);
+    }
+
+    public override int GetHashCode() {
+        return Id.GetHashCode();
+    }
 }
