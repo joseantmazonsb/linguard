@@ -1,11 +1,258 @@
 @page "/"
 @page "/dashboard"
+@using Linguard.Web.Utils
+@using Linguard.Core.Services
 @using Linguard.Core.Utils
-
-@code {
-    const string Title = "Dashboard";
-}
+@using Linguard.Core.Managers
+@using Linguard.Core.Models.Wireguard
+@using Linguard.Core.OS
+@using Linguard.Core.Configuration
 
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
 
 <RadzenHeading Text="@Title" class="mb-3"/>
+
+<!-- Traffic data -->
+<RadzenPanel AllowCollapse="true">
+    <HeaderTemplate>
+        <h4 class="m-0 d-flex align-items-center">
+            <RadzenIcon Icon="swap_vert" Class="mr-1" /><b>Traffic data</b>
+        </h4>
+    </HeaderTemplate>
+    <ChildContent>
+        <RadzenCard class="mt-3">
+            <h3>Interfaces</h3>
+            <TrafficChartForMultiplePeers 
+                RealTimeTrafficData="_wireguardService.GetTrafficData().Where(d => d.Peer is Interface)"/>
+        </RadzenCard>
+        <RadzenCard class="mt-3">
+            <h3>Clients</h3>
+            <TrafficChartForMultiplePeers 
+                RealTimeTrafficData="_wireguardService.GetTrafficData().Where(d => d.Peer is Client)"/>
+        </RadzenCard>
+    </ChildContent>
+</RadzenPanel>
+
+<!-- Online interfaces -->
+<RadzenPanel AllowCollapse="true" class="mt-3">
+    <HeaderTemplate>
+        <h4 class="m-0 d-flex align-items-center">
+            <RadzenIcon Icon="sensors" Class="mr-1" /><b>Online interfaces</b>
+        </h4>
+    </HeaderTemplate>
+    <ChildContent>
+        <RadzenCard Class="mt-3">
+            @if (OnlineInterfaces.Any()) {
+                <RadzenDataList PageSize="4" WrapItems="true" AllowPaging="true"
+                                Data="OnlineInterfaces" TItem="Interface">
+                    <Template Context="iface">
+                        <RadzenCard>
+                            <div class="d-flex flex-row align-items-center">
+                                <div class="">
+                                    <h4 class="mb-1">@iface.Name</h4>
+                                    @*<p class="mb-1">@iface.Description</p>*@
+                                    <div style="font-size: .8em"><strong>IPv4</strong>: @iface.IPv4Address.ToString()</div>
+                                    <div style="font-size: .8em"><strong>IPv6</strong>: @iface.IPv6Address.ToString()</div>
+                                    <div style="font-size: .8em">
+                                        <strong>Online clients</strong>:
+                                        @iface.Clients.Count(c => _wireguardService.GetLastHandshake(c) != default)
+                                    </div>
+                                    <PeerActions Peer="iface" class="mt-1" EnableEdit="true" AfterDelete="StateHasChanged"/>
+                                </div>
+                            </div>
+                            <hr class="w-100" style="border: none; height: 1px; margin: 1rem 0;"/>
+                            <div class="row w-100">
+                                @{
+                                    var trafficData = _wireguardService.GetTrafficData(iface)
+                                        .SingleOrDefault(t => t.Peer.Equals(iface));
+                                }
+                                <div class="col">
+                                    <RadzenIcon Icon="public" class="align-bottom"/>
+                                    @iface.Gateway.Name
+                                    <RadzenIcon Icon="arrow_downward" class="align-bottom ms-1"/>
+                                    @trafficData.ReceivedData.Format()
+                                    <RadzenIcon Icon="arrow_upward" class="align-bottom ms-1"/>
+                                    @trafficData.SentData.Format()
+                                </div>
+                            </div>
+                        </RadzenCard>
+                    </Template>
+                </RadzenDataList>
+            }
+            else if (Configuration.Interfaces.Any()) {
+                <p>There are no interfaces online!</p>
+            }
+            else {
+                <p>
+                    There are no interfaces yet, why don't you <a href="/add-@nameof(Interface).ToLower()">add one</a>?
+                </p>
+            }
+        </RadzenCard>
+    </ChildContent>
+    <SummaryTemplate>
+        @if (OnlineInterfaces.Any()) {
+            <RadzenCard class="mt-3">
+                <b>@OnlineInterfaces.Count() interfaces online.</b>
+            </RadzenCard>
+        }
+    </SummaryTemplate>
+</RadzenPanel>
+
+<!-- Online clients -->
+<RadzenPanel AllowCollapse="true" class="mt-3">
+    <HeaderTemplate>
+        <h4 class="m-0 d-flex align-items-center">
+            <RadzenIcon Icon="people" Class="mr-1" /><b>Online clients</b>
+        </h4>
+    </HeaderTemplate>
+    <ChildContent>
+        <RadzenCard Class="mt-3">
+            @if (OnlineClients.Any()) {
+                <RadzenDataList PageSize="4" WrapItems="true" AllowPaging="true"
+                                Data="OnlineClients" TItem="Client">
+                    <Template Context="client">
+                        <RadzenCard>
+                            <div class="d-flex flex-row align-items-center">
+                                <div class="">
+                                    <h4 class="mb-1">@client.Name</h4>
+                                    <div style="font-size: .8em">
+                                        <strong>Endpoint</strong>: @client.Endpoint.ToString()
+                                    </div>
+                                    <div style="font-size: .8em">
+                                        <strong>IPv4</strong>: @client.IPv4Address.ToString()
+                                    </div>
+                                    <div style="font-size: .8em">
+                                        <strong>IPv6</strong>: @client.IPv6Address.ToString()
+                                    </div>
+                                    <div style="font-size: .8em">
+                                        <strong>Primary DNS</strong>: @client.PrimaryDns.ToString()
+                                    </div>
+                                    <div style="font-size: .8em">
+                                        <strong>Secondary DNS</strong>: @client.PrimaryDns.ToString()
+                                    </div>
+                                    <PeerActions Peer="client" class="mt-1" EnableEdit="true" 
+                                                 AfterDelete="StateHasChanged"/>
+                                </div>
+                            </div>
+                            <hr class="w-100" style="border: none; height: 1px; margin: 1rem 0;"/>
+                            <div class="row w-100">
+                                @{
+                                    var trafficData = _wireguardService.GetTrafficData(client);
+                                }
+                                <div class="col">
+                                    @{var iface = Configuration.GetInterface(client);}
+                                    <a href="@($"{nameof(Interface).ToLower()}/{iface.Id}")">
+                                        <RadzenIcon Icon="public" class="align-bottom"/>@iface?.Name
+                                    </a>
+                                    <RadzenIcon Icon="arrow_downward" class="align-bottom ms-1"/>
+                                    @trafficData.ReceivedData.Format()
+                                    <RadzenIcon Icon="arrow_upward" class="align-bottom ms-1"/>
+                                    @trafficData.SentData.Format()
+                                </div>
+                            </div>
+                        </RadzenCard>
+                    </Template>
+                </RadzenDataList>
+            }
+            else if (_clients.Any()) {
+                <p>There are no clients online!</p>
+            }
+            else if (Configuration.Interfaces.Any()) {
+                <p>
+                    There are no clients yet, why don't you
+                    <span role="button" class="btn-link" @onclick="PromptAddClient">add one</span>?
+                </p>
+            }
+            else {
+                <p>
+                    There are no interfaces yet, why don't you <a href="/add-@nameof(Interface).ToLower()">add one</a>?
+                </p>
+            }
+        </RadzenCard>
+    </ChildContent>
+    <SummaryTemplate>
+        @if (OnlineInterfaces.Any()) {
+            <RadzenCard class="mt-3">
+                <b>@OnlineClients.Count() clients online.</b>
+            </RadzenCard>
+        }
+    </SummaryTemplate>
+</RadzenPanel>
+
+
+@inject IWireguardService _wireguardService
+@inject IConfigurationManager _configurationManager
+@inject ISystemWrapper _system
+@inject NavigationManager _navigationManager
+@inject DialogService _dialogService
+
+@code {
+    const string Title = "Dashboard";
+
+    IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
+    IEnumerable<Interface> OnlineInterfaces => Configuration.Interfaces
+        .Where(i => _system.NetworkInterfaces.Any(iface => iface.Name.Equals(i.Name)))
+        .OrderBy(i => i.Name);
+    IEnumerable<Client> OnlineClients => OnlineInterfaces.SelectMany(i => i.Clients).OrderBy(c => c.Name);
+    IEnumerable<Client> _clients;
+
+    protected override async void OnInitialized() {
+        await base.OnInitializedAsync();
+        _clients = Configuration.Interfaces.SelectMany(i => i.Clients).OrderBy(c => c.Name);
+        // TODO: Set timer to update real time traffic data
+        //await using var timer = new Timer(_ => InvokeAsync(StateHasChanged));
+        //timer.Change(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    async Task PromptAddClient() {
+        await _dialogService.OpenAsync("Add client", ds =>
+            @<div>
+                <h3>Interface</h3>
+                <div>
+                    <div class="row">
+                        <div class="col">
+                            <RadzenDropDown @ref="@_addClientInterfaces" TValue="string" AllowClear="false" Placeholder="Select an interface"
+                                            Data="Configuration.Interfaces.Select(i => i.Name)"/>                        
+                        </div>                    
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col">
+                            <RadzenButton Icon="add" Text="Add"
+                                          Click="@AddClient"/>                            
+                        </div>                         
+                    </div>
+                </div>
+            </div>, 
+            new DialogOptions {
+                Style = "min-height:auto;min-width:auto;width:auto",
+                CloseDialogOnOverlayClick = true
+            }
+            );
+    }
+
+    private RadzenDropDown<string> _addClientInterfaces;
+
+    void AddClient() {
+        var item = _addClientInterfaces.SelectedItem;
+        if (item == default) return;
+        var iface = Configuration.Interfaces.Single(i => i.Name.Equals(item));
+        _navigationManager.NavigateTo($"/{nameof(Interface).ToLower()}/{iface.Id}/add-{nameof(Client).ToLower()}");
+    }
+    
+    /*private IEnumerable<TrafficData> GetRealTimeTraffic() {
+        var data = new List<TrafficData>();
+        foreach (var peer in Peers) {
+            switch (peer) {
+                case Client client:
+                    data.Add(_wireguardService.GetTrafficData(client));
+                    break;
+                case Interface iface:
+                    data.Add(_wireguardService.GetTrafficData(iface).SingleOrDefault(e => e.Peer is Interface));
+                    break;
+                default:
+                    throw new NotSupportedException($"Peer type not supported: {peer.GetType()}");
+            }
+        }
+        return data;
+    }*/
+}

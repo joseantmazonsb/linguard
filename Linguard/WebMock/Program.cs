@@ -5,12 +5,12 @@ using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Models.Wireguard.Validators;
 using Linguard.Core.Services;
 using Linguard.Core.Utils;
+using Linguard.Log;
 using Linguard.Web.Services;
 using Moq;
 using QRCoder;
 using Radzen;
 using WebMock;
-using ILogger = Linguard.Log.ILogger;
 
 var root = Path.Combine(new DirectoryInfo(Directory.GetCurrentDirectory()).Parent!.FullName, "Web",
     "wwwroot");
@@ -29,11 +29,10 @@ builder.Services.AddServerSideBlazor();
 var manager = new DefaultConfigurationManager().Object;
 var systemMock = new SystemMock().Object;
 var faker = new Faker();
-var wireguardServiceMock = new WireguardServiceMock(systemMock, faker).Object;
+var wireguardServiceMock = new WireguardServiceMock(manager, systemMock, faker).Object;
 builder.Services.AddSingleton(manager);
 builder.Services.AddSingleton(systemMock);
 builder.Services.AddSingleton(wireguardServiceMock);
-builder.Services.AddSingleton(new Mock<ILogger>().Object);
 builder.Services.AddTransient<IInterfaceGenerator, DefaultInterfaceGenerator>();
 builder.Services.AddTransient<IClientGenerator, DefaultClientGenerator>();
 builder.Services.AddTransient<AbstractValidator<Interface>, InterfaceValidator>();
@@ -47,6 +46,8 @@ builder.Services.AddScoped<DialogService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<TooltipService>();
 builder.Services.AddScoped<ContextMenuService>();
+
+builder.Services.AddSingleton(new Mock<ILinguardLogger>().Object);
 
 var app = builder.Build();
 

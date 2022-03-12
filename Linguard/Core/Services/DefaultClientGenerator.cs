@@ -30,9 +30,9 @@ public class DefaultClientGenerator : IClientGenerator {
             .RuleFor(c => c.Nat, false)
             .RuleFor(c => c.Description, f => f.Lorem.Sentence())
             .RuleFor(c => c.Name, f => f.Person.FullName)
-            .RuleFor(c => c.PrivateKey, _wireguard.GenerateWireguardPrivateKey())
+            .RuleFor(c => c.PrivateKey, _wireguard.GeneratePrivateKey())
             .RuleFor(c => c.PublicKey, 
-                (_, i) => _wireguard.GenerateWireguardPublicKey(i.PrivateKey))
+                (_, i) => _wireguard.GeneratePublicKey(i.PrivateKey))
             .RuleFor(c => c.IPv4Address, f => {
                 var ips = iface.IPv4Address?.IPNetwork.ListIPAddress(FilterEnum.Usable);
                 return ips?.Select(ip => IPAddressCidr.Parse(ip, iface.IPv4Address.Cidr))
@@ -49,10 +49,10 @@ public class DefaultClientGenerator : IClientGenerator {
                 var ips = new HashSet<IPAddressCidr> {
                     p.IPv4Address == default
                         ? IPAddressCidr.Parse("0.0.0.0/0")
-                        : IPAddressCidr.Parse(p.IPv4Address.IPAddress, 32),
+                        : IPAddressCidr.Parse(p.IPv4Address.IPAddress, IPAddressCidr.MaxIPv4Prefix),
                     p.IPv6Address == default
                         ? IPAddressCidr.Parse("::0/0")
-                        : IPAddressCidr.Parse(p.IPv6Address.IPAddress, 128)
+                        : IPAddressCidr.Parse(p.IPv6Address.IPAddress, IPAddressCidr.MaxIPv6Prefix)
                 };
                 return ips;
             })

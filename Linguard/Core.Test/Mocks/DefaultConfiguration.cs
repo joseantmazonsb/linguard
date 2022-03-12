@@ -12,26 +12,15 @@ public sealed class DefaultConfiguration : Mock<IConfiguration> {
 
     public DefaultConfiguration() {
         SetupProperty(c => c.Wireguard, GetWireguardConfigurationMock().Object);
-        SetupProperty(c => c.Logging, new Mock<ILoggingConfiguration>().Object);
-        SetupProperty(c => c.Traffic, new Mock<ITrafficConfiguration>()
-            .SetupProperty(c => c.StorageDriver, new Mock<ITrafficStorageDriver>().Object)
-            .Object);
-        SetupProperty(c => c.Web, new Mock<IWebConfiguration>().Object);
+        SetupProperty(c => c.Logging, GetLoggingConfigurationMock().Object);
+        SetupProperty(c => c.Traffic, GetTrafficConfigurationMock().Object);
+        SetupProperty(c => c.Web, GetWebConfigurationMock().Object);
         Setup(o => o.Clone()).Returns(Object);
     }
 
     private Mock<IWireguardConfiguration> GetWireguardConfigurationMock() {
-        var wireguardConfiguration = new Mock<IWireguardConfiguration>();
         var interfaces = new HashSet<Interface>();
-        wireguardConfiguration.Setup(o => o.GetInterface(It.IsAny<Client>()))
-            .Returns<Client>(c => 
-                interfaces.SingleOrDefault(i => i.Clients.Contains(c))
-            );
-        wireguardConfiguration.Setup(o => o.GetInterface(It.IsAny<Guid>()))
-            .Returns<Guid>(id => 
-                interfaces.SingleOrDefault(i => i.Clients.Any(c => c.Id == id))
-            );
-        wireguardConfiguration
+        var wireguardConfiguration = new Mock<IWireguardConfiguration>()
             .SetupProperty(c => c.Interfaces, interfaces)
             .SetupProperty(c => c.Endpoint,
                 new Uri("vpn.example.com", UriKind.RelativeOrAbsolute))
@@ -41,6 +30,28 @@ public sealed class DefaultConfiguration : Mock<IConfiguration> {
             .SetupProperty(c => c.PrimaryDns,
                 new Uri("8.8.8.8", UriKind.RelativeOrAbsolute))
             .SetupProperty(c => c.SecondaryDns, default);
+        wireguardConfiguration.Setup(o => o.GetInterface(It.IsAny<Client>()))
+            .Returns<Client>(c => 
+                interfaces.SingleOrDefault(i => i.Clients.Contains(c))
+            );
+        wireguardConfiguration.Setup(o => o.GetInterface(It.IsAny<Guid>()))
+            .Returns<Guid>(id => 
+                interfaces.SingleOrDefault(i => i.Clients.Any(c => c.Id == id))
+            );
         return wireguardConfiguration;
+    }
+
+    private Mock<IWebConfiguration> GetWebConfigurationMock() {
+        return new Mock<IWebConfiguration>();
+    }
+    
+    private Mock<ILoggingConfiguration> GetLoggingConfigurationMock() {
+        return new Mock<ILoggingConfiguration>();;
+    }
+    
+    private Mock<ITrafficConfiguration> GetTrafficConfigurationMock() {
+        var mock = new Mock<ITrafficConfiguration>()
+            .SetupProperty(c => c.StorageDriver, new Mock<ITrafficStorageDriver>().Object);
+        return mock;
     }
 }

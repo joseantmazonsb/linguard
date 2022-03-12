@@ -22,13 +22,15 @@ public class CliStartup : ICliStartup {
         services.AddTransient<IConfiguration, Configuration>();
         services.AddTransient<IWorkingDirectory, WorkingDirectory>();
         services.AddSingleton<IConfigurationSerializer>(DefaultYamlConfigurationSerializer.Instance);
-        services.AddTransient<ILogger, NLogLogger>();
-        services.AddTransient<ISystemWrapper, Core.OS.SystemWrapper>();
+        services.AddTransient<ISystemWrapper, SystemWrapper>();
         services.AddTransient<IWireguardService, WireguardService>();
         services.AddTransient<IInterfaceGenerator, DefaultInterfaceGenerator>();
         services.AddTransient<IClientGenerator, DefaultClientGenerator>();
         services.AddTransient<AbstractValidator<Interface>, InterfaceValidator>();
         services.AddTransient<AbstractValidator<Client>, ClientValidator>();
+        services.AddLogging(builder => {
+            builder.UseSimpleFileLogger();
+        });
     }
 
     public void Configure(CliApplicationBuilder app)

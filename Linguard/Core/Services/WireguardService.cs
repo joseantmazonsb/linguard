@@ -19,15 +19,19 @@ public class WireguardService : IWireguardService {
 
     private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
 
-    public void StartInterface(Interface @interface) {
+    public void StartInterface(Interface iface) {
+        if (_systemWrapper.IsInterfaceUp(iface)) return;
+        var filepath = _configurationManager.WorkingDirectory.GetInterfaceConfigurationFile(iface).FullName;
+        _systemWrapper.WriteAllText(filepath, WireguardUtils.GenerateWireguardConfiguration(iface));
         var result = _systemWrapper
-            .RunCommand($"sudo {Configuration.WireguardQuickBin} up {@interface.Name}");
+            .RunCommand($"sudo {Configuration.WireguardQuickBin} up {iface.Name}");
         if (!result.Success) throw new WireguardException(result.Stderr);
     }
 
-    public void StopInterface(Interface @interface) {
+    public void StopInterface(Interface iface) {
+        if (_systemWrapper.IsInterfaceDown(iface)) return;
         var result = _systemWrapper
-            .RunCommand($"sudo {Configuration.WireguardQuickBin} down {@interface.Name}");
+            .RunCommand($"sudo {Configuration.WireguardQuickBin} down {iface.Name}");
         if (!result.Success) throw new WireguardException(result.Stderr);
     }
 
@@ -44,15 +48,22 @@ public class WireguardService : IWireguardService {
         var result = _systemWrapper.RunCommand(cmd);
         if (!result.Success) throw new WireguardException(result.Stderr);
     }
+    
+    public void RemoveInterface(Interface iface) {
+        StopInterface(iface);
+        var file = _configurationManager.WorkingDirectory.GetInterfaceConfigurationFile(iface);
+        if (!file.Exists) return;
+        file.Delete();
+    }
 
-    public string GenerateWireguardPrivateKey() {
+    public string GeneratePrivateKey() {
         var result = _systemWrapper
             .RunCommand($"sudo {Configuration.WireguardBin} genkey");
         if (!result.Success) throw new WireguardException(result.Stderr);
         return result.Stdout;
     }
     
-    public string GenerateWireguardPublicKey(string privateKey) {
+    public string GeneratePublicKey(string privateKey) {
         var result = _systemWrapper
             .RunCommand($"echo {privateKey} | sudo {Configuration.WireguardBin} pubkey");
         if (!result.Success) throw new WireguardException(result.Stderr);

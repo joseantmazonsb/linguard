@@ -15,7 +15,6 @@ public static class YamlConfigurationSerializerMock {
             .WithTypeConverter<IPAddressCidrTypeConverter>()
             .WithTypeConverter<NetworkInterfaceTypeConverterMock>()
             .WithTypeConverter<UriTypeConverter>()
-            .WithTypeConverter<StyleTypeConverter>()
             .WithTypeMapping<IConfiguration, Configuration>()
             .WithTypeMapping<IWireguardConfiguration, WireguardConfiguration>()
             .WithTypeMapping<ILoggingConfiguration, LoggingConfiguration>()

@@ -2,27 +2,34 @@
 @using Linguard.Core.Services
 @using Linguard.Core.OS
 @using Linguard.Core.Models.Wireguard
-<div class="row my-2 d-flex">
-    <div class="col-md-12 align-items-end">
-        @if (Peer is Interface iface) {
-            @if (_system.IsInterfaceUp(iface)) {
-                <RadzenButton Icon="stop" ButtonStyle="ButtonStyle.Danger" title="Stop"
-                              Click="StopInterface"/>
+<div @attributes="@CapturedAttributes">
+    <div class="row">
+        <div class="col-md-12 align-items-end">
+            @if (Peer is Interface iface) {
+                @if (_system.IsInterfaceUp(iface)) {
+                    <RadzenButton Icon="stop" ButtonStyle="ButtonStyle.Danger" title="Stop"
+                                  Click="StopInterface"/>
+                }
+                else {
+                    <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Success" title="Start"
+                                  Click="StartInterface"/>
+                }
             }
-            else {
-                <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Success" title="Start"
-                              Click="StartInterface"/>
+            @if (EnableEdit) {
+                <RadzenButton ButtonType="ButtonType.Button" Icon="edit" title="Edit"
+                              ButtonStyle="ButtonStyle.Light"
+                              Click="() => EditWireguardPeer(Peer)"/>
             }
-        }
-        <RadzenButton ButtonType="ButtonType.Button" Icon="download" title="Download"
-                      ButtonStyle="ButtonStyle.Secondary"
-                      Click="() => _webService.DownloadWireguardModel(Peer)"/>
-        <RadzenButton ButtonType="ButtonType.Button" Icon="qr_code" title="Show QR code"
-                      ButtonStyle="ButtonStyle.Light"
-                      Click="() => ShowQrCode(Peer)"/>
-        <RadzenButton ButtonType="ButtonType.Button" Icon="delete"
-                      ButtonStyle="ButtonStyle.Danger" title="Delete"
-                      Click="() => ConfirmRemoveWireguardPeer(Peer)"/>
+            <RadzenButton ButtonType="ButtonType.Button" Icon="download" title="Download"
+                          ButtonStyle="ButtonStyle.Light"
+                          Click="() => _webService.DownloadWireguardModel(Peer)"/>
+            <RadzenButton ButtonType="ButtonType.Button" Icon="qr_code" title="Show QR code"
+                          ButtonStyle="ButtonStyle.Light"
+                          Click="() => ShowQrCode(Peer)"/>
+            <RadzenButton ButtonType="ButtonType.Button" Icon="delete"
+                          ButtonStyle="ButtonStyle.Light" title="Delete"
+                          Click="() => ConfirmRemoveWireguardPeer(Peer)"/>
+        </div>
     </div>
 </div>
 
@@ -35,8 +42,17 @@
 
 @code {
     
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string,object> CapturedAttributes { get; set; }
+    
     [Parameter]
     public IWireguardPeer Peer { get; set; }
+    
+    [Parameter]
+    public bool EnableEdit { get; set; }
+    
+    [Parameter]
+    public Action? AfterDelete { get; set; }
     
     #region Interface only methods
     
@@ -104,7 +120,7 @@
         void RemovePeer() {
             try {
                 _webService.RemoveWireguardModel(peer);
-                _navigationManager.NavigateTo("wireguard");
+                AfterDelete?.Invoke();
             }
             catch (Exception e) {
                 _notificationService.Notify(new NotificationMessage {
@@ -114,6 +130,10 @@
                 });
             }
         }
+    }
+    
+    void EditWireguardPeer(IWireguardPeer peer) {
+        _navigationManager.NavigateTo($"{peer.GetType().Name.ToLower()}/{peer.Id}");
     }
 
 }

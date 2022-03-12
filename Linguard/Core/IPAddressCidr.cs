@@ -27,6 +27,14 @@ public class IPAddressCidr : ICloneable {
     public bool Contains(IPAddress address) {
         return IPNetwork.Contains(address);
     }
+
+    public bool IsIPv4() {
+        return IPAddress?.AddressFamily == AddressFamily.InterNetwork;
+    }
+    
+    public bool IsIPv6() {
+        return IPAddress?.AddressFamily == AddressFamily.InterNetworkV6;
+    }
     
     protected bool Equals(IPAddressCidr other) {
         return IPAddress.Equals(other.IPAddress) && Cidr == other.Cidr;
@@ -57,6 +65,10 @@ public class IPAddressCidr : ICloneable {
         catch {
             throw new ArgumentException($"Invalid IP address with cidr mask: '{address}'");
         }
+    }
+    
+    public static IPAddressCidr Parse(string address, byte cidr) {
+        return Parse(IPAddress.Parse(address), cidr);
     }
     
     public static IPAddressCidr Parse(IPAddress address, byte cidr) {

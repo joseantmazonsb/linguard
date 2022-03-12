@@ -6,7 +6,7 @@ using Linguard.Core.Configuration;
 using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Services;
-using Linguard.Log;
+using Microsoft.Extensions.Logging;
 using Typin;
 using Typin.Attributes;
 using Typin.Console;
@@ -74,7 +74,7 @@ public class AddInterfaceCommand : ICommand {
         Configuration.Wireguard.Interfaces.Add(iface);
         ConfigurationManager.Save();
         var msg = $"Added interface '{iface.Name}'.";
-        Logger.Info(msg);
+        Logger.LogInformation(msg);
         console.Output.WriteLine(msg);
         return ValueTask.CompletedTask;
     }

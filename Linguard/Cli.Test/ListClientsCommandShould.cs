@@ -62,7 +62,7 @@ public class ListClientsCommandShould {
     }
 
     private Interface GenerateInterface(IConfigurationManager configuration) {
-        return new DefaultInterfaceGenerator(configuration, WireguardServiceMock.Object, new SystemWrapper(configuration))
+        return new DefaultInterfaceGenerator(configuration, WireguardServiceMock.Object, new SystemWrapper())
             .Generate();
     }
     

@@ -11,7 +11,6 @@ using Linguard.Web.Services;
 using QRCoder;
 using Radzen;
 using IConfiguration = Linguard.Core.Configuration.IConfiguration;
-using ILogger = Linguard.Log.ILogger;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,7 +22,6 @@ builder.Services.AddSingleton<IConfigurationManager, YamlConfigurationManager>()
 builder.Services.AddTransient<IConfiguration, Configuration>();
 builder.Services.AddTransient<IWorkingDirectory, WorkingDirectory>();
 builder.Services.AddSingleton<IConfigurationSerializer>(DefaultYamlConfigurationSerializer.Instance);
-builder.Services.AddTransient<ILogger, NLogLogger>();
 builder.Services.AddTransient<ISystemWrapper, SystemWrapper>();
 builder.Services.AddTransient<IWireguardService, WireguardService>();
 builder.Services.AddTransient<IInterfaceGenerator, DefaultInterfaceGenerator>();
@@ -39,6 +37,8 @@ builder.Services.AddScoped<DialogService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<TooltipService>();
 builder.Services.AddScoped<ContextMenuService>();
+
+builder.Logging.AddSimpleFileLogger();
 
 var app = builder.Build();
 

@@ -1,7 +1,7 @@
 ﻿using Linguard.Core.Configuration.Exceptions;
 using Linguard.Core.Managers;
 using Linguard.Core.Utils;
-using Linguard.Log;
+using Microsoft.Extensions.Logging;
 using Typin;
 
 namespace Linguard.Cli.Middlewares; 
@@ -23,13 +23,13 @@ public class ConfigurationSetupMiddleware : IMiddleware {
             return;
         }
         _configurationManager.WorkingDirectory.BaseDirectory = GetWorkingDirectory(context);
-        _logger.Info("Loading configuration...");
+        _logger.LogInformation("Loading configuration...");
         try {
             _configurationManager.Load();
-            _logger.Info("Configuration loaded.");
+            _logger.LogInformation("Configuration loaded.");
         }
         catch (ConfigurationNotLoadedError e) {
-            _logger.Warn(e, "Unable to load configuration. Using defaults.");
+            _logger.LogWarning(e, "Unable to load configuration. Using defaults.");
             _configurationManager.LoadDefaults();
         }
         await next.Invoke();

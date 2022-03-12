@@ -12,8 +12,11 @@
 <RadzenHeading Text="@Title" class="mb-3"/>
 
 <h2 class="mb-3">Interfaces</h2>
-<RadzenButton Icon="add_circle_outline" class="mb-2" Text="Add new"
-              Click=@AddInterface />
+<RadzenSplitButton Icon="add" class="mb-2" Text="Add new" Click="@Pages.AddInterface">
+    <ChildContent>
+        <RadzenSplitButtonItem Text="Import" Icon="upload" />
+    </ChildContent>
+</RadzenSplitButton>
 <RadzenDataGrid @ref="_interfacesGrid" AllowColumnResize="true" AllowFiltering="true" AllowPaging="true"
                 AllowSorting="true" ColumnWidth="200px"
                 Data="@_wireguardInterfaces"
@@ -26,6 +29,11 @@
             </FooterTemplate>
         </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="Interface" Property="Description" Title="Description"/>
+        <RadzenDataGridColumn TItem="Interface" Title="Auto">
+            <Template Context="iface">
+                @(iface.Auto ? "Yes" : "No")
+            </Template>
+        </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="Interface" Title="IPv4">
             <Template Context="iface">
                 @(iface.IPv4Address == default ? "None" : iface.IPv4Address.ToString())
@@ -37,26 +45,14 @@
             </Template>
         </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="Interface" Title="Gateway" Property="Gateway.Name"/>
-        <RadzenDataGridColumn TItem="Interface" Title="Clients" Property="Clients.Count"/>
+        <RadzenDataGridColumn TItem="Interface" Title="Clients">
+            <Template Context="iface">@iface.Clients.Count</Template>
+        </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="Interface" Title="Actions" Resizable="false" 
                               Filterable="false" Sortable="false">
-            <Template Context="data">
-                @if (_systemWrapper.IsInterfaceDown(data)) {
-                    <RadzenButton Icon="play_arrow" ButtonStyle="ButtonStyle.Success" title="Start"
-                                  Click="() => StartInterface(data)" />
-                }
-                else {
-                    <RadzenButton Icon="stop" ButtonStyle="ButtonStyle.Danger" title="Stop"
-                                  Click="() => StopInterface(data)"/>
-                }
-                <RadzenButton Icon="download" ButtonStyle="ButtonStyle.Light" title="Download"
-                              Click="() => _webService.DownloadWireguardModel(data)"/>
-                <RadzenButton Icon="qr_code" title="Show QR code" ButtonStyle="ButtonStyle.Light"
-                              Click="() => ShowQrCode(data)"/>
-                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" title="Edit"
-                              Click="() => EditWireguardPeer(data)"/>
-                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Light" title="Delete"
-                              Click="() => ConfirmRemoveWireguardPeer(data)"/>
+            <Template Context="iface">
+                <PeerActions Peer="iface" EnableEdit="true" 
+                             AfterDelete="() => RemoveWireguardModel(iface)"/>
             </Template>
         </RadzenDataGridColumn>
     </Columns>
@@ -71,11 +67,9 @@
 }
 
 <h2 class="my-3">Clients</h2>
-<RadzenSplitButton Click="AddClient" Text="Add new" Icon="add_circle_outline" class="mb-2">
+<RadzenSplitButton Click="Pages.AddClient" Text="Add new" Icon="add" class="mb-2">
     <ChildContent>
-        @foreach (var iface in Configuration.Wireguard.Interfaces) {
-            <RadzenSplitButtonItem Text="@iface.Name" Value="@iface.Name"/>
-        }
+        <RadzenSplitButtonItem Text="Import" Icon="upload"/>
     </ChildContent>
 </RadzenSplitButton>
 <RadzenDataGrid @ref="_clientsGrid" AllowColumnResize="true" AllowFiltering="true" AllowPaging="true"
@@ -107,22 +101,16 @@
         </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="Client" Title="Interface">
             <Template Context="data">
-                <a href="/interface/@(Configuration.Wireguard.GetInterface(data)?.Id)">
-                    @(Configuration.Wireguard.GetInterface(data)?.Name)
+                <a href="/interface/@(Core.Configuration.Configuration.Wireguard.GetInterface(data)?.Id)">
+                    @(Core.Configuration.Configuration.Wireguard.GetInterface(data)?.Name)
                 </a>
             </Template>
         </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="Client" Title="Actions" Resizable="false"
                               Filterable="false" Sortable="false">
-            <Template Context="data">
-                <RadzenButton Icon="download" ButtonStyle="ButtonStyle.Light" title="Download"
-                              Click="() => _webService.DownloadWireguardModel(data)"/>
-                <RadzenButton Icon="qr_code" title="Show QR code" ButtonStyle="ButtonStyle.Light"
-                              Click="() => ShowQrCode(data)"/>
-                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" title="Edit"
-                              Click="() => EditWireguardPeer(data)"/>
-                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Light" title="Delete"
-                              Click="() => ConfirmRemoveWireguardPeer(data)"/>
+            <Template Context="client">
+                <PeerActions Peer="client" EnableEdit="true" 
+                             AfterDelete="() => RemoveWireguardModel(client)"/>
             </Template>
         </RadzenDataGridColumn>
     </Columns>
@@ -146,10 +134,11 @@
     bool _stoppingAll;
 
     protected override void OnInitialized() {
-        _wireguardInterfaces = Configuration.Wireguard.Interfaces
+        _wireguardInterfaces = Core.Configuration.Configuration.Wireguard.Interfaces
             .OrderBy(i => i.Name)
             .ToList();
-        _clients = _wireguardInterfaces.SelectMany(i => i.Clients)
+        _clients = _wireguardInterfaces
+            .SelectMany(i => i.Clients)
             .OrderBy(c => c.Name)
             .ToList();
     }
@@ -184,7 +173,7 @@
     
     void StopAllInterfaces() {
         _stoppingAll = true;
-        foreach (var iface in Configuration.Wireguard.Interfaces) {
+        foreach (var iface in Core.Configuration.Configuration.Wireguard.Interfaces) {
             StopInterface(iface);
         }
         _stoppingAll = false;
@@ -192,7 +181,7 @@
     
     void StartAllInterfaces() {
         _startingAll = true;
-        foreach (var iface in Configuration.Wireguard.Interfaces) {
+        foreach (var iface in Core.Configuration.Configuration.Wireguard.Interfaces) {
             StartInterface(iface);
         }
         _startingAll = false;
@@ -203,53 +192,65 @@
         _navigationManager.NavigateTo($"{modelType}/{peer.Id}");
     }
 
-    void AddClient(RadzenSplitButtonItem? item) {
-        if (item == default || string.IsNullOrEmpty(item.Value)) {
+    private RadzenDropDown<string> _addClientInterfaces;
+    
+    async Task AddClient(RadzenSplitButtonItem? item) {
+        if (!_wireguardInterfaces.Any()) {
             _notificationService.Notify(new NotificationMessage {
                 Severity = NotificationSeverity.Error,
                 Summary = "Unable to add client",
-                Detail = "You need to specify the interface for the new client"
+                Detail = "There are no interfaces yet!"
             });
             return;
         }
-        var iface = Configuration.Wireguard.Interfaces.Single(i => i.Name.Equals(item.Value));
-        _navigationManager.NavigateTo($"/{nameof(Interface).ToLower()}/{iface.Id}/add-{nameof(Client).ToLower()}");
+        if (item != default) {
+            ImportClient();
+            return;
+        }
+        await _dialogService.OpenAsync("Add client", ds =>
+            @<div>
+                <h3>Interface</h3>
+                <div>
+                    <div class="row">
+                        <div class="col">
+                            <RadzenDropDown @ref="@_addClientInterfaces" TValue="string" AllowClear="false" Placeholder="Select an interface"
+                                            Data="_wireguardInterfaces.Select(i => i.Name)"/>                        
+                        </div>                    
+                    </div>
+                    <div class="row mt-2">
+                       <div class="col">
+                           <RadzenButton Icon="add" Text="Add"
+                                         Click="@Pages.AddClient"/>                            
+                        </div>                         
+                    </div>
+                </div>
+            </div>, 
+            new DialogOptions {
+                Style = "min-height:auto;min-width:auto;width:auto",
+                CloseDialogOnOverlayClick = true
+            }
+        );
+    }
 
+    void AddClient() {
+        var item = _addClientInterfaces.SelectedItem;
+        if (item == default) return;
+        var iface = _wireguardInterfaces.Single(i => i.Name.Equals(item));
+        _navigationManager.NavigateTo($"/{nameof(Interface).ToLower()}/{iface.Id}/add-{nameof(Client).ToLower()}");
     }
     
-    void AddInterface() {
+    void AddInterface(RadzenSplitButtonItem? item) {
+        if (item != default) {
+            ImportInterface();
+            return;
+        }
         _navigationManager.NavigateTo($"/add-{nameof(Interface).ToLower()}");
-    }
-    
-    async Task ConfirmRemoveWireguardPeer(IWireguardPeer peer) {
-        var peerType = peer.GetType().Name.ToLower();
-        var remove = await _dialogService.Confirm(
-            $"Are you sure you want to delete {peer.Name}? This cannot be undone.", 
-            $"Delete {peerType} {peer.Name}",
-            new ConfirmOptions {
-                OkButtonText = "Yes",
-                CancelButtonText = "No",
-                CloseDialogOnOverlayClick = true,
-            });
-        if (remove == default || !remove.Value) return;
-        try {
-            RemoveWireguardModel(peer);
-            _configurationManager.Save();
-        }
-        catch (Exception e) {
-            _notificationService.Notify(new NotificationMessage {
-                Severity = NotificationSeverity.Error,
-                Summary = $"Unable to remove {peerType} {peer.Name}",
-                Detail = e.Message
-            });
-        }
     }
 
     void RemoveWireguardModel(IWireguardPeer peer) {
-        _webService.RemoveWireguardModel(peer);
         switch (peer) {
             case Client client:
-                RemovePeer(client);
+                RemoveClient(client);
                 break;
             case Interface iface:
                 RemoveInterface(iface);
@@ -260,7 +261,7 @@
     RadzenDataGrid<Client> _clientsGrid;
     RadzenDataGrid<Interface> _interfacesGrid;
     
-    void RemovePeer(Client client) {
+    void RemoveClient(Client client) {
         _clients.Remove(client);
         _clientsGrid.Reload();
     }
@@ -269,20 +270,12 @@
         _wireguardInterfaces.Remove(iface);
         _interfacesGrid.Reload();
     }
+
+    private void ImportInterface() {
+        _navigationManager.NavigateTo($"/import-{nameof(Interface).ToLower()}");
+    }
     
-    async Task ShowQrCode(IWireguardPeer peer) {
-        var qr = $"data:image/png;base64, {Convert.ToBase64String(_webService.GetQrCode(peer))}" ;
-        await _dialogService.OpenAsync($"Configuration of {peer.Name}", ds =>
-            @<div>
-                <div class="row">
-                    <div class="col text-center">
-                        <RadzenImage Path="@qr" Style="display: block; width: 25rem;"/>
-                    </div>
-                </div>
-            </div>, 
-            new DialogOptions {
-                Style = "min-height:auto;min-width:auto;width:auto"
-            }
-        );
+    private void ImportClient() {
+        _navigationManager.NavigateTo($"/import-{nameof(Client).ToLower()}");
     }
 }

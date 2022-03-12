@@ -11,7 +11,11 @@ public static class Cloning {
     /// <typeparam name="T"></typeparam>
     /// <returns></returns>
     public static T Clone<T>(T original) where T : new() {
-        var clone = Activator.CreateInstance<T>();
+        return Clone<T, T>(original);
+    }
+
+    public static TI Clone<TI, TC>(TI original) where TC : TI {
+        TI clone = Activator.CreateInstance<TC>();
         var cloneableProperties = original!.GetType().GetProperties()
             .Where(p => p.PropertyType.GetInterfaces().Contains(typeof(ICloneable)));
         foreach (var property in cloneableProperties) {
@@ -22,4 +26,5 @@ public static class Cloning {
         }
         return clone;
     }
+
 }

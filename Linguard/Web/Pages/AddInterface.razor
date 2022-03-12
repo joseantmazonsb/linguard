@@ -32,12 +32,15 @@
 }
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
 
-<RadzenHeading Text="@Title" class="mb-3"/>
+<div class="mb-3">
+    <RadzenHeading Text="@Title" class="d-inline"/>
+    <RadzenButton class="d-inline float-end" Text="Import" Icon="upload" ButtonStyle="ButtonStyle.Secondary" 
+                  Click="@(() => _navigationManager.NavigateTo($"/import-{nameof(Interface).ToLower()}"))"/>
+</div>
 
-<h2>Configuration</h2>
 <RadzenCard class="mb-3">
     <RadzenTemplateForm Data="@Iface" Submit="@((Interface args) => { Submit(args); })">
-        <InterfaceConfigurationForm Iface="Iface" ShowWireguardKeys="false" SubmitText="Add"/>
+        <InterfaceConfigurationForm Iface="Iface" ShowWireguardKeys="false" SubmitText="Create"/>
     </RadzenTemplateForm>
 </RadzenCard>
 

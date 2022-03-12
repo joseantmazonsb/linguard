@@ -3,7 +3,7 @@ using Linguard.Core;
 using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Services;
-using Linguard.Log;
+using Microsoft.Extensions.Logging;
 using Typin.Attributes;
 using Typin.Console;
 
@@ -19,7 +19,7 @@ public class EditInterfaceCommand : AddInterfaceCommand {
     public override ValueTask ExecuteAsync(IConsole console) {
         var iface = Configuration.Wireguard.Interfaces.SingleOrDefault(i => i.Name.Equals(Name));
         if (iface == default) {
-            Logger.Error($"No interface named '{Name}' was found.");
+            Logger.LogError($"No interface named '{Name}' was found.");
             console.Error.WriteLine(Validation.InterfaceNotFound);
             return ValueTask.CompletedTask;
         }

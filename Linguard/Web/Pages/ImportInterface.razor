@@ -1,0 +1,109 @@
+﻿@page "/import-interface"
+@using Linguard.Core.Managers
+@using Linguard.Core.Models.Wireguard
+@using Linguard.Core.Services
+@using Linguard.Core.Utils
+@using Linguard.Web.Services
+@using FluentValidation
+@using Linguard.Core.Configuration
+
+<PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
+
+<RadzenHeading Text="@Title" class="mb-3"/>
+
+<RadzenCard class="mb-3">
+    <div class="row">
+        <div class="row">
+            <div class="col">
+                <h3>Interface configuration files</h3>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col">
+                <FileUpload Accepts=".conf" OnLoad="LoadInterfaceFile" 
+                            OnRemove="_ => _interfaceFile = default"/>
+            </div>
+        </div>
+        <div class="row mt-3">
+            <div class="col">
+                <h3>Clients configuration files</h3>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col">
+                <FileUpload Accepts=".conf" Multiple="true" OnLoad="LoadClientFiles" 
+                            OnRemove="file => _uploadedClientFiles.Remove(file)"/>
+            </div>
+        </div>
+        <div class="row mt-3">
+            <div class="col">
+                <RadzenButton ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Primary" Text="Import" 
+                              Click="Submit"/>
+            </div>
+        </div>
+    </div>
+</RadzenCard>
+
+
+@inject IConfigurationManager _configurationManager
+@inject IWireguardService _wireguardService
+@inject IWebService _webService;
+@inject NotificationService _notificationService
+@inject NavigationManager _navigationManager
+@inject IJSRuntime _js
+@inject AbstractValidator<Interface> _validator
+@inject IInterfaceGenerator _generator
+
+@code {
+    private const string Title = "Import interface";
+    private IConfiguration Configuration => _configurationManager.Configuration;
+    
+    private RadzenProgressBar _uploadInterfaceProgressBar;
+    private RadzenProgressBar _uploadClientsProgressBar;
+
+    private readonly ISet<FileUpload.UploadedFile> _uploadedClientFiles = new HashSet<FileUpload.UploadedFile>();
+    private FileUpload.UploadedFile? _interfaceFile;
+
+    private void Submit() {
+        var firstClientFile = _uploadedClientFiles.FirstOrDefault();
+        var ifaceFile = _interfaceFile;
+        // TODO parse files and import interface and clients
+        //_notificationService.Notify(NotificationSeverity.Error, "Unable to import interface.");
+    }
+
+    /*private async Task LoadClientFiles(InputFileChangeEventArgs args) {
+        // We don't want to refresh the UI too frequently,
+        // So, we use a timer to update the UI every few hundred milliseconds
+        await using var timer = new Timer(_ => InvokeAsync(StateHasChanged));
+        timer.Change(TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(250));
+        try {
+            var files = args.GetMultipleFiles(int.MaxValue);
+            foreach (var file in files) {
+                var uploadedFile = new FileUpload.UploadingFile(file.Name, file.Size);
+                //_uploadedClientFiles.Add(uploadedFile);
+                await using var stream = file.OpenReadStream(int.MaxValue);
+                var sb = new StringBuilder();
+                var buffer = new byte[1024];
+                while (await stream.ReadAsync(buffer) is var read && read > 0) {
+                    uploadedFile.Uploaded += read;
+                    //sb.Append(Encoding.UTF8.GetString(buffer));
+                }
+                //_clientFiles.Add(new WireguardFile(file.Name, sb.ToString()));
+            }
+        }
+        finally {
+            StateHasChanged();
+        }
+    }*/
+
+    private void LoadClientFiles(IEnumerable<FileUpload.UploadedFile> files) {
+        foreach (var file in files) {
+            _uploadedClientFiles.Add(file);
+        }
+    }
+    
+    private void LoadInterfaceFile(IEnumerable<FileUpload.UploadedFile> files) {
+        _interfaceFile = files.SingleOrDefault();
+    }
+
+}

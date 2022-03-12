@@ -176,7 +176,7 @@
             </div>
             <div class="row mb-2">
                 <div class="col">
-                    <RadzenButton Icon="add_circle_outline" style="margin-bottom: 10px" Text="Add IP"
+                    <RadzenButton Icon="add" style="margin-bottom: 10px" Text="Add IP"
                                   ButtonStyle="ButtonStyle.Secondary" 
                                   Click="@AddRow"/>
                 </div>
@@ -249,10 +249,10 @@
     public bool ShowWireguardKeys { get; set; }
 
     [Parameter]
-    public string SubmitText { get; set; } = "Save";
+    public string? SubmitText { get; set; }
 
     [Parameter]
-    public string SubmitIcon { get; set; } = "save";
+    public string? SubmitIcon { get; set; }
 
     [Parameter]
     public Interface? Interface { get; set; }

@@ -53,18 +53,20 @@
 <RadzenAccordion Multiple="true">
     <Items>
         <RadzenAccordionItem Text="Actions" Icon="construction">
-            <PeerActions Peer="_iface"/>
+            <PeerActions Peer="_iface" class="my-2 d-flex"
+                         AfterDelete="@(() => _navigationManager.NavigateTo("wireguard"))"/>
         </RadzenAccordionItem>
         <RadzenAccordionItem Selected="true" Text="Configuration" Icon="settings">
             <RadzenCard class="my-2">
                 <RadzenTemplateForm Data="@_iface" Submit="@((Interface args) => { Submit(args); })">
-                    <InterfaceConfigurationForm Iface="_iface" ShowWireguardKeys="true"/>
+                    <InterfaceConfigurationForm Iface="_iface" ShowWireguardKeys="true"
+                                                SubmitIcon="save" SubmitText="Save"/>
                 </RadzenTemplateForm>
             </RadzenCard>
         </RadzenAccordionItem>
         <RadzenAccordionItem Text="Clients" Icon="people">
             <RadzenCard class="my-2">
-                <RadzenButton Icon="add_circle_outline" class="mb-2" Text="Add new"
+                <RadzenButton Icon="add" class="mb-2" Text="Add new"
                               Click=@AddClient />
                 <RadzenDataGrid @ref="_clientsGrid" AllowColumnResize="true" AllowFiltering="true" AllowPaging="true"
                                 AllowSorting="true" ColumnWidth="200px"
@@ -93,15 +95,9 @@
                         </RadzenDataGridColumn>
                         <RadzenDataGridColumn TItem="Client" Title="Actions" Resizable="false"
                                               Filterable="false" Sortable="false">
-                            <Template Context="data">
-                                <RadzenButton Icon="download" ButtonStyle="ButtonStyle.Light" title="Download"
-                                              Click="() => _webService.DownloadWireguardModel(data)"/>
-                                <RadzenButton Icon="qr_code" title="Show QR code" ButtonStyle="ButtonStyle.Light"
-                                                              Click="() => ShowQrCode(data)"/>
-                                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" title="Edit"
-                                              Click="() => EditWireguardClient(data)"/>
-                                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Light" title="Delete"
-                                              Click="() => ConfirmRemoveWireguardPeer(data)"/>
+                            <Template Context="client">
+                                <PeerActions Peer="client" EnableEdit="true" 
+                                             AfterDelete="() => RemoveWireguardPeer(client)"/>
                             </Template>
                         </RadzenDataGridColumn>
                     </Columns>
@@ -138,37 +134,8 @@
         _notificationService.Notify(NotificationSeverity.Error, "Unable to save interface.", 
             string.Join(Environment.NewLine, result.Errors));
     }
-
-    void EditWireguardClient(Client client) {
-        _navigationManager.NavigateTo($"{nameof(Client).ToLower()}/{client.Id}");
-    }
-
-    async Task ConfirmRemoveWireguardPeer(IWireguardPeer peer) {
-        var peerType = peer.GetType().Name.ToLower();
-        var remove = await _dialogService.Confirm(
-            $"Are you sure you want to delete {peer.Name}? This cannot be undone.", 
-            $"Delete {peerType} {peer.Name}",
-            new ConfirmOptions {
-                OkButtonText = "Yes",
-                CancelButtonText = "No",
-                CloseDialogOnOverlayClick = true,
-            });
-        if (remove == default || !remove.Value) return;
-        try {
-            RemoveWireguardPeer(peer);
-            _configurationManager.Save();
-        }
-        catch (Exception e) {
-            _notificationService.Notify(new NotificationMessage {
-                Severity = NotificationSeverity.Error,
-                Summary = $"Unable to remove {peerType} {peer.Name}",
-                Detail = e.Message
-            });
-        }
-    }
-
+    
     void RemoveWireguardPeer(IWireguardPeer peer) {
-        _webService.RemoveWireguardModel(peer);
         switch (peer) {
             case Client:
                 _clientsGrid.Reload();
@@ -184,21 +151,5 @@
     void AddClient() {
         _navigationManager.NavigateTo(
             $"/{nameof(Interface)}/{_iface.Id}/add-{nameof(Client).ToLower()}");
-    }
-    
-    async Task ShowQrCode(IWireguardPeer peer) {
-        var qr = $"data:image/png;base64, {Convert.ToBase64String(_webService.GetQrCode(peer))}" ;
-        await _dialogService.OpenAsync($"Configuration of {peer.Name}", ds =>
-            @<div>
-                <div class="row">
-                    <div class="col text-center">
-                        <RadzenImage Path="@qr" Style="display: block; width: 25rem;"/>
-                    </div>
-                </div>
-            </div>, 
-            new DialogOptions {
-                Style = "min-height:auto;min-width:auto;width:auto"
-            }
-            );
     }
 }

@@ -217,7 +217,7 @@
             </div>
             <div class="row mb-2">
                 <div class="col">
-                    <RadzenButton Icon="add_circle_outline" style="margin-bottom: 10px" Text="Add rule"
+                    <RadzenButton Icon="add" style="margin-bottom: 10px" Text="Add rule"
                                   ButtonStyle="ButtonStyle.Secondary"
                                   Click="() => AddRow(_onUpGrid)"/>
                 </div>
@@ -264,7 +264,7 @@
             </div>
             <div class="row mb-2">
                 <div class="col">
-                    <RadzenButton Icon="add_circle_outline" style="margin-bottom: 10px" Text="Add rule"
+                    <RadzenButton Icon="add" style="margin-bottom: 10px" Text="Add rule"
                                   ButtonStyle="ButtonStyle.Secondary" 
                                   Click="() => _onDownGrid.InsertRow(new Rule())"/>
                 </div>
@@ -305,10 +305,10 @@
     public bool ShowWireguardKeys { get; set; }
 
     [Parameter]
-    public string SubmitText { get; set; } = "Save";
+    public string? SubmitText { get; set; }
 
     [Parameter]
-    public string SubmitIcon { get; set; } = "save";
+    public string? SubmitIcon { get; set; }
     
     RadzenDataGrid<Rule> _onUpGrid;
     RadzenDataGrid<Rule> _onDownGrid;

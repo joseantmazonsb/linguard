@@ -1,4 +1,5 @@
 ﻿using Linguard.Core.Configuration;
+using Linguard.Log;
 
 namespace Linguard.Core.Managers; 
 
@@ -13,6 +14,10 @@ public interface IConfigurationManager {
     IConfiguration Configuration { get; set; }
     // Working directory of the application.
     IWorkingDirectory WorkingDirectory { get; set; }
+    /// <summary>
+    /// Logging target of the application.
+    /// </summary>
+    ILogTarget LoggingTarget { get; set; }
     /// <summary>
     /// Load default options.
     /// </summary>

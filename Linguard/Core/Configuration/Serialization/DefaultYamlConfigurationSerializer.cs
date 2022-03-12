@@ -11,7 +11,6 @@ public static class DefaultYamlConfigurationSerializer {
         .WithTypeConverter<IPAddressCidrTypeConverter>()
         .WithTypeConverter<NetworkInterfaceTypeConverter>()
         .WithTypeConverter<UriTypeConverter>()
-        .WithTypeConverter<StyleTypeConverter>()
         .WithTypeMapping<IConfiguration, Configuration>()
         .WithTypeMapping<IWireguardConfiguration, WireguardConfiguration>()
         .WithTypeMapping<ILoggingConfiguration, LoggingConfiguration>()

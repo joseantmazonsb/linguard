@@ -1,11 +1,9 @@
-﻿using Linguard.Log;
+﻿using Microsoft.Extensions.Logging;
 
 namespace Linguard.Core.Configuration; 
 
-public class LoggingConfiguration : ILoggingConfiguration{
+public class LoggingConfiguration : ILoggingConfiguration {
     public LogLevel Level { get; set; }
-    public bool Overwrite { get; set; }
-    
     public object Clone() {
         return MemberwiseClone();
     }

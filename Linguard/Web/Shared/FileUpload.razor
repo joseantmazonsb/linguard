@@ -1,0 +1,106 @@
+﻿@using Linguard.Web.Utils
+@using ByteSizeLib
+<div>
+    @if (Multiple) {
+        <InputFile id="file-input" OnChange="LoadFiles" accepts="@Accepts" multiple />    
+    }
+    else {
+        <InputFile id="file-input" OnChange="LoadFiles" accepts="@Accepts"/>
+    }
+    @foreach (var file in _uploadingFiles) {
+        <div class="flex-row">
+            <div class="row">
+                <div class="col mt-2">
+                    @($"{file.Name} ({ByteSize.FromBytes(file.Size).Format()})")
+                    <RadzenButton class="d-inline ms-2" Icon="close" ButtonStyle="ButtonStyle.Light"
+                                  Click="() => RemoveFile(file)"/>
+                </div>
+            </div>
+            <div class="flex-row">
+                <div class="col-xxl-2 mt-2">
+                    <RadzenProgressBar Value="@file.Progress" Mode="ProgressBarMode.Determinate"/>
+                </div>
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    
+    [Parameter]
+    public string? Accepts { get; set; }
+
+    [Parameter]
+    public string? Style { get; set; }
+
+    [Parameter]
+    public long MaxSize { get; set; } = 512000L;
+    
+    [Parameter]
+    public bool Multiple { get; set; }
+    
+    [Parameter]
+    public Action<IEnumerable<UploadedFile>>? OnLoad { get; set; } 
+
+    [Parameter]
+    public Action<UploadedFile>? OnRemove { get; set; } 
+    
+    private record UploadingFile(string Name, long Size) {
+        public long Uploaded { get; set; }
+        public int Progress => (int) (Uploaded / (double) Size * 100d);
+    }
+
+    public record UploadedFile(string Name, IEnumerable<byte> Content) {
+        public virtual bool Equals(UploadedFile? other) {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return Name == other.Name;
+        }
+
+        public override int GetHashCode() {
+            return Name.GetHashCode();
+        }
+    }
+
+    private readonly List<UploadingFile> _uploadingFiles = new();
+    
+    private async Task LoadFiles(InputFileChangeEventArgs args) {
+        // We don't want to refresh the UI too frequently,
+        // So, we use a timer to update the UI every few hundred milliseconds
+        await using var timer = new Timer(_ => InvokeAsync(StateHasChanged));
+        timer.Change(TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(250));
+        try {
+            var files = args.GetMultipleFiles(int.MaxValue);
+            var uploadedFiles = new List<UploadedFile>();
+            foreach (var file in files) {
+                _uploadingFiles.RemoveAll(f => f.Name.Equals(file.Name));
+                var uploadingFile = new UploadingFile(file.Name, file.Size);
+                _uploadingFiles.Add(uploadingFile);
+                await using var stream = file.OpenReadStream(MaxSize);
+                var content = new List<byte>();
+                var buffer = new byte[1024];
+                while (await stream.ReadAsync(buffer) is var read && read > 0) {
+                    uploadingFile.Uploaded += read;
+                    content.AddRange(buffer);
+                }
+                uploadedFiles.Add(new UploadedFile(file.Name, content));
+            }
+            if (OnLoad == default) {
+                return;
+            }
+            OnLoad?.Invoke(uploadedFiles);
+        }
+        finally {
+            StateHasChanged();
+        }
+    }
+
+    private void RemoveFile(UploadingFile file) {
+        _uploadingFiles.Remove(file);
+        StateHasChanged();
+        OnRemove?.Invoke(new UploadedFile(file.Name, ArraySegment<byte>.Empty));
+    }
+
+
+}

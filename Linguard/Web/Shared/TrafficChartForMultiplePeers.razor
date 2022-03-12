@@ -1,0 +1,67 @@
+﻿@using Linguard.Core.Managers
+@using Linguard.Core.Models
+@using Linguard.Core.Services
+@using Linguard.Core.Configuration
+@using Linguard.Web.Utils
+<div class="row">
+    <!-- Real time -->
+    <div class="col-md-6 mt-2">
+        <RadzenCard>
+            <h3>Real time</h3>
+            @if (!RealTimeTrafficData.Any()) {
+                <p>There is no data yet.</p>
+            }
+            else {
+                <RadzenChart>
+                    <RadzenDonutSeries Data="@_chartData"
+                                       CategoryProperty="Key" ValueProperty="Value.Bytes">
+                        <TooltipTemplate Context="data">
+                            <strong>@data.ToString()</strong>
+                        </TooltipTemplate>
+                    </RadzenDonutSeries>
+                </RadzenChart>
+            }
+        </RadzenCard>
+    </div>
+    <!-- History -->
+    <div class="col-md-6 mt-2">
+        <RadzenCard>
+            <h3>History</h3>
+            @if (!Configuration.Traffic.Enabled) {
+                <p>
+                    It looks like traffic data storage is disabled.
+                    <a href="/settings">Enable it</a> to get more statistics.
+                </p>
+                return;
+            }
+            <!-- TODO -->
+            <p>There is no data yet.</p>
+        </RadzenCard>
+    </div>
+</div>
+
+@inject IConfigurationManager _configurationManager
+@inject IWireguardService _wireguardService
+
+@code {
+    IConfiguration Configuration => _configurationManager.Configuration;
+
+    [Parameter]
+    public IEnumerable<TrafficData> RealTimeTrafficData { get; set; } = new List<TrafficData>();
+
+    [Parameter]
+    public IEnumerable<TrafficData> TrafficDataHistory { get; set; } = new List<TrafficData>();
+    
+    private readonly List<ChartTrafficData> _chartData = new();
+
+    protected override void OnInitialized() {
+        base.OnInitialized();
+        foreach (var data in RealTimeTrafficData) {
+            _chartData.Add(new ChartTrafficData {
+                Key = data.Peer.Name,
+                Value = data.ReceivedData + data.SentData
+            });
+        }
+    }
+
+}

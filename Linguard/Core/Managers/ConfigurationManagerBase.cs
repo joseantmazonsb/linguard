@@ -1,10 +1,10 @@
 ﻿using Linguard.Core.Configuration;
 using Linguard.Core.Drivers.TrafficStorage;
-using Linguard.Core.Models;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.OS;
 using Linguard.Core.Utils;
 using Linguard.Log;
+using Microsoft.Extensions.Logging;
 
 namespace Linguard.Core.Managers; 
 
@@ -22,6 +22,8 @@ public abstract class ConfigurationManagerBase : IConfigurationManager {
     public IConfiguration Configuration { get; set; }
     public IWorkingDirectory WorkingDirectory { get; set; }
 
+    public ILogTarget LoggingTarget { get; set; }
+
     public void LoadDefaults() {
         LoadWebDefaults();
         LoadLoggingDefaults();
@@ -30,19 +32,22 @@ public abstract class ConfigurationManagerBase : IConfigurationManager {
     }
 
     private void LoadWebDefaults() {
-        Configuration.Web.Style = Style.Default;
+        Configuration.Web = new WebConfiguration();
         Configuration.Web.LoginAttempts = 10;
         Configuration.Web.SecretKey = "";
     }
     private void LoadLoggingDefaults() {
-        Configuration.Logging.Level = LogLevel.Info;
-        Configuration.Logging.Overwrite = false;
+        Configuration.Logging = new LoggingConfiguration();
+        Configuration.Logging.Level = LogLevel.Information;
     }
     private void LoadTrafficDefaults() {
+        Configuration.Traffic = new TrafficConfiguration();
         Configuration.Traffic.Enabled = true;
         Configuration.Traffic.StorageDriver = new JsonTrafficStorageDriver();
     }
     private void LoadWireguardDefaults() {
+        Configuration.Wireguard = new WireguardConfiguration();
+        Configuration.Wireguard.Interfaces = new HashSet<Interface>();
         Configuration.Wireguard.IptablesBin = _systemWrapper
             .RunCommand("whereis iptables | tr ' ' '\n' | grep bin").Stdout;
         Configuration.Wireguard.WireguardBin = _systemWrapper

@@ -15,7 +15,7 @@ public class DefaultClientGeneratorShould {
 
     private static readonly Mock<IConfigurationManager> ConfigurationManagerMock = new DefaultConfigurationManager();
     private static readonly Mock<IWireguardService> WireguardServiceMock = new();
-    private static readonly ISystemWrapper SystemWrapper = new SystemWrapper(ConfigurationManagerMock.Object);
+    private static readonly ISystemWrapper SystemWrapper = new SystemWrapper();
 
     private static IInterfaceGenerator InterfaceGenerator => 
         new DefaultInterfaceGenerator(ConfigurationManagerMock.Object, WireguardServiceMock.Object, SystemWrapper);

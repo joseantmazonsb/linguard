@@ -9,7 +9,9 @@ public class WireguardException : ExtendedException {
         "Verify that your Wireguard settings are correct.",
         $"Ensure the user running {AssemblyInfo.Product} is able to run Wireguard as super user."
     };
-    public WireguardException() : base(_fixes) {}
-    public WireguardException(string message) : base(message, _fixes) {}
-    public WireguardException(string message, Exception innerException) : base(message, innerException, _fixes) {}
+
+    public WireguardException(string message) : base(message) {}
+    public WireguardException(string message, Exception innerException) : base(message, innerException) {}
+
+    public override IEnumerable<string> Fixes => _fixes;
 }

@@ -19,12 +19,14 @@
     <RadzenAccordion Multiple="true">
         <Items>
             <RadzenAccordionItem Text="Actions" Icon="construction">
-                <PeerActions Peer="_client"/>
+                <PeerActions Peer="_client" class="my-2 d-flex" 
+                             AfterDelete="@(() => _navigationManager.NavigateTo("wireguard"))"/>
             </RadzenAccordionItem>
             <RadzenAccordionItem Selected="true" Text="Configuration" Icon="settings">
                 <RadzenCard class="my-2">
                     <RadzenTemplateForm Data="@_client" Submit="@((Client args) => { Submit(args); })">
-                        <ClientConfigurationForm Interface="_interface" Client="_client" ShowWireguardKeys="true"/>
+                        <ClientConfigurationForm Interface="_interface" Client="_client" ShowWireguardKeys="true" 
+                                                 SubmitIcon="save" SubmitText="Save"/>
                     </RadzenTemplateForm>
                 </RadzenCard>
             </RadzenAccordionItem>

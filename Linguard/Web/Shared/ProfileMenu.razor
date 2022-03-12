@@ -1,18 +1,35 @@
-﻿@code {
+﻿@using Linguard.Core.Models
+<div class="d-flex align-items-center justify-content-end">
+    <RadzenDropDown TValue="string" AllowClear="false" class="mx-0 mx-lg-3 text-start" 
+                    Data="@Enum.GetNames(typeof(Style)).Select(s => s.ToString())"
+                    Value="Style.Default.ToString()"
+                    ValueChanged="OnStyleChanged">
+    </RadzenDropDown>
+    <RadzenProfileMenu>
+        <Template>
+            <RadzenGravatar Email="@GravatarEmail"/>
+        </Template>
+        <ChildContent>
+            <RadzenProfileMenuItem Text="@GreetingMessage"/>
+            <hr class="my-0 mx-1"/>
+            <RadzenProfileMenuItem Text="Account" Path="account" Icon="account_circle"/>
+            <RadzenProfileMenuItem Text="Logout" Path="logout" Icon="logout"/>
+        </ChildContent>
+    </RadzenProfileMenu>
+</div>
+
+@inject IJSRuntime _jsRuntime
+
+@code {
+
     string user = "admin";
     string? email;
     string GreetingMessage => $"Hi, {user}";
     string GravatarEmail => email ?? "user@example.com";
+    
+    async Task OnStyleChanged(string styleName) {
+        var style = Enum.Parse<Style>(styleName);
+        await _jsRuntime.InvokeVoidAsync("setStylesheet", 
+            StyleUtils.GetStylesheet(style));
+    }
 }
-
-<RadzenProfileMenu>
-    <Template>  
-        <RadzenGravatar Email="@GravatarEmail"/>
-    </Template>
-    <ChildContent>
-        <RadzenProfileMenuItem Text="@GreetingMessage"/>
-        <hr class="my-0 mx-1"/>
-        <RadzenProfileMenuItem Text="Account" Path="account" Icon="account_circle"/>
-        <RadzenProfileMenuItem Text="Logout" Path="logout" Icon="logout"/>
-    </ChildContent>
-</RadzenProfileMenu>

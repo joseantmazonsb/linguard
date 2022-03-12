@@ -1,16 +1,12 @@
-﻿using Core.Test.Mocks;
-using FluentAssertions;
-using Linguard.Core.Managers;
+﻿using FluentAssertions;
 using Linguard.Core.OS;
-using Moq;
 using Xunit;
 
 namespace Core.Test; 
 
 public class SystemShould {
     
-    private static readonly Mock<IConfigurationManager> ConfigurationManagerMock = new DefaultConfigurationManager();
-    private readonly ISystemWrapper _systemWrapper = new SystemWrapper(ConfigurationManagerMock.Object);
+    private readonly ISystemWrapper _systemWrapper = new SystemWrapper();
     
     [Fact]
     public void RunSingleCommand() {

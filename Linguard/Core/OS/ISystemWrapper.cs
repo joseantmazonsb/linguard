@@ -13,4 +13,5 @@ public interface ISystemWrapper {
     void RemoveNetworkInterface(Interface iface);
     bool IsInterfaceUp(Interface iface);
     bool IsInterfaceDown(Interface iface);
+    void WriteAllText(string path, string text);
 }

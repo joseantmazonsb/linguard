@@ -62,9 +62,9 @@ public class DefaultInterfaceGenerator : IInterfaceGenerator {
                 (_, i) => WireguardUtils.GenerateOnDownRules(Configuration.IptablesBin, i.Name, i.Gateway))
             .RuleFor(i => i.OnUp, 
                 (_, i) => WireguardUtils.GenerateOnUpRules(Configuration.IptablesBin, i.Name, i.Gateway))
-            .RuleFor(i => i.PrivateKey, _wireguardService.GenerateWireguardPrivateKey())
+            .RuleFor(i => i.PrivateKey, _wireguardService.GeneratePrivateKey())
             .RuleFor(i => i.PublicKey, 
-                (_, i) => _wireguardService.GenerateWireguardPublicKey(i.PrivateKey))
+                (_, i) => _wireguardService.GeneratePublicKey(i.PrivateKey))
             .RuleFor(i => i.IPv4Address, f => {
                 for (var tries = 0; tries < MaxTries; tries++) {
                     var addr = f.Internet.IpAddress();
@@ -98,6 +98,7 @@ public class DefaultInterfaceGenerator : IInterfaceGenerator {
             .RuleFor(i => i.Endpoint, Configuration.Endpoint)
             .RuleFor(i => i.PrimaryDns, Configuration.PrimaryDns)
             .RuleFor(i => i.SecondaryDns, Configuration.SecondaryDns)
+            .RuleFor(i => i.Clients, new HashSet<Client>())
             .Generate();
     }
 }

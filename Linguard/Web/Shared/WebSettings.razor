@@ -1,5 +1,4 @@
 ﻿@using Linguard.Core.Configuration
-@using Linguard.Core.Models
 @namespace Linguard.Web.Shared
 
 <div class="row">
@@ -11,33 +10,16 @@
         </div>
         <div class="row mb-2">
             <div class="col-xxl-10">
-                <RadzenNumeric TValue="int" Min="1" Placeholder="wg0" Trim="true"
-                               Value="@Configuration.LoginAttempts"
-                               Style="width: 100%"/>
-            </div>
-        </div>
-        <div class="row mb-2">
-            <div class="col">
-                <RadzenLabel Text="Theme"/>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-xxl-10">
-                <RadzenDropDown TValue="string" AllowClear="false" Placeholder="Select a gateway"
-                                Data="@Enum.GetNames(typeof(Style)).Select(s => s.ToString())"
-                                Value="@Configuration.Style.ToString()"
-                                Change="OnStyleChanged" Style="width: 100%">
-                </RadzenDropDown>
+                <RadzenNumeric TValue="int" Min="1" Placeholder="wg0" Trim="true" class="w-100"
+                               Value="@Configuration.LoginAttempts"/>
             </div>
         </div>
     </div>
 </div>
 
+@inject IJSRuntime _jsRuntime
+
 @code {
     [Parameter]
     public IWebConfiguration Configuration { get; set; }
-    
-    void OnStyleChanged(object styleName) {
-        Configuration.Style = Enum.Parse<Style>((string) styleName);
-    }
 }

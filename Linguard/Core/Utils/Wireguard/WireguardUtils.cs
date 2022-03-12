@@ -6,8 +6,8 @@ namespace Linguard.Core.Utils.Wireguard;
 
 public static class WireguardUtils {
 
-    public static ICollection<Rule> GenerateOnUpRules(string iptablesBin, string interfaceName, NetworkInterface gateway) {
-        return new List<Rule> {
+    public static ISet<Rule> GenerateOnUpRules(string iptablesBin, string interfaceName, NetworkInterface gateway) {
+        return new HashSet<Rule> {
             $"{iptablesBin} -I FORWARD -i {interfaceName} -j ACCEPT",
             $"{iptablesBin} -I FORWARD -o {interfaceName} -j ACCEPT",
             $"{iptablesBin} -t nat -I POSTROUTING -o {gateway.Name} -j MASQUERADE",
@@ -16,8 +16,8 @@ public static class WireguardUtils {
         };
     }
 
-    public static ICollection<Rule> GenerateOnDownRules(string iptablesBin, string interfaceName, NetworkInterface gateway) {
-        return new List<Rule> {
+    public static ISet<Rule> GenerateOnDownRules(string iptablesBin, string interfaceName, NetworkInterface gateway) {
+        return new HashSet<Rule> {
             $"{iptablesBin} -D FORWARD -i {interfaceName} -j ACCEPT",
             $"{iptablesBin} -D FORWARD -o {interfaceName} -j ACCEPT",
             $"{iptablesBin} -t nat -D POSTROUTING -o {gateway.Name} -j MASQUERADE",
@@ -42,14 +42,14 @@ public static class WireguardUtils {
             $@"PostDown = {string.Join(Environment.NewLine+"PostDown = ", @interface.OnDown)}{Environment.NewLine}" +
             $"{Environment.NewLine}";
         var peersSection = new StringBuilder();
-        foreach (var peer in @interface.Clients) {
+        foreach (var client in @interface.Clients) {
             var peerSection =
                 $"[Peer]{Environment.NewLine}" +
-                $"PublicKey = {peer.PublicKey}{Environment.NewLine}";
-            if (peer.IPv4Address != default) {
-                peerSection += $"AllowedIPs = {peer.IPv4Address.IPAddress}/32";
-                if (peer.IPv6Address != default) {
-                    peerSection += $", {peer.IPv6Address.IPAddress}/128{Environment.NewLine}";
+                $"PublicKey = {client.PublicKey}{Environment.NewLine}";
+            if (client.IPv4Address != default) {
+                peerSection += $"AllowedIPs = {client.IPv4Address.IPAddress}/32";
+                if (client.IPv6Address != default) {
+                    peerSection += $", {client.IPv6Address.IPAddress}/128{Environment.NewLine}";
                 }
                 else {
                     peerSection += Environment.NewLine;
@@ -57,8 +57,8 @@ public static class WireguardUtils {
                 peersSection.Append(peerSection);
                 continue;
             }
-            if (peer.IPv6Address != default) {
-                peerSection += $"AllowedIPs = {peer.IPv6Address.IPAddress}/128{Environment.NewLine}";
+            if (client.IPv6Address != default) {
+                peerSection += $"AllowedIPs = {client.IPv6Address.IPAddress}/128{Environment.NewLine}";
             }
             peersSection.Append(peerSection);
         }

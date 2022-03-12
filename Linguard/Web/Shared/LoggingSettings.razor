@@ -1,51 +1,37 @@
-﻿@using Linguard.Core.Configuration
+﻿@using Linguard.Core.Managers
+@using Linguard.Core.Configuration
 @namespace Linguard.Web.Shared
 
-<div>
-    <div class="row mb-2">
-        <div class="col">
-            <div class="row">
-                <div class="col">
-                    <RadzenLabel class="mb-2" Text="Path to log file"/>
-                </div>
+<div class="row">
+    <div class="col-md-6">
+        <div class="row mb-2">
+            <div class="col">
+                <RadzenLabel Text="Target"/>
             </div>
-            <div class="row">
-                <div class="col">
-                    <RadzenTextBox Value="" Placeholder="/path/to/file"/>
-                </div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-xxl-10">
+                <RadzenTextBox class="w-100" Disabled="true" Value="@_configurationManager.LoggingTarget.ToString()"/>
+            </div>
+        </div>
+        <div class="row mb-2">
+            <div class="col">
+                <RadzenLabel Text="Level"/>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xxl-10">
+                <RadzenDropDown class="w-100" TValue="string" AllowClear="false" Placeholder="Select a log level"
+                                Data="@Enum.GetNames(typeof(LogLevel)).Select(s => s.ToString())"
+                                Value="@Configuration.Level.ToString()"
+                                ValueChanged="l => Configuration.Level = Enum.Parse<LogLevel>(l)"
+                                />
             </div>
         </div>
     </div>
-    <div class="row">
-        <div class="col">
-            <div class="row">
-                <div class="col">
-                    <RadzenLabel class="mb-2" Text="Level"/>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col">
-                    <RadzenDropDown TValue="string" AllowClear="false" Placeholder="Select a log level"
-                                    Data="@Enum.GetNames(typeof(Log.LogLevel)).Select(s => s.ToString())"
-                                    Value="@Configuration.Level.ToString()"
-                                    Change="l => Configuration.Level = Enum.Parse<Log.LogLevel>((string) l)"
-                                    />
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="row">
-        <div class="col">
-            <RadzenCheckBox TValue="bool" Name="OverwriteCheckBox" 
-                            Trim="true" Value="@Configuration.Overwrite" 
-                            Change="b => Configuration.Overwrite = b"
-            />
-            <RadzenLabel Text="Overwrite" Component="OverwriteCheckBox" 
-                         Style="margin-left: 8px; vertical-align: middle;" />
-        </div>
-    </div>
-    
 </div>
+
+@inject IConfigurationManager _configurationManager
 
 @code {
     [Parameter]

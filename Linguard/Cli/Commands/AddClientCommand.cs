@@ -5,7 +5,7 @@ using Linguard.Core.Configuration;
 using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Services;
-using Linguard.Log;
+using Microsoft.Extensions.Logging;
 using Typin;
 using Typin.Attributes;
 using Typin.Console;
@@ -91,7 +91,7 @@ public class AddClientCommand : ICommand {
         iface.Clients.Add(client);
         _configurationManager.Save();
         var msg = $"Added peer '{client.Name}' to interface '{iface.Name}'.";
-        _logger.Info(msg);
+        _logger.LogInformation(msg);
         console.Output.WriteLine(msg);
         return ValueTask.CompletedTask;
     }

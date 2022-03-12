@@ -11,8 +11,9 @@ public interface IWireguardService {
     void StopInterface(Interface iface);
     void AddClient(Interface iface, Client client);
     void RemoveClient(Client client);
-    string? GenerateWireguardPrivateKey();
-    string? GenerateWireguardPublicKey(string privateKey);
+    void RemoveInterface(Interface iface);
+    string GeneratePrivateKey();
+    string GeneratePublicKey(string privateKey);
     DateTime GetLastHandshake(Client client);
     IEnumerable<TrafficData> GetTrafficData();
     IEnumerable<TrafficData> GetTrafficData(Interface iface);

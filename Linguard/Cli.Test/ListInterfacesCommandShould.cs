@@ -36,6 +36,6 @@ public class ListInterfacesCommandShould {
     }
 
     private Interface GenerateInterface(IConfigurationManager configuration) {
-        return new DefaultInterfaceGenerator(configuration, WireguardServiceMock.Object, new SystemWrapper(configuration)).Generate();
+        return new DefaultInterfaceGenerator(configuration, WireguardServiceMock.Object, new SystemWrapper()).Generate();
     }
 }

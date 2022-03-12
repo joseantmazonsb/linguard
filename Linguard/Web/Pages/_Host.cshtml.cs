@@ -1,5 +1,6 @@
 ﻿using Linguard.Core.Configuration;
 using Linguard.Core.Managers;
+using Linguard.Core.Models;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Linguard.Web.Pages; 
@@ -12,6 +13,5 @@ public class HostModel : PageModel {
     }
 
     private IWebConfiguration Configuration => _configurationManager.Configuration.Web;
-    public string Stylesheet => $"_content/Radzen.Blazor/css/{Configuration.Style.ToString().ToLower()}.css" +
-                                $"?{DateTime.Now.Ticks}";
+    public string Stylesheet => $"_content/Radzen.Blazor/css/{Style.Default}.css";
 }

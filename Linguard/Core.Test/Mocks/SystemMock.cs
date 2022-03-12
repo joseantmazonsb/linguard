@@ -18,7 +18,6 @@ public class SystemMock : Mock<ISystemWrapper> {
 
     public SystemMock() {
         SetupGet(o => o.NetworkInterfaces).Returns(_networkInterfaces);
-        
         Setup(o => o.AddNetworkInterface(It.IsAny<Interface>()))
             .Callback<Interface>(i => {
                 if (Object.NetworkInterfaces.Any(iface => iface.Name.Equals(i.Name))) {

@@ -66,5 +66,6 @@ public class WebService : IWebService {
     
     private void RemoveInterface(Interface iface) {
         Configuration.Interfaces.Remove(iface);
+        WireguardService.RemoveInterface(iface);
     }
 }

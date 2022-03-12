@@ -8,16 +8,20 @@
 
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
 
-<RadzenHeading Text="@Title" class="mb-3"/>
-
 @if (Interface == default) {
     <p>Oops, it looks like the interface you want to create a client for does not exist.</p>
     return;
 }
 
+<div class="mb-3">
+    <RadzenHeading Text="@Title" class="d-inline"/>
+    <RadzenButton class="d-inline float-end" Text="Import" Icon="upload" ButtonStyle="ButtonStyle.Secondary"
+                  Click="@(() => _navigationManager.NavigateTo($"/import-{nameof(Client).ToLower()}"))"/>
+</div>
+
 <RadzenCard class="my-2">
     <RadzenTemplateForm Data="@Client" Submit="@((Client args) => { Submit(args); })">
-        <ClientConfigurationForm Client="Client" Interface="Interface" SubmitText="Add"/>
+        <ClientConfigurationForm Client="Client" Interface="Interface" SubmitText="Create"/>
     </RadzenTemplateForm>
 </RadzenCard>
 

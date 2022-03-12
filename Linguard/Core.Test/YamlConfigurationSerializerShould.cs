@@ -5,9 +5,8 @@ using FluentAssertions;
 using Linguard.Core;
 using Linguard.Core.Configuration;
 using Linguard.Core.Drivers.TrafficStorage;
-using Linguard.Core.Models;
 using Linguard.Core.Models.Wireguard;
-using Linguard.Log;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace Core.Test; 
@@ -82,11 +81,9 @@ public class YamlConfigurationSerializerShould {
   Endpoint: ''
 Logging:
   Level: Debug
-  Overwrite: false
 Web:
   LoginAttempts: 10
   SecretKey: ''
-  Style: Default
 Traffic:
   Enabled: false
   StorageDriver:
@@ -109,7 +106,6 @@ Traffic:
         var config = new Configuration {
             Logging = new LoggingConfiguration {
                 Level = LogLevel.Debug,
-                Overwrite = false
             },
             Traffic = new TrafficConfiguration {
                 Enabled = false,
@@ -120,7 +116,6 @@ Traffic:
             Web = new WebConfiguration {
                 LoginAttempts = 10,
                 SecretKey = "",
-                Style = Style.Default
             },
             Wireguard = new WireguardConfiguration {
                 Interfaces = new HashSet<Interface> {new() {

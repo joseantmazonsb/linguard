@@ -7,8 +7,9 @@ using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Models.Wireguard.Validators;
 using Linguard.Core.Services;
-using Linguard.Log;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Typin;
 using Typin.Console;
@@ -37,12 +38,14 @@ public static class Utils {
                 services.AddSingleton(config);
                 services.AddSingleton(configurationManager);
                 services.AddSingleton(new Mock<IWorkingDirectory>().Object);
-                services.AddSingleton(new Mock<ILogger>().Object);
                 services.AddSingleton(new Mock<IWireguardService>().Object);
                 services.AddTransient<AbstractValidator<Interface>, InterfaceValidator>();
                 services.AddTransient<IInterfaceGenerator, DefaultInterfaceGenerator>();
                 services.AddTransient<IClientGenerator, DefaultClientGenerator>();
                 services.AddTransient<AbstractValidator<Client>, ClientValidator>();
+                services.AddLogging(builder => {
+                    builder.Services.TryAddSingleton(new Mock<ILogger>().Object);
+                });
             })
             .Build();
         return new TestApp() {

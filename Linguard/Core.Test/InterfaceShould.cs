@@ -59,6 +59,7 @@ AllowedIPs = 1.1.1.2/32, 9f87:8784:c972:21f4:62b6:34a0:80e4:43df/128
             Gateway = _system.NetworkInterfaces.First(),
             Clients = new HashSet<Client> {
                 new() {
+                    Id = Guid.Parse("00000000-0000-0000-0000-000000000001"),
                     Endpoint = new Uri("vpn.example.com", UriKind.RelativeOrAbsolute),
                     Name = "peer1",
                     Nat = true,
@@ -70,6 +71,7 @@ AllowedIPs = 1.1.1.2/32, 9f87:8784:c972:21f4:62b6:34a0:80e4:43df/128
                     PrimaryDns = new Uri("8.8.8.8", UriKind.RelativeOrAbsolute)
                 },
                 new() {
+                    Id = Guid.Parse("00000000-0000-0000-0000-000000000002"),
                     Endpoint = new Uri("vpn2.example.com", UriKind.RelativeOrAbsolute),
                     Name = "peer2",
                     IPv4Address = IPAddressCidr.Parse("1.1.1.2/30"),

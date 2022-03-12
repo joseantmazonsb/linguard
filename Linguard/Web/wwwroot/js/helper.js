@@ -13,3 +13,8 @@ function triggerFileDownload(fileName, url) {
     anchorElement.click();
     anchorElement.remove();
 }
+
+function setStylesheet(path) {
+    const styleSheet = document.getElementById("linguard_style")
+    styleSheet.href = path; 
+}

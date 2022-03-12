@@ -1,7 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Core.Test.Mocks;
 using FluentAssertions;
+using Linguard.Core;
 using Linguard.Core.Configuration;
 using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
@@ -20,12 +22,19 @@ public class WireguardDumpParserShould {
             Name = "wg1",
             Clients = new HashSet<Client> {
                 new() {
-                    PublicKey = "fE/wdxzl0klVp/IR8UcaoGUMjqaWi3jAd7KzHKFS6Ds="
+                    Id = Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                    PublicKey = "fE/wdxzl0klVp/IR8UcaoGUMjqaWi3jAd7KzHKFS6Ds=",
+                    AllowedIPs = new HashSet<IPAddressCidr>()
                 },
                 new() {
-                    PublicKey = "jUd41n3XYa3yXBzyBvWqlLhYgRef5RiBD7jwo70U+Rw="
+                    Id = Guid.Parse("00000000-0000-0000-0000-000000000002"),
+                    PublicKey = "jUd41n3XYa3yXBzyBvWqlLhYgRef5RiBD7jwo70U+Rw=",
+                    AllowedIPs = new HashSet<IPAddressCidr>()
                 }
-            }
+            },
+            OnUp = new HashSet<Rule>(),
+            OnDown = new HashSet<Rule>(),
+            Gateway = new NetworkInterfaceMock("a").Object
         };
         Configuration.Interfaces.Add(iface);
         
