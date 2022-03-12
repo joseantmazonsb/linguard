@@ -12,7 +12,7 @@
 <RadzenHeading Text="@Title" class="mb-3"/>
 
 <h2 class="mb-3">Interfaces</h2>
-<RadzenSplitButton Icon="add" class="mb-2" Text="Add new" Click="@Pages.AddInterface">
+<RadzenSplitButton Icon="add" class="mb-2" Text="Add new" Click="@AddInterface">
     <ChildContent>
         <RadzenSplitButtonItem Text="Import" Icon="upload" />
     </ChildContent>
@@ -67,7 +67,7 @@
 }
 
 <h2 class="my-3">Clients</h2>
-<RadzenSplitButton Click="Pages.AddClient" Text="Add new" Icon="add" class="mb-2">
+<RadzenSplitButton Click="AddClient" Text="Add new" Icon="add" class="mb-2">
     <ChildContent>
         <RadzenSplitButtonItem Text="Import" Icon="upload"/>
     </ChildContent>
@@ -101,8 +101,8 @@
         </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="Client" Title="Interface">
             <Template Context="data">
-                <a href="/interface/@(Core.Configuration.Configuration.Wireguard.GetInterface(data)?.Id)">
-                    @(Core.Configuration.Configuration.Wireguard.GetInterface(data)?.Name)
+                <a href="/interface/@(Configuration.Wireguard.GetInterface(data)?.Id)">
+                    @(Configuration.Wireguard.GetInterface(data)?.Name)
                 </a>
             </Template>
         </RadzenDataGridColumn>
@@ -134,7 +134,7 @@
     bool _stoppingAll;
 
     protected override void OnInitialized() {
-        _wireguardInterfaces = Core.Configuration.Configuration.Wireguard.Interfaces
+        _wireguardInterfaces = Configuration.Wireguard.Interfaces
             .OrderBy(i => i.Name)
             .ToList();
         _clients = _wireguardInterfaces
@@ -173,7 +173,7 @@
     
     void StopAllInterfaces() {
         _stoppingAll = true;
-        foreach (var iface in Core.Configuration.Configuration.Wireguard.Interfaces) {
+        foreach (var iface in Configuration.Wireguard.Interfaces) {
             StopInterface(iface);
         }
         _stoppingAll = false;
@@ -181,7 +181,7 @@
     
     void StartAllInterfaces() {
         _startingAll = true;
-        foreach (var iface in Core.Configuration.Configuration.Wireguard.Interfaces) {
+        foreach (var iface in Configuration.Wireguard.Interfaces) {
             StartInterface(iface);
         }
         _startingAll = false;
@@ -220,7 +220,7 @@
                     <div class="row mt-2">
                        <div class="col">
                            <RadzenButton Icon="add" Text="Add"
-                                         Click="@Pages.AddClient"/>                            
+                                         Click="@AddClient"/>                            
                         </div>                         
                     </div>
                 </div>
