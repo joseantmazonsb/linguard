@@ -4,23 +4,14 @@ using Microsoft.Extensions.Logging;
 namespace Linguard.Log; 
 
 public class SimpleFileLogger : ILinguardLogger {
-
-    public SimpleFileLogger() {
-        LogLevel = LogLevel.Information;
-    }
-    
-    public SimpleFileLogger(FileLogTarget target, LogLevel logLevel = LogLevel.Information) {
-        Target = target;
-        LogLevel = logLevel;
-    }
-
-    public LogLevel LogLevel { get; set; }
-    public ILogTarget? Target { get; set; }
+    public LogLevel LogLevel { get; set; } = LogLevel.Information;
+    public ILogTarget Target { get; set; }
+    public string DateTimeFormat { get; set; } = "yyyy-MM-dd HH:mm:ss.fff";
     
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, 
         Exception? exception, Func<TState, Exception?, string> formatter) {
         if (!IsEnabled(logLevel)) return;
-        Target?.WriteLine($"{DateTime.Now:u} [{logLevel.ToString().ToUpper()}] " +
+        Target?.WriteLine($"{DateTime.Now.ToString(DateTimeFormat)} [{logLevel.ToString().ToUpper()}] " +
                          $"{formatter(state, exception)}");
     }
 

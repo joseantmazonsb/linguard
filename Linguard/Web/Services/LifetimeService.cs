@@ -57,7 +57,7 @@ public class LifetimeService : ILifetimeService {
             _logger.LogInformation("Configuration loaded.");
         }
         catch (ConfigurationNotLoadedError e) {
-            _logger.LogWarning(e, "Unable to load configuration. Using defaults.");
+            _logger.LogWarning(e, "Unable to load configuration. Using defaults");
             _configurationManager.LoadDefaults();
         }
     }
@@ -75,7 +75,6 @@ public class LifetimeService : ILifetimeService {
         var logFilename = Path.ChangeExtension(AssemblyInfo.Product.ToLower(), "log");
         var logfile = new FileInfo(Path.Combine(workingDirectory.FullName, logFilename));
         _logger.Target = new FileLogTarget(logfile);
-        _configurationManager.LoggingTarget = _logger.Target;
         if (useCurrentDirectory) {
             _logger.LogWarning("No working directory specified through environment variable " +
                                $"'{WorkingDirectoryEnvironmentVariable}'.");

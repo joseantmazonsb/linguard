@@ -81,6 +81,7 @@ public class YamlConfigurationSerializerShould {
   Endpoint: ''
 Logging:
   Level: Debug
+  DateTimeFormat: yyyy-MM-dd
 Web:
   LoginAttempts: 10
   SecretKey: ''
@@ -106,6 +107,7 @@ Traffic:
         var config = new Configuration {
             Logging = new LoggingConfiguration {
                 Level = LogLevel.Debug,
+                DateTimeFormat = "yyyy-MM-dd"
             },
             Traffic = new TrafficConfiguration {
                 Enabled = false,

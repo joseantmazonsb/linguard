@@ -12,12 +12,13 @@ public interface IConfigurationManager {
     /// Configuration of the application.
     /// </summary>
     IConfiguration Configuration { get; set; }
-    // Working directory of the application.
+    /// <summary>
+    /// Working directory of the application.
+    /// </summary>
     IWorkingDirectory WorkingDirectory { get; set; }
     /// <summary>
-    /// Logging target of the application.
+    /// Flag used to tell whether the initial setup has been completed.
     /// </summary>
-    ILogTarget LoggingTarget { get; set; }
     bool IsSetupNeeded { get; set; }
     /// <summary>
     /// Load default options.

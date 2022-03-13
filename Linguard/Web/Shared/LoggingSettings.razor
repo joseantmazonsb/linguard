@@ -1,37 +1,54 @@
 ﻿@using Linguard.Core.Configuration
 @using Linguard.Core.Managers
+@using Linguard.Log
 @namespace Linguard.Web.Shared
 
 <div class="row">
-    <div class="col-md-6">
+    <div class="col-xxl-8">
         <div class="row mb-2">
             <div class="col">
                 <RadzenLabel Text="Target"/>
             </div>
         </div>
         <div class="row mb-2">
-            <div class="col-xxl-10">
-                <RadzenTextBox class="w-100" Disabled="true" Value="@_configurationManager.LoggingTarget.ToString()"/>
-            </div>
-        </div>
-        <div class="row mb-2">
             <div class="col">
-                <RadzenLabel Text="Level"/>
+                <RadzenTextBox class="w-100" Disabled="true" Value="@_logger.Target.ToString()"/>
             </div>
         </div>
         <div class="row">
-            <div class="col-xxl-10">
-                <RadzenDropDown class="w-100" TValue="string" AllowClear="false" Placeholder="Select a log level"
-                                Data="@Enum.GetNames(typeof(LogLevel)).Select(s => s.ToString())"
-                                Value="@Configuration.Level.ToString()"
-                                ValueChanged="l => Configuration.Level = Enum.Parse<LogLevel>(l)"
-                                />
+            <div class="col">
+                <div class="row mb-2">
+                    <div class="col">
+                        <RadzenLabel Text="Level"/>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col">
+                        <RadzenDropDown class="w-100" TValue="string" AllowClear="false" Placeholder="Select a log level"
+                                        Data="@Enum.GetNames(typeof(LogLevel)).Select(s => s.ToString())"
+                                        Value="@Configuration.Level.ToString()"
+                                        ValueChanged="l => Configuration.Level = Enum.Parse<LogLevel>(l)"
+                                        />
+                    </div>
+                </div>
+            </div>
+            <div class="col-xxl">
+                <div class="row mb-2">
+                    <div class="col">
+                        <RadzenLabel Text="Datetime format"/>
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col">
+                        <RadzenTextBox class="w-100" @bind-Value="@Configuration.DateTimeFormat"/>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-@inject IConfigurationManager _configurationManager
+@inject ILinguardLogger _logger
 
 @code {
     [Parameter]
