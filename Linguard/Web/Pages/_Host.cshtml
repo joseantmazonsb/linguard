@@ -5,7 +5,13 @@
 @{
     Layout = "_Layout";
 }
-<component type="typeof(App)" render-mode="ServerPrerendered"/>
+
+<environment include="Staging,Production">
+    <component render-mode="ServerPrerendered" type="typeof(App)" />
+</environment>
+<environment include="Development">
+    <component render-mode="Server" type="typeof(App)" />
+</environment>
 
 @section styles {
     <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css"/>

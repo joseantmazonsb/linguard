@@ -12,7 +12,7 @@
         <div class="row mb-2">
             <div class="col-xxl-10">
                 <RadzenNumeric TValue="int" Min="1" Placeholder="wg0" Trim="true" class="w-100"
-                               Value="@Configuration.LoginAttempts"/>
+                               @bind-Value="@Configuration.LoginAttempts"/>
             </div>
         </div>
     </div>

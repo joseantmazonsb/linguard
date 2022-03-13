@@ -1,0 +1,67 @@
+﻿@page "/setup"
+@layout SetupLayout
+@using Linguard.Core.Utils
+@using Linguard.Core.Managers
+@using Linguard.Core.Configuration
+@using Linguard.Log
+@using Linguard.Web.Services
+
+<PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
+
+<RadzenHeading Text="@Title" class="mb-3 text-center"/>
+
+<RadzenCard class="mb-3 mx-auto col-xxl-6">
+    <RadzenTemplateForm Data="@_configuration" Submit="@((IConfiguration args) => { Save(args); })">
+        <RadzenCard>
+            <h2>Web</h2>
+            <WebSettings Configuration="@_configuration.Web"/>
+        </RadzenCard>
+        <RadzenCard class="mt-2">
+            <h2>Wireguard</h2>
+            <WireguardSettings Configuration="@_configuration.Wireguard"/>
+        </RadzenCard>
+        <RadzenCard class="mt-2">
+            <h2>Logging</h2>
+            <LoggingSettings Configuration="@_configuration.Logging"/>
+        </RadzenCard>
+        <div class="row mt-3 d-flex">
+            <div class="col-md-12 align-items-end">
+                <RadzenButton ButtonType="ButtonType.Submit" Icon="save" Text="Save" class="me-2"
+                              ButtonStyle="ButtonStyle.Primary"/>
+            </div>
+        </div>
+    </RadzenTemplateForm>
+</RadzenCard>
+
+@inject IConfigurationManager _configurationManager
+@inject NotificationService _notificationService
+@inject IWebService _webService
+@inject ILinguardLogger _logger
+@inject NavigationManager _navigationManager
+
+@code {
+    const string Title = "Setup";
+    IConfiguration _configuration;
+
+    protected override void OnInitialized() {
+        _configuration = (IConfiguration) _configurationManager.Configuration.Clone();
+    }
+    
+    private void Save(IConfiguration configuration) {
+        try {
+            _logger.LogDebug("Saving configuration...");
+            _configurationManager.Configuration = (IConfiguration)configuration.Clone();
+            _configurationManager.Save();
+            _logger.LogInformation("Setup completed. Redirecting...");
+            _navigationManager.NavigateTo("/");
+        }
+        catch (Exception e) {
+            _logger.LogError(e, "Setup failed: unable to save configuration.");
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = "Failed to save configuration",
+                Detail = e.Message
+            });
+        }
+    }
+}

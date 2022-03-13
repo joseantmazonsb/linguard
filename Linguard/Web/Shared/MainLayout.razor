@@ -1,4 +1,6 @@
 ﻿@using Linguard.Core.Utils
+@using Linguard.Core.Managers
+@using Linguard.Log
 @inherits LayoutComponentBase
 
 <RadzenDialog />
@@ -21,8 +23,8 @@
               <RadzenLabel Text="@AssemblyInfo.Product"/>
             }
           </div>
-          <div class="col-6 text-right">
-            <ProfileMenu></ProfileMenu>
+          <div class="col-6">
+            <ProfileMenu/>
           </div>
         </div>
       </ChildContent>
@@ -54,6 +56,10 @@
   </ChildContent>
 </RadzenLayout>
 
+@inject IConfigurationManager _configurationManager
+@inject NavigationManager _navigationManager
+@inject ILinguardLogger _logger;
+
 @code {
   private RadzenSidebar _sidebar;
   private RadzenBody _body;
@@ -65,8 +71,15 @@
     await InvokeAsync(() => _body.Toggle());
   }
   
-  protected override void OnParametersSet()
-  {
+  protected override void OnParametersSet() {
     errorBoundary?.Recover();
   }
+  
+  protected override void OnInitialized() {
+    if (_configurationManager.IsSetupNeeded) {
+      _logger.LogInformation("Setup required. Redirecting...");
+      _navigationManager.NavigateTo("/setup");
+    }
+  }
+  
 }

@@ -18,6 +18,7 @@ public interface IConfigurationManager {
     /// Logging target of the application.
     /// </summary>
     ILogTarget LoggingTarget { get; set; }
+    bool IsSetupNeeded { get; set; }
     /// <summary>
     /// Load default options.
     /// </summary>

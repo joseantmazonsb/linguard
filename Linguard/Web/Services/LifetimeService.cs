@@ -53,12 +53,12 @@ public class LifetimeService : ILifetimeService {
         _configurationManager.WorkingDirectory.BaseDirectory = GetWorkingDirectory();
         try {
             _configurationManager.Load();
+            _configurationManager.IsSetupNeeded = false;
             _logger.LogInformation("Configuration loaded.");
         }
         catch (ConfigurationNotLoadedError e) {
             _logger.LogWarning(e, "Unable to load configuration. Using defaults.");
             _configurationManager.LoadDefaults();
-            _configurationManager.Save();
         }
     }
     

@@ -7,6 +7,7 @@ using Linguard.Core.Models.Wireguard.Validators;
 using Linguard.Core.OS;
 using Linguard.Core.Services;
 using Linguard.Log;
+using Linguard.Web.Middlewares;
 using Linguard.Web.Services;
 using QRCoder;
 using Radzen;
@@ -37,10 +38,13 @@ builder.Services.AddScoped<DialogService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<TooltipService>();
 builder.Services.AddScoped<ContextMenuService>();
+builder.Services.AddScoped<LoginMiddleware>();
 
 builder.Logging.AddSimpleFileLogger();
 
 var app = builder.Build();
+
+app.UseMiddleware<LoginMiddleware>();
 
 app.Lifetime.ApplicationStarted.Register(() => {
     app.Services.GetService<ILifetimeService>()?.OnAppStarted();

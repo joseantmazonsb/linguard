@@ -26,12 +26,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <None Include="NLog.config">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </None>
-    </ItemGroup>
-
-    <ItemGroup>
       <_ContentIncludedByDefault Remove="Pages\Components\SimpleAlert.razor" />
       <_ContentIncludedByDefault Remove="wwwroot\ts\helper.ts" />
     </ItemGroup>

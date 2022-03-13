@@ -23,6 +23,7 @@ public abstract class ConfigurationManagerBase : IConfigurationManager {
     public IWorkingDirectory WorkingDirectory { get; set; }
 
     public ILogTarget LoggingTarget { get; set; }
+    public bool IsSetupNeeded { get; set; } = true;
 
     public void LoadDefaults() {
         LoadWebDefaults();
@@ -64,6 +65,12 @@ public abstract class ConfigurationManagerBase : IConfigurationManager {
     }
 
     public abstract void Load();
-    public abstract void Save();
+
+    public void Save() {
+        IsSetupNeeded = false;
+        DoSave();
+    }
+
+    protected abstract void DoSave();
     public abstract string Export();
 }

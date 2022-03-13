@@ -1,11 +1,11 @@
 ﻿@using Linguard.Core.Models
 <div class="d-flex align-items-center justify-content-end">
-    <RadzenDropDown TValue="string" AllowClear="false" class="mx-0 mx-lg-3 text-start" 
+    <RadzenDropDown TValue="string" AllowClear="false" class="mx-0 mx-lg-3" 
                     Data="@Enum.GetNames(typeof(Style)).Select(s => s.ToString())"
                     Value="Style.Default.ToString()"
                     ValueChanged="OnStyleChanged">
     </RadzenDropDown>
-    <RadzenProfileMenu>
+    <RadzenProfileMenu class="text-end">
         <Template>
             <RadzenGravatar Email="@GravatarEmail"/>
         </Template>

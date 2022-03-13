@@ -34,7 +34,8 @@ public abstract class FileConfigurationManager : ConfigurationManagerBase {
             );
         }
     }
-    public override void Save() {
+
+    protected override void DoSave() {
         try {
             File.WriteAllText(ConfigurationFile.FullName, Export());
         }

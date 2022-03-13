@@ -1,0 +1,51 @@
+﻿@using Linguard.Core.Managers
+@inherits LayoutComponentBase
+
+<RadzenDialog />
+<RadzenNotification />
+<RadzenTooltip />
+<RadzenContextMenu />
+
+<RadzenLayout>
+  <ChildContent>
+    <RadzenBody @ref="_body">
+      <ChildContent>
+        <RadzenContentContainer Name="main">
+          <ErrorBoundary @ref="errorBoundary">
+              <ChildContent>
+                  @Body
+              </ChildContent>
+            <ErrorContent>
+              <UnhandledError Exception="context"/>
+            </ErrorContent>
+          </ErrorBoundary>
+        </RadzenContentContainer>
+      </ChildContent>
+    </RadzenBody>
+    <RadzenFooter>
+      <ChildContent>
+        <Footer></Footer>
+      </ChildContent>
+    </RadzenFooter>
+  </ChildContent>
+</RadzenLayout>
+
+@inject IConfigurationManager _configurationManager
+@inject NavigationManager _navigationManager
+
+@code {
+  private RadzenBody _body;
+  private ErrorBoundary? errorBoundary;
+
+  protected override void OnParametersSet() {
+    errorBoundary?.Recover();
+  }
+
+  protected override void OnInitialized() {
+    base.OnInitialized();
+    if (!_configurationManager.IsSetupNeeded) {
+      _navigationManager.NavigateTo("/");
+    }
+  }
+  
+}
