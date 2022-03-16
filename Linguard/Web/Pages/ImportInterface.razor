@@ -6,6 +6,7 @@
 @using Linguard.Web.Services
 @using FluentValidation
 @using Linguard.Core.Configuration
+@using Linguard.Web.Helpers
 
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
 
@@ -47,7 +48,7 @@
 
 @inject IConfigurationManager _configurationManager
 @inject IWireguardService _wireguardService
-@inject IWebService _webService;
+@inject IWebHelper _webHelper;
 @inject NotificationService _notificationService
 @inject NavigationManager _navigationManager
 @inject IJSRuntime _js

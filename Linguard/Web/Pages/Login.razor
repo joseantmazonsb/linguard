@@ -1,0 +1,92 @@
+﻿@page "/login"
+@layout LoginLayout
+@using Linguard.Core.Utils
+@using Linguard.Web.Shared.Layouts
+@using Microsoft.AspNetCore.WebUtilities
+@using global::Auth.Models
+@using Linguard.Web.Services
+
+<PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
+
+<RadzenHeading Text="@Title" class="mb-3 text-center"/>
+<RadzenCard class="align-items-center" Style="margin-bottom: 10rem">
+    <RadzenTemplateForm Data="@_credentials" Submit="@((ICredentials args) => { DoLogin(args); })">
+        <div class="row">
+            <div class="col">
+                <div class="row">
+                    <div class="col">
+                        <RadzenLabel Text="Username"/>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col">
+                        <RadzenTextBox Placeholder="michael_scott" @bind-Value="@_credentials.Login"/>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col">
+                <div class="row">
+                    <div class="col">
+                        <RadzenLabel Text="Password"/>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col">
+                        <RadzenPassword @bind-Value="@_credentials.Password"/>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row mt-3 d-flex">
+            <div class="col-md-12 align-items-end">
+                <RadzenButton ButtonType="ButtonType.Submit" Icon="login" Text="Login" class="me-2"
+                              ButtonStyle="ButtonStyle.Primary"/>
+            </div>
+        </div>
+    </RadzenTemplateForm>
+</RadzenCard>
+
+@inject NotificationService _notificationService
+@inject ILogger _logger
+@inject NavigationManager _navigationManager
+@inject IAuthenticationService _authenticationService
+
+@code {
+    const string Title = "Welcome!";
+
+    private readonly ICredentials _credentials = new Credentials();
+    
+    private async void DoLogin(ICredentials credentials) {
+        try {
+            var result = await _authenticationService.Login(credentials);
+            if (result.User.Identity is {IsAuthenticated: false }) {
+                _logger.LogError("Login failed: unable to authenticate user.");
+                _notificationService.Notify(new NotificationMessage {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "Failed to log in",
+                    Detail = $"User {result.User.Identity.Name} could not be logged in."
+                });
+                return;
+            }
+            Redirect();
+        }
+        catch (Exception e) {
+            _logger.LogError(e, "Login failed: unable to authenticate user.");
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = "Failed to log in",
+                Detail = e.Message
+            });
+        }
+    }
+
+    private void Redirect() {
+        _logger.LogInformation("Login completed. Redirecting...");
+        var query = _navigationManager.ToAbsoluteUri(_navigationManager.Uri).Query;
+        var hasReturnUrl = QueryHelpers.ParseQuery(query).TryGetValue("returnUrl", out var returnUrl);
+        var newUrl = hasReturnUrl ? returnUrl.ToString() : "/";
+        _navigationManager.NavigateTo(newUrl);
+    }
+}

@@ -1,7 +1,8 @@
 ﻿@using Linguard.Core.Utils
 @using Linguard.Core.Managers
-@using Linguard.Log
+@using Linguard.Web.Services
 @inherits LayoutComponentBase
+@layout LayoutBase
 
 <RadzenDialog />
 <RadzenNotification />
@@ -58,7 +59,8 @@
 
 @inject IConfigurationManager _configurationManager
 @inject NavigationManager _navigationManager
-@inject ILinguardLogger _logger;
+@inject ILogger _logger
+@inject IWebService _webService
 
 @code {
   private RadzenSidebar _sidebar;
@@ -76,10 +78,9 @@
   }
   
   protected override void OnInitialized() {
-    if (_configurationManager.IsSetupNeeded) {
-      _logger.LogInformation("Setup required. Redirecting...");
-      _navigationManager.NavigateTo("/setup");
-    }
+    if (!_webService.IsSetupNeeded) return;
+    _logger.LogInformation("Setup required. Redirecting...");
+    _navigationManager.NavigateTo("/setup");
   }
   
 }

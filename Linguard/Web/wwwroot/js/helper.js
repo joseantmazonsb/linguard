@@ -18,3 +18,18 @@ function setStylesheet(path) {
     const styleSheet = document.getElementById("linguard_style")
     styleSheet.href = path; 
 }
+
+window.authFunctions = {
+    setCookie: function (name, value, lifetimeInSeconds) {
+        const maxAge = `MaxAge=${lifetimeInSeconds}`;
+        const nameValue = `${name}=${value}`;
+        const path = "Path=/"
+        const secure = "Secure"
+        const sameSite = "SameSite=None";
+        document.cookie = `${nameValue}; ${maxAge}; ${path}; ${secure}; ${sameSite};`;
+    },
+    deleteCookie: function (name) {
+        document.cookie = name + "=; MaxAge=0;";
+    }
+}
+

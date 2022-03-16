@@ -23,7 +23,6 @@ public abstract class ConfigurationManagerBase : IConfigurationManager {
     
     public IConfiguration Configuration { get; set; }
     public IWorkingDirectory WorkingDirectory { get; set; }
-    public bool IsSetupNeeded { get; set; } = true;
 
     public void LoadDefaults() {
         LoadWebDefaults();
@@ -68,7 +67,6 @@ public abstract class ConfigurationManagerBase : IConfigurationManager {
     public abstract void Load();
 
     public void Save() {
-        IsSetupNeeded = false;
         ApplyChanges();
         DoSave();
     }

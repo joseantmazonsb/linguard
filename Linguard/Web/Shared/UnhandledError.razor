@@ -5,17 +5,17 @@
 <h1 class="mb-3">Something went wrong...</h1>
 <h2 class="mb-2">Cause</h2>
 <div class="d-flex mb-2">
-    <RadzenIcon Icon="error" IconStyle="IconStyle.Danger" class="me-2"></RadzenIcon>
-    <p>@Exception.Message</p>
+    <RadzenIcon Icon="error" IconStyle="IconStyle.Danger" class="me-2 align-bottom"></RadzenIcon>
+    @Exception.Message
 </div>
 
 @if (Exception is ExtendedException extendedException) {
     <h2 class="mb-2">Fixes</h2>
     <h4 class="mb-3">Please, try this before issuing a bug report:</h4>
     @foreach (var fix in extendedException.Fixes) {
-        <div class="d-flex">
-            <RadzenIcon Icon="info" IconStyle="IconStyle.Info" class="me-2"/>
-            <p>@fix</p>
+        <div class="d-flex mb-2">
+            <RadzenIcon Icon="info" IconStyle="IconStyle.Info" class="me-2 align-bottom"/>
+            @fix
         </div>
     }
 }

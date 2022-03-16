@@ -6,6 +6,7 @@
 @using Linguard.Core.Utils
 @using Linguard.Web.Services
 @using Linguard.Core.Configuration
+@using Linguard.Web.Helpers
 
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
 
@@ -117,7 +118,7 @@
 </RadzenDataGrid>
 
 @inject IConfigurationManager _configurationManager
-@inject IWebService _webService
+@inject IWebHelper _webHelper
 @inject NotificationService _notificationService
 @inject DialogService _dialogService
 @inject NavigationManager _navigationManager

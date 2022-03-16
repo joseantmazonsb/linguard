@@ -1,10 +1,8 @@
-﻿@using Linguard.Core.Managers
+﻿@using Linguard.Web.Services
+@layout LayoutBase
 @inherits LayoutComponentBase
 
-<RadzenDialog />
 <RadzenNotification />
-<RadzenTooltip />
-<RadzenContextMenu />
 
 <RadzenLayout>
   <ChildContent>
@@ -30,7 +28,7 @@
   </ChildContent>
 </RadzenLayout>
 
-@inject IConfigurationManager _configurationManager
+@inject IWebService _webService
 @inject NavigationManager _navigationManager
 
 @code {
@@ -43,7 +41,7 @@
 
   protected override void OnInitialized() {
     base.OnInitialized();
-    if (!_configurationManager.IsSetupNeeded) {
+    if (!_webService.IsSetupNeeded) {
       _navigationManager.NavigateTo("/");
     }
   }

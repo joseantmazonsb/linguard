@@ -14,4 +14,5 @@ public class HostModel : PageModel {
 
     private IWebConfiguration Configuration => _configurationManager.Configuration.Web;
     public string Stylesheet => $"_content/Radzen.Blazor/css/{Style.Default}.css";
+    
 }

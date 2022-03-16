@@ -17,10 +17,6 @@ public interface IConfigurationManager {
     /// </summary>
     IWorkingDirectory WorkingDirectory { get; set; }
     /// <summary>
-    /// Flag used to tell whether the initial setup has been completed.
-    /// </summary>
-    bool IsSetupNeeded { get; set; }
-    /// <summary>
     /// Load default options.
     /// </summary>
     void LoadDefaults();

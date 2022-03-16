@@ -6,6 +6,7 @@ using Linguard.Core.Models.Wireguard.Validators;
 using Linguard.Core.Services;
 using Linguard.Core.Utils;
 using Linguard.Log;
+using Linguard.Web.Helpers;
 using Linguard.Web.Services;
 using Moq;
 using QRCoder;
@@ -38,6 +39,7 @@ builder.Services.AddTransient<IClientGenerator, DefaultClientGenerator>();
 builder.Services.AddTransient<AbstractValidator<Interface>, InterfaceValidator>();
 builder.Services.AddTransient<AbstractValidator<Client>, ClientValidator>();
 
+builder.Services.AddTransient<IWebHelper, WebHelper>();
 builder.Services.AddTransient<IWebService, WebService>();
 builder.Services.AddTransient<QRCodeGenerator, QRCodeGenerator>();
 builder.Services.AddSingleton(new LifetimeServiceMock(manager).Object);

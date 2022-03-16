@@ -3,6 +3,7 @@
 @using Linguard.Core.Managers
 @using Linguard.Core.Configuration
 @using Linguard.Log
+@using Linguard.Web.Helpers
 @using Linguard.Web.Services
 
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
@@ -32,7 +33,7 @@
                                   ButtonStyle="ButtonStyle.Primary"/>
                     <RadzenButton ButtonType="ButtonType.Button" Icon="download" title="Download"
                                   ButtonStyle="ButtonStyle.Secondary"
-                                  Click="@_webService.DownloadConfiguration" />
+                                  Click="@_webHelper.DownloadConfiguration" />
                 </div>
             </div>
     </RadzenTemplateForm>
@@ -40,8 +41,8 @@
 
 @inject IConfigurationManager _configurationManager
 @inject NotificationService _notificationService
-@inject IWebService _webService
-@inject ILinguardLogger _logger
+@inject IWebHelper _webHelper
+@inject ILogger _logger
 
 @code {
     const string Title = "Settings";

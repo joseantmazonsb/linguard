@@ -1,11 +1,8 @@
-﻿using Linguard.Core.Models.Wireguard;
-
-namespace Linguard.Web.Services; 
+﻿namespace Linguard.Web.Services; 
 
 public interface IWebService {
-    Task Download(string data, string filename);
-    Task DownloadConfiguration();
-    Task DownloadWireguardModel(IWireguardPeer peer);
-    void RemoveWireguardModel(IWireguardPeer peer);
-    byte[] GetQrCode(IWireguardPeer peer);
+    /// <summary>
+    /// Flag used to tell whether the initial setup has been completed.
+    /// </summary>
+    bool IsSetupNeeded { get; set; }
 }

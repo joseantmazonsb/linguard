@@ -1,0 +1,11 @@
+﻿@using Linguard.Log
+@inject NavigationManager _navigationManager
+@inject ILogger _logger
+
+@code {
+    protected override async Task OnInitializedAsync() {
+        await base.OnInitializedAsync();
+        _logger.LogDebug("User is not authenticated. Redirecting to login...");
+        _navigationManager.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(_navigationManager.Uri)}");
+    }
+}

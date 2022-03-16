@@ -2,6 +2,7 @@
 @using Linguard.Core.Services
 @using Linguard.Core.OS
 @using Linguard.Core.Models.Wireguard
+@using Linguard.Web.Helpers
 <div @attributes="@CapturedAttributes">
     <div class="row">
         <div class="col-md-12 align-items-end">
@@ -22,7 +23,7 @@
             }
             <RadzenButton ButtonType="ButtonType.Button" Icon="download" title="Download"
                           ButtonStyle="ButtonStyle.Light"
-                          Click="() => _webService.DownloadWireguardModel(Peer)"/>
+                          Click="() => _webHelper.DownloadWireguardModel(Peer)"/>
             <RadzenButton ButtonType="ButtonType.Button" Icon="qr_code" title="Show QR code"
                           ButtonStyle="ButtonStyle.Light"
                           Click="() => ShowQrCode(Peer)"/>
@@ -33,7 +34,7 @@
     </div>
 </div>
 
-@inject IWebService _webService;
+@inject IWebHelper _webHelper;
 @inject NotificationService _notificationService
 @inject DialogService _dialogService
 @inject NavigationManager _navigationManager
@@ -89,7 +90,7 @@
     #endregion
 
     async Task ShowQrCode(IWireguardPeer peer) {
-        var qr = $"data:image/png;base64, {Convert.ToBase64String(_webService.GetQrCode(peer))}" ;
+        var qr = $"data:image/png;base64, {Convert.ToBase64String(_webHelper.GetQrCode(peer))}" ;
         await _dialogService.OpenAsync($"Configuration of {peer.Name}", ds =>
             @<div>
                 <div class="row">
@@ -119,7 +120,7 @@
         
         void RemovePeer() {
             try {
-                _webService.RemoveWireguardModel(peer);
+                _webHelper.RemoveWireguardModel(peer);
                 AfterDelete?.Invoke();
             }
             catch (Exception e) {

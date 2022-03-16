@@ -7,6 +7,8 @@ using Linguard.Core.OS;
 using Linguard.Core.Services;
 using Linguard.Core.Utils;
 using Linguard.Log;
+using Linguard.Web.Auth;
+using Microsoft.EntityFrameworkCore;
 
 namespace Linguard.Web.Services; 
 
@@ -20,31 +22,42 @@ public class LifetimeService : ILifetimeService {
     private readonly ISystemWrapper _system;
     private readonly IWireguardService _wireguardService;
     private readonly IConfigurationManager _configurationManager;
+    private readonly IWebService _webService;
+    private readonly IServiceScope _scope;
     private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
     
     #endregion
     
     public LifetimeService(IConfigurationManager configurationManager, IWireguardService wireguardService, 
-        ILinguardLogger logger, ISystemWrapper system) {
+        ILinguardLogger logger, ISystemWrapper system, IWebService webService, IServiceScopeFactory scopeFactory) {
         _configurationManager = configurationManager;
         _wireguardService = wireguardService;
         _logger = logger;
         _system = system;
+        _webService = webService;
+        _scope = scopeFactory.CreateScope();
     }
 
     public void OnAppStarted() {
-        _logger.LogInformation($"Booting up {AssemblyInfo.Product}...");
+        _logger.LogInformation("Booting up...");
+        InitializeDatabases();
         LoadConfiguration();
         StartInterfaces();
     }
 
+    private void InitializeDatabases() {
+        _logger.LogInformation("Initializing databases...");
+        var context = _scope.ServiceProvider.GetService<ApplicationDbContext>();
+        context?.Database.EnsureCreated();
+    }
+
     public void OnAppStopping() {
-        _logger.LogInformation($"Shutting down {AssemblyInfo.Product}...");
+        _logger.LogInformation("Shutting down...");
         StopInterfaces();
     }
     
     public void OnAppStopped() {
-        _logger.LogInformation($"{AssemblyInfo.Product}'s shutdown completed.");
+        _logger.LogInformation("Shutdown completed.");
     }
     
     #region Auxiliary methods
@@ -53,7 +66,7 @@ public class LifetimeService : ILifetimeService {
         _configurationManager.WorkingDirectory.BaseDirectory = GetWorkingDirectory();
         try {
             _configurationManager.Load();
-            _configurationManager.IsSetupNeeded = false;
+            _webService.IsSetupNeeded = false;
             _logger.LogInformation("Configuration loaded.");
         }
         catch (ConfigurationNotLoadedError e) {

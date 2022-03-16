@@ -11,8 +11,11 @@ public class SimpleFileLogger : ILinguardLogger {
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, 
         Exception? exception, Func<TState, Exception?, string> formatter) {
         if (!IsEnabled(logLevel)) return;
-        Target?.WriteLine($"{DateTime.Now.ToString(DateTimeFormat)} [{logLevel.ToString().ToUpper()}] " +
-                         $"{formatter(state, exception)}");
+        var message = $"{DateTime.Now.ToString(DateTimeFormat)} [{logLevel.ToString().ToUpper()}] " +
+                      $"{formatter(state, exception)}";
+        if (exception != default) message += $"{Environment.NewLine}The following exception was raised:" +
+                                             $"{Environment.NewLine}{exception}";
+        Target?.WriteLine(message);
     }
 
     public bool IsEnabled(LogLevel logLevel) {
@@ -25,7 +28,9 @@ public class SimpleFileLogger : ILinguardLogger {
 
 public static class Extensions {
     public static ILoggingBuilder AddSimpleFileLogger(this ILoggingBuilder builder) {
-        builder.Services.TryAddSingleton<ILinguardLogger, SimpleFileLogger>();
+        var logger = new SimpleFileLogger();
+        builder.Services.TryAddSingleton<ILogger>(logger);
+        builder.Services.TryAddSingleton<ILinguardLogger>(logger);
         return builder;
     }
     

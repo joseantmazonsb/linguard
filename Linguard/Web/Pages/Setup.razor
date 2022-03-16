@@ -4,7 +4,9 @@
 @using Linguard.Core.Managers
 @using Linguard.Core.Configuration
 @using Linguard.Log
+@using Linguard.Web.Helpers
 @using Linguard.Web.Services
+@using Linguard.Web.Shared.Layouts
 
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
 
@@ -35,9 +37,10 @@
 
 @inject IConfigurationManager _configurationManager
 @inject NotificationService _notificationService
-@inject IWebService _webService
-@inject ILinguardLogger _logger
+@inject IWebHelper _webHelper
+@inject ILogger _logger
 @inject NavigationManager _navigationManager
+@inject IWebService _webService
 
 @code {
     const string Title = "Setup";
@@ -52,6 +55,7 @@
             _logger.LogDebug("Saving configuration...");
             _configurationManager.Configuration = (IConfiguration)configuration.Clone();
             _configurationManager.Save();
+            _webService.IsSetupNeeded = false;
             _logger.LogInformation("Setup completed. Redirecting...");
             _navigationManager.NavigateTo("/");
         }

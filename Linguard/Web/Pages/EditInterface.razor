@@ -8,10 +8,11 @@
 @using Linguard.Web.Services
 @using FluentValidation
 @using Linguard.Core.Configuration
+@using Linguard.Web.Helpers
 
 @inject IConfigurationManager _configurationManager
 @inject IWireguardService _wireguardService
-@inject IWebService _webService;
+@inject IWebHelper _webHelper;
 @inject NotificationService _notificationService
 @inject DialogService _dialogService
 @inject NavigationManager _navigationManager
