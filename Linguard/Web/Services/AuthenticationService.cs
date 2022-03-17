@@ -22,7 +22,8 @@ public class AuthenticationService : IAuthenticationService {
     private readonly IJSRuntime _jsRuntime;
     private readonly IAuthenticationCookieFormat _cookieFormat = AuthenticationCookieFormat.Default;
     private const string JsNamespace = "authFunctions";
-    
+    private static readonly TimeSpan AuthCookieExpireTimeSpan = TimeSpan.FromHours(2);
+
     public AuthenticationService(ILogger logger, UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, 
         AuthenticationStateProvider authenticationStateProvider, 
         IHostEnvironmentAuthenticationStateProvider hostAuthentication, 
@@ -66,9 +67,9 @@ public class AuthenticationService : IAuthenticationService {
         var ticket = new AuthenticationTicket(principal, default, _cookieFormat.Scheme);
         var value = options.TicketDataFormat.Protect(ticket);
         return _jsRuntime.InvokeVoidAsync($"{JsNamespace}.setCookie", _cookieFormat.Name, 
-            value, options.ExpireTimeSpan.TotalSeconds);
+            value, AuthCookieExpireTimeSpan.TotalSeconds);
     }
-
+    
     public async void Logout() {
         var username = _signInManager.Context.User.Identity?.Name;
         _logger.LogInformation($"Logging out user '{username}'...");
