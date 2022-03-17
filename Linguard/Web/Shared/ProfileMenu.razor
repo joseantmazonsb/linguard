@@ -6,8 +6,8 @@
 @using Microsoft.Extensions.Options
 <div class="d-flex align-items-center justify-content-end">
     <RadzenDropDown TValue="string" AllowClear="false" class="mx-0 mx-lg-3" 
-                    Data="@Enum.GetNames(typeof(Style)).Select(s => s.ToString())"
-                    Value="Style.Default.ToString()"
+                    Data="@(Enum.GetNames(typeof(Style)).Select(s => $"{s} Theme").OrderBy(s => s))"
+                    Value="@($"{Style.Default} Theme")"
                     ValueChanged="OnStyleChanged">
     </RadzenDropDown>
     <RadzenProfileMenu class="text-end" Click="MenuClick">
@@ -35,7 +35,8 @@
     string GreetingMessage => $"Hi, {_user}";
     string GravatarEmail => _email ?? "user@example.com";
     
-    async Task OnStyleChanged(string styleName) {
+    async Task OnStyleChanged(string value) {
+        var styleName = value.Split(" ").First();
         var style = Enum.Parse<Style>(styleName);
         await _jsRuntime.InvokeVoidAsync("setStylesheet", 
             StyleUtils.GetStylesheet(style));
