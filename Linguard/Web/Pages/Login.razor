@@ -6,45 +6,12 @@
 @using global::Auth.Models
 @using Linguard.Web.Services
 
-<PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
+<PageTitle>@($"{AssemblyInfo.Product} | Sign in")</PageTitle>
 
-<RadzenHeading Text="@Title" class="mb-3 text-center"/>
-<RadzenCard class="align-items-center" Style="margin-bottom: 10rem">
-    <RadzenTemplateForm Data="@_credentials" Submit="@((ICredentials args) => { DoLogin(args); })">
-        <div class="row">
-            <div class="col">
-                <div class="row">
-                    <div class="col">
-                        <RadzenLabel Text="Username"/>
-                    </div>
-                </div>
-                <div class="row mt-2">
-                    <div class="col">
-                        <RadzenTextBox Placeholder="michael_scott" @bind-Value="@_credentials.Login"/>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row mt-2">
-            <div class="col">
-                <div class="row">
-                    <div class="col">
-                        <RadzenLabel Text="Password"/>
-                    </div>
-                </div>
-                <div class="row mt-2">
-                    <div class="col">
-                        <RadzenPassword @bind-Value="@_credentials.Password"/>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row mt-3 d-flex">
-            <div class="col-md-12 align-items-end">
-                <RadzenButton ButtonType="ButtonType.Submit" Icon="login" Text="Login" class="me-2"
-                              ButtonStyle="ButtonStyle.Primary"/>
-            </div>
-        </div>
+<RadzenHeading Text="Hello there!" class="mb-3 text-center"/>
+<RadzenCard class="w-100" Style="margin-bottom: 10rem">
+    <RadzenTemplateForm Data="@("")">
+        <RadzenLogin AllowResetPassword="false" AllowRegister="false" Login="DoLogin"/>
     </RadzenTemplateForm>
 </RadzenCard>
 
@@ -54,12 +21,9 @@
 @inject IAuthenticationService _authenticationService
 
 @code {
-    const string Title = "Welcome!";
-
-    private readonly ICredentials _credentials = new Credentials();
-    
-    private async void DoLogin(ICredentials credentials) {
+    private async void DoLogin(LoginArgs args) {
         try {
+            var credentials = new Credentials(args.Username, args.Password);
             var result = await _authenticationService.Login(credentials);
             if (result.User.Identity is {IsAuthenticated: false }) {
                 _logger.LogError("Login failed: unable to authenticate user.");
