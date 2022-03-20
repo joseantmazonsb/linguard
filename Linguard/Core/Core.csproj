@@ -22,7 +22,6 @@
       <PackageReference Include="IPNetwork2" Version="2.5.386" />
       <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.2.1" />
       <PackageReference Include="System.Management.Automation" Version="7.2.1" />
-      <PackageReference Include="YamlDotNet" Version="11.2.1" />
     </ItemGroup>
 
     <ItemGroup>

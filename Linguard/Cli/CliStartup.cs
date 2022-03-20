@@ -8,6 +8,7 @@ using Linguard.Core.Models.Wireguard.Validators;
 using Linguard.Core.OS;
 using Linguard.Core.Services;
 using Linguard.Log;
+using Linguard.Yaml.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Typin;
 using Typin.Directives;
@@ -18,10 +19,10 @@ namespace Linguard.Cli;
 public class CliStartup : ICliStartup {
 
     public void ConfigureServices(IServiceCollection services) {
-        services.AddSingleton<IConfigurationManager, YamlConfigurationManager>();
-        services.AddTransient<IConfiguration, Configuration>();
+        services.AddSingleton<IConfigurationManager, Yaml.YamlConfigurationManager<IConfiguration>>();
+        services.AddTransient<IConfiguration, ConfigurationBase>();
         services.AddTransient<IWorkingDirectory, WorkingDirectory>();
-        services.AddSingleton<IConfigurationSerializer>(DefaultYamlConfigurationSerializer.Instance);
+        services.AddSingleton(DefaultYamlConfigurationSerializer.Instance);
         services.AddTransient<ISystemWrapper, SystemWrapper>();
         services.AddTransient<IWireguardService, WireguardService>();
         services.AddTransient<IInterfaceGenerator, DefaultInterfaceGenerator>();

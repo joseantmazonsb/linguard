@@ -58,7 +58,7 @@
     
     protected override void OnInitialized() {
         base.OnInitialized();
-        _interface = Configuration.Wireguard.GetInterface(Id);
+        _interface = Configuration.GetModule<IWireguardConfiguration>()!.GetInterface(Id);
         if (_interface == default) return;
         _client = _interface.Clients.SingleOrDefault(c => c.Id == Id);
     }

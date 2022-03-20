@@ -6,7 +6,7 @@ using Linguard.Log;
 
 namespace Linguard.Core.Managers; 
 
-public abstract class DefaultFileConfigurationManager : FileConfigurationManager {
+public abstract class DefaultFileConfigurationManager<T> : FileConfigurationManager<T> where T : IConfiguration {
     
     protected DefaultFileConfigurationManager(IConfiguration configuration, IWorkingDirectory workingDirectory, 
         ISystemWrapper systemWrapper, IConfigurationSerializer serializer, ILinguardLogger logger) 

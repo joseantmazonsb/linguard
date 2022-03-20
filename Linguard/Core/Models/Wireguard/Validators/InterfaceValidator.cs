@@ -14,7 +14,7 @@ public class InterfaceValidator : AbstractValidator<Interface> {
     public const int MinNameLength = 2;
     
     private readonly IConfigurationManager _configurationManager;
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
+    private IWireguardConfiguration Configuration => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
     private readonly ISystemWrapper _system;
 
     public InterfaceValidator(IConfigurationManager configurationManager, ISystemWrapper system) {

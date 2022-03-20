@@ -4,7 +4,9 @@
 @using Linguard.Web.Shared.Layouts
 @using Microsoft.AspNetCore.WebUtilities
 @using global::Auth.Models
+@using Linguard.Web.Configuration
 @using Linguard.Web.Services
+@using global::Auth.Exceptions
 
 <PageTitle>@($"{AssemblyInfo.Product} | Sign in")</PageTitle>
 
@@ -19,9 +21,21 @@
 @inject ILogger _logger
 @inject NavigationManager _navigationManager
 @inject IAuthenticationService _authenticationService
+@inject IConfigurationManager _configurationManager
 
 @code {
+
     private async void DoLogin(LoginArgs args) {
+        var bannedFor = _authenticationService.BannedFor;
+        if (bannedFor > TimeSpan.Zero) {
+            var seconds = bannedFor.Seconds > 0 ? bannedFor.Seconds : 1;
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = "Too many failed attempts",
+                Detail = $"Try again in {seconds} seconds."
+            });
+            return;
+        }
         try {
             var credentials = new Credentials(args.Username, args.Password);
             var result = await _authenticationService.Login(credentials);
@@ -37,7 +51,12 @@
             Redirect();
         }
         catch (Exception e) {
-            _logger.LogError(e, "Login failed: unable to authenticate user.");
+            if (e is LoginException) {
+                _logger.LogError($"Login failed: unable to authenticate user. {e.Message}");
+            }
+            else {
+                _logger.LogError(e, "Login failed: unable to authenticate user.");
+            }
             _notificationService.Notify(new NotificationMessage {
                 Severity = NotificationSeverity.Error,
                 Summary = "Failed to log in",

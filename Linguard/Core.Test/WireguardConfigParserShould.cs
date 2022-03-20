@@ -20,10 +20,10 @@ public class WireguardConfigParserShould {
     private static readonly Faker Faker = new ();
     private static readonly IWireguardService WireguardService = new WireguardServiceMock(Manager, System, Faker).Object;
     private static readonly IWireguardConfigParser Parser = new WireguardConfigParser(Manager, WireguardService, Faker);
-    private IWireguardConfiguration Configuration => Manager.Configuration.Wireguard;
+    private IWireguardConfiguration Configuration => Manager.Configuration.GetModule<IWireguardConfiguration>()!;
     
     public WireguardConfigParserShould() {
-        Manager.Configuration.Wireguard.Interfaces.Add(new Interface {
+        Configuration.Interfaces.Add(new Interface {
             Name = "wg0",
             PublicKey = "server-pubkey",
             IPv4Address = IPAddressCidr.Parse("10.0.0.1", 24),

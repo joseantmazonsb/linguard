@@ -1,6 +1,5 @@
-﻿using Linguard.Core.Configuration;
-using Linguard.Core.Managers;
-using Linguard.Core.Models;
+﻿using Linguard.Core.Models;
+using Linguard.Web.Configuration;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Linguard.Web.Pages; 
@@ -12,7 +11,7 @@ public class HostModel : PageModel {
         _configurationManager = configurationManager;
     }
 
-    private IWebConfiguration Configuration => _configurationManager.Configuration.Web;
+    private IWebConfiguration Configuration => _configurationManager.Configuration.GetModule<IWebConfiguration>()!;
     public static string Stylesheet => $"_content/Radzen.Blazor/css/{Style.Default}.css";
     
 }

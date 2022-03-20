@@ -14,7 +14,8 @@ public class ListInterfacesCommand : ICommand {
     }
 
     private readonly IConfigurationManager _configurationManager;
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
+    private IWireguardConfiguration Configuration 
+        => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
     
     public ValueTask ExecuteAsync(IConsole console) {
         var interfaces = Configuration.Interfaces;

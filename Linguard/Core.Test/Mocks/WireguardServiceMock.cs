@@ -2,6 +2,7 @@
 using System.Linq;
 using Bogus;
 using ByteSizeLib;
+using Linguard.Core.Configuration;
 using Linguard.Core.Managers;
 using Linguard.Core.Models;
 using Linguard.Core.Models.Wireguard;
@@ -43,7 +44,7 @@ public class WireguardServiceMock : Mock<IWireguardService> {
         Setup(o => o.GetTrafficData())
             .Returns(() => {
                 var data = new List<TrafficData>();
-                foreach (var iface in manager.Configuration.Wireguard.Interfaces) {
+                foreach (var iface in manager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces) {
                     data.AddRange(Object.GetTrafficData(iface));
                 }
                 return data;

@@ -23,7 +23,7 @@ public class ShowClientCommand : ICommand {
     }
     
     public ValueTask ExecuteAsync(IConsole console) {
-        var peer = Configuration.Wireguard.Interfaces
+        var peer = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces
             .SingleOrDefault(i => i.Name.Equals(Interface))
             ?.Clients
             .SingleOrDefault(c => c.Name.Equals(Name));

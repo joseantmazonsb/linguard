@@ -1,0 +1,125 @@
+﻿@page "/signup"
+@layout SignUpLayout
+@using Linguard.Core.Utils
+@using Linguard.Web.Shared.Layouts
+@using Microsoft.AspNetCore.WebUtilities
+@using Linguard.Web.Configuration
+@using Linguard.Web.Services
+@using global::Auth.Models
+
+<PageTitle>@($"{AssemblyInfo.Product} | Sign up")</PageTitle>
+
+<RadzenHeading Text="Welcome!" class="mb-3 text-center"/>
+<RadzenCard class="w-100" Style="margin-bottom: 10rem">
+    <RadzenTemplateForm class="align-items-center" Data="@_user">
+        <div class="row">
+            <div class="row">
+                <div class="col">
+                    <RadzenLabel Text="Username"/>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <RadzenTextBox @bind-Value="_user.Username" class="w-100" />
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col">
+                    <RadzenLabel Text="Password"/>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <RadzenPassword @bind-Value="_user.Password" class="w-100" />
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col">
+                    <RadzenLabel Text="Confirm password"/>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <RadzenPassword @ref="_confirmPassword" class="w-100"/>
+                </div>
+            </div>
+            <div class="row mt-4">
+                <div class="col">
+                    <RadzenButton Text="Sign up" Icon="login" Click="DoSignUp"/>
+                </div>
+            </div>
+        </div>
+    </RadzenTemplateForm>
+</RadzenCard>
+
+@inject NotificationService _notificationService
+@inject ILogger _logger
+@inject NavigationManager _navigationManager
+@inject IAuthenticationService _authenticationService
+@inject IConfigurationManager _configurationManager
+@inject IWebService _webService
+
+@code {
+
+    User _user;
+    RadzenPassword _confirmPassword;
+
+    record User {
+        public string Username { get; set; }
+        public string Password { get; set; }
+    }
+
+    protected override void OnInitialized() {
+        base.OnInitialized();
+        _user = new User();
+    }
+
+    private async void DoSignUp() {
+        try {
+            if (_user.Password != _confirmPassword.Value) {
+                _notificationService.Notify(new NotificationMessage {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "Passwords do not match"
+                });
+                return;
+            }
+            var credentials = new Credentials(_user.Username, _user.Password);
+            var signUpResult = await _authenticationService.SignUp(credentials);
+            if (!signUpResult.Succeeded) {
+                _notificationService.Notify(new NotificationMessage {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "Failed to sign up",
+                    Detail = $"{string.Join(Environment.NewLine, signUpResult.Errors.Select(e => e.Description))}"
+                });
+                return;
+            }
+            var loginResult = await _authenticationService.Login(credentials);
+            if (loginResult.User.Identity is {IsAuthenticated: false }) {
+                _logger.LogError("Login failed: unable to authenticate user.");
+                _notificationService.Notify(new NotificationMessage {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "Failed to log in",
+                    Detail = $"User {loginResult.User.Identity.Name} could not be logged in."
+                });
+                return;
+            }
+            Redirect();
+        }
+        catch (Exception e) {
+            _logger.LogError(e, "Sign up failed: unable to authenticate user.");
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = "Failed to sign up",
+                Detail = e.Message
+            });
+        }
+    }
+
+    private void Redirect() {
+        _logger.LogInformation("Sign up completed. Redirecting...");
+        var query = _navigationManager.ToAbsoluteUri(_navigationManager.Uri).Query;
+        var hasReturnUrl = QueryHelpers.ParseQuery(query).TryGetValue("returnUrl", out var returnUrl);
+        var newUrl = hasReturnUrl ? returnUrl.ToString() : "/";
+        _navigationManager.NavigateTo(newUrl);
+    }
+}

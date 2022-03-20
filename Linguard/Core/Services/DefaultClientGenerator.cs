@@ -8,7 +8,7 @@ using Linguard.Core.Utils;
 namespace Linguard.Core.Services; 
 
 public class DefaultClientGenerator : IClientGenerator {
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
+    private IWireguardConfiguration Configuration => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
     private readonly IConfigurationManager _configurationManager;
     private readonly IWireguardService _wireguard;
 

@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 using Linguard.Core;
+using Linguard.Core.Configuration;
 using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Services;
@@ -17,7 +18,8 @@ public class EditInterfaceCommand : AddInterfaceCommand {
     }
 
     public override ValueTask ExecuteAsync(IConsole console) {
-        var iface = Configuration.Wireguard.Interfaces.SingleOrDefault(i => i.Name.Equals(Name));
+        var iface = Configuration.GetModule<IWireguardConfiguration>()!
+            .Interfaces.SingleOrDefault(i => i.Name.Equals(Name));
         if (iface == default) {
             Logger.LogError($"No interface named '{Name}' was found.");
             console.Error.WriteLine(Validation.InterfaceNotFound);

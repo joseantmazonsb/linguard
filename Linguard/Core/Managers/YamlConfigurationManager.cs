@@ -5,7 +5,7 @@ using Linguard.Log;
 
 namespace Linguard.Core.Managers; 
 
-public class YamlConfigurationManager : DefaultFileConfigurationManager {
+public class YamlConfigurationManager<T> : DefaultFileConfigurationManager<T> where T : IConfiguration {
 
     public override string[] SupportedExtensions => new [] {
         "yaml", "yml"

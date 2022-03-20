@@ -2,7 +2,7 @@
 
 namespace Linguard.Core.Configuration; 
 
-public interface IWireguardConfiguration : ICloneable {
+public interface IWireguardConfiguration : IConfigurationModule {
     public ISet<Interface> Interfaces { get; set; }
     /// <summary>
     /// Path to the <c>iptables</c> binary file.

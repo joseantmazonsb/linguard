@@ -1,6 +1,8 @@
-﻿using YamlDotNet.Serialization;
+﻿using Linguard.Core.Configuration;
+using Linguard.Core.Configuration.Serialization;
+using YamlDotNet.Serialization;
 
-namespace Linguard.Core.Configuration.Serialization; 
+namespace Linguard.Yaml.Serialization; 
 
 /// <summary>
 /// Serializes and deserializes the configuration of the application using YAML.
@@ -15,11 +17,11 @@ public class YamlConfigurationSerializer : IConfigurationSerializer {
         _deserializer = deserializer;
     }
     
-    public string Serialize(IConfiguration configuration) {
+    public string Serialize<T>(T configuration) where T : IConfiguration {
         return _serializer.Serialize(configuration);
     }
 
-    public IConfiguration Deserialize(string text) {
-        return _deserializer.Deserialize<IConfiguration>(text);
+    public T Deserialize<T>(string text) where T : IConfiguration {
+        return _deserializer.Deserialize<T>(text);
     }
 }

@@ -1,12 +1,11 @@
 ﻿@page "/setup"
 @layout SetupLayout
 @using Linguard.Core.Utils
-@using Linguard.Core.Managers
-@using Linguard.Core.Configuration
-@using Linguard.Log
+@using Linguard.Web.Configuration
 @using Linguard.Web.Helpers
 @using Linguard.Web.Services
 @using Linguard.Web.Shared.Layouts
+@using Linguard.Core.Configuration
 
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
 
@@ -16,15 +15,15 @@
     <RadzenTemplateForm Data="@_configuration" Submit="@((IConfiguration args) => { Save(args); })">
         <RadzenCard>
             <h2>Web</h2>
-            <WebSettings Configuration="@_configuration.Web"/>
+            <WebSettings Configuration="@(_configuration.GetModule<IWebConfiguration>())"/>
         </RadzenCard>
         <RadzenCard class="mt-2">
             <h2>Wireguard</h2>
-            <WireguardSettings Configuration="@_configuration.Wireguard"/>
+            <WireguardSettings Configuration="@(_configuration.GetModule<IWireguardConfiguration>())"/>
         </RadzenCard>
         <RadzenCard class="mt-2">
             <h2>Logging</h2>
-            <LoggingSettings Configuration="@_configuration.Logging"/>
+            <LoggingSettings Configuration="@(_configuration.GetModule<ILoggingConfiguration>())"/>
         </RadzenCard>
         <div class="row mt-3 d-flex">
             <div class="col-md-12 align-items-end">

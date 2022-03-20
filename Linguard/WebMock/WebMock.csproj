@@ -33,6 +33,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Core.Test\Core.Test.csproj" />
+      <ProjectReference Include="..\Web.Test\Web.Test.csproj" />
       <ProjectReference Include="..\Web\Web.csproj" />
     </ItemGroup>
 

@@ -118,14 +118,14 @@
 
     protected override void OnInitialized() {
         base.OnInitialized();
-        _iface = Configuration.Wireguard.Interfaces.SingleOrDefault(i => i.Id == Id)?.Clone() as Interface;
+        _iface = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.SingleOrDefault(i => i.Id == Id)?.Clone() as Interface;
     }
 
     void Submit(Interface iface) {
         var result = _validator.Validate(iface);
         if (result.IsValid) {
-            var originalIface = Configuration.Wireguard.Interfaces.SingleOrDefault(i => i.Id == Id);
-            Configuration.Wireguard.Interfaces = Configuration.Wireguard.Interfaces
+            var originalIface = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.SingleOrDefault(i => i.Id == Id);
+            Configuration.GetModule<IWireguardConfiguration>()!.Interfaces = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces
                 .Replace(originalIface, iface)
                 .ToHashSet();
             _configurationManager.Save();

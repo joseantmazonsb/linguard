@@ -2,7 +2,7 @@
 using YamlDotNet.Core.Events;
 using YamlDotNet.Serialization;
 
-namespace Linguard.Core.Configuration.Serialization; 
+namespace Linguard.Yaml.Serialization; 
 
 public class UriTypeConverter : IYamlTypeConverter {
     public bool Accepts(Type type) {

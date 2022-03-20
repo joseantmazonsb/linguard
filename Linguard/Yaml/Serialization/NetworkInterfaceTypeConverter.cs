@@ -3,7 +3,7 @@ using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Serialization;
 
-namespace Linguard.Core.Configuration.Serialization; 
+namespace Linguard.Yaml.Serialization; 
 
 public class NetworkInterfaceTypeConverter : IYamlTypeConverter {
     public bool Accepts(Type type) {

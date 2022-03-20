@@ -1,7 +1,6 @@
 using FluentValidation;
 using Linguard.Core.Configuration;
-using Linguard.Core.Configuration.Serialization;
-using Linguard.Core.Managers;
+using Linguard.Web.Configuration;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Models.Wireguard.Validators;
 using Linguard.Core.OS;
@@ -14,10 +13,8 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore;
 using QRCoder;
 using Radzen;
-using IConfiguration = Linguard.Core.Configuration.IConfiguration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,10 +24,13 @@ builder.Services.AddServerSideBlazor();
 
 #region Core services
 
-builder.Services.AddSingleton<IConfigurationManager, YamlConfigurationManager>();
-builder.Services.AddTransient<IConfiguration, Configuration>();
+builder.Services.AddSingleton<IConfigurationManager, WebConfigurationManager>();
+builder.Services.AddSingleton<Linguard.Core.Managers.IConfigurationManager>(provider 
+    => provider.GetRequiredService<IConfigurationManager>());
+
+builder.Services.AddTransient<Linguard.Core.Configuration.IConfiguration, ConfigurationBase>();
 builder.Services.AddTransient<IWorkingDirectory, WorkingDirectory>();
-builder.Services.AddSingleton<IConfigurationSerializer>(DefaultYamlConfigurationSerializer.Instance);
+builder.Services.AddSingleton(DefaultYamlConfigurationSerializer.Instance);
 builder.Services.AddTransient<ISystemWrapper, SystemWrapper>();
 builder.Services.AddTransient<IWireguardService, WireguardService>();
 builder.Services.AddTransient<IInterfaceGenerator, DefaultInterfaceGenerator>();
@@ -45,7 +45,6 @@ builder.Services.AddSingleton<IWebService, WebService>();
 builder.Services.AddTransient<IWebHelper, WebHelper>();
 builder.Services.AddTransient<QRCodeGenerator, QRCodeGenerator>();
 builder.Services.AddTransient<ILifetimeService, LifetimeService>();
-builder.Services.AddTransient<IdentityDbContext, ApplicationDbContext>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
 #region Radzen
@@ -61,10 +60,8 @@ builder.Services.AddScoped<ContextMenuService>();
 
 #region Authentication
 
-// var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-const string connectionString = "DataSource=app.db;Cache=Shared";
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(connectionString));
+builder.Services.AddDbContext<ApplicationDbContext>();
+builder.Services.AddTransient<IdentityDbContext, ApplicationDbContext>();
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddIdentityCore<IdentityUser>(options => {
         options.SignIn.RequireConfirmedAccount = false;
@@ -118,12 +115,6 @@ app.Lifetime.ApplicationStopped.Register(() => {
 if (app.Environment.IsDevelopment()) {
     app.UseDeveloperExceptionPage();
     app.Services.GetService<ILinguardLogger>()!.LogLevel = LogLevel.Debug;
-    var scopeFactory = app.Services.GetService<IServiceScopeFactory>();
-    var scope = scopeFactory?.CreateScope();
-    var context = scope?.ServiceProvider.GetService<ApplicationDbContext>();
-    var manager = scope?.ServiceProvider.GetService<UserManager<IdentityUser>>();
-    context?.Database.EnsureCreated();
-    manager?.CreateAsync(new IdentityUser("test"), "test");
 }
 else {
     app.UseExceptionHandler("/Error");

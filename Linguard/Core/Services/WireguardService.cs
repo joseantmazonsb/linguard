@@ -17,7 +17,7 @@ public class WireguardService : IWireguardService {
         _systemWrapper = systemWrapper;
     }
 
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
+    private IWireguardConfiguration Configuration => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
 
     public void StartInterface(Interface iface) {
         if (_systemWrapper.IsInterfaceUp(iface)) return;

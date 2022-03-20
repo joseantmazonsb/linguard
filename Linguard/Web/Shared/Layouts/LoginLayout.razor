@@ -1,6 +1,11 @@
-﻿@using Linguard.Core.Managers
-@using Linguard.Web.Services
+﻿@using Microsoft.AspNetCore.Identity.EntityFrameworkCore
 @inherits LayoutComponentBase
+@inject IdentityDbContext _context
+
+@if (!_context.Users.Any()) {
+  <RedirectToSignUp/>
+  return;
+}
 
 <RadzenNotification />
 
@@ -28,16 +33,24 @@
   </ChildContent>
 </RadzenLayout>
 
-@inject IConfigurationManager _configurationManager
 @inject NavigationManager _navigationManager
-@inject IWebService _webService
+@inject AuthenticationStateProvider _authenticationStateProvider
+@inject ILogger _logger
 
 @code {
   private RadzenBody _body;
   private ErrorBoundary? errorBoundary;
 
   protected override void OnParametersSet() {
-    errorBoundary?.Recover();
+      errorBoundary?.Recover();
+  }
+
+  protected override async Task OnInitializedAsync() {
+      var state = await _authenticationStateProvider.GetAuthenticationStateAsync();
+      if (state.User.Identity is {IsAuthenticated: true }) {
+          _logger.LogDebug("User is already authenticated! Redirecting...");
+          _navigationManager.NavigateTo("/");
+      }
   }
 
 }

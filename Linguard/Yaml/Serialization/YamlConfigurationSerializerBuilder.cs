@@ -1,7 +1,9 @@
-﻿using YamlDotNet.Core;
+﻿using Linguard.Core.Configuration;
+using Linguard.Core.Configuration.Serialization;
+using YamlDotNet.Core;
 using YamlDotNet.Serialization;
 
-namespace Linguard.Core.Configuration.Serialization; 
+namespace Linguard.Yaml.Serialization; 
 
 public class YamlConfigurationSerializerBuilder {
     private readonly DeserializerBuilder _deserializerBuilder = new();
@@ -34,7 +36,7 @@ public class YamlConfigurationSerializerBuilder {
         return this;
     }
     
-    public YamlConfigurationSerializer Build() {
+    public IConfigurationSerializer Build() {
         return new YamlConfigurationSerializer(_serializerBuilder.Build(), _deserializerBuilder.Build());
     }
 }

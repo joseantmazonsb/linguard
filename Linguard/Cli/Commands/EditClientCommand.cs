@@ -25,7 +25,8 @@ public class EditClientCommand : ICommand {
     private readonly AbstractValidator<Client> _validator;
     private readonly ILogger _logger;
     private readonly IConfigurationManager _configurationManager;
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
+    private IWireguardConfiguration Configuration 
+        => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
     
     [CommandOption("name", Description = "Current name of the client.", IsRequired = true)]
     public string Name { get; set; }

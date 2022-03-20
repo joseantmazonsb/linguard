@@ -1,0 +1,11 @@
+﻿@inject NavigationManager _navigationManager
+@inject ILogger _logger
+
+@code {
+    protected override async Task OnInitializedAsync() {
+        await base.OnInitializedAsync();
+        _logger.LogDebug("No users registered. Redirecting to sign up...");
+        _navigationManager.NavigateTo($"/signup?returnUrl={Uri.EscapeDataString(_navigationManager.Uri)}");
+    }
+    
+}

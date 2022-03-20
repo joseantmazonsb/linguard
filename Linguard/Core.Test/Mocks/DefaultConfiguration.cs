@@ -11,11 +11,18 @@ namespace Core.Test.Mocks;
 public sealed class DefaultConfiguration : Mock<IConfiguration> {
 
     public DefaultConfiguration() {
-        SetupProperty(c => c.Wireguard, GetWireguardConfigurationMock().Object);
-        SetupProperty(c => c.Logging, GetLoggingConfigurationMock().Object);
-        SetupProperty(c => c.Traffic, GetTrafficConfigurationMock().Object);
-        SetupProperty(c => c.Web, GetWebConfigurationMock().Object);
+        SetupProperty(c => c.Modules, new HashSet<IConfigurationModule> {
+            GetWireguardConfigurationMock().Object,
+            GetLoggingConfigurationMock().Object,
+            GetTrafficConfigurationMock().Object
+        });
         Setup(o => o.Clone()).Returns(Object);
+        Setup(o => o.GetModule<IConfigurationModule>())
+            .Returns(new InvocationFunc(invocation => {
+                var type = invocation.Method.GetGenericArguments()[0];
+                return Object.Modules.SingleOrDefault(m 
+                    => m.GetType() == type || m.GetType().GetInterface(type.Name) != default);
+            }));
     }
 
     private Mock<IWireguardConfiguration> GetWireguardConfigurationMock() {
@@ -41,10 +48,6 @@ public sealed class DefaultConfiguration : Mock<IConfiguration> {
         return wireguardConfiguration;
     }
 
-    private Mock<IWebConfiguration> GetWebConfigurationMock() {
-        return new Mock<IWebConfiguration>();
-    }
-    
     private Mock<ILoggingConfiguration> GetLoggingConfigurationMock() {
         return new Mock<ILoggingConfiguration>();;
     }

@@ -7,7 +7,7 @@ namespace Linguard.Core.Models.Wireguard.Validators;
 
 public class ClientValidator : AbstractValidator<Client> {
     private readonly IConfigurationManager _configurationManager;
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
+    private IWireguardConfiguration Configuration => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
 
     public ClientValidator(IConfigurationManager configurationManager) {
         _configurationManager = configurationManager;

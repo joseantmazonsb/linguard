@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Castle.Core.Internal;
 using FluentAssertions;
 using Linguard.Cli.Commands;
+using Linguard.Core.Configuration;
 using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.OS;
@@ -23,7 +24,7 @@ public class ShowInterfaceCommandShould {
         var commandName = command.GetAttribute<CommandAttribute>().Name!;
         var app = Utils.BuildTestApp(command);
         var iface = GenerateInterface(app.ConfigurationManager);
-        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Add(iface);
+        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Add(iface);
 
         var commandLine = $"{commandName} --name {iface.Name}";
         

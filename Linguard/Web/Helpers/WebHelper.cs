@@ -23,7 +23,7 @@ public class WebHelper : IWebHelper {
     private IJSRuntime JsRuntime { get; }
     private IWireguardService WireguardService { get; }
     private IConfigurationManager ConfigurationManager { get; }
-    private IWireguardConfiguration Configuration => ConfigurationManager.Configuration.Wireguard;
+    private IWireguardConfiguration Configuration => ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
     private QRCodeGenerator QrCodeGenerator {get; }
 
     public async Task Download(string data, string filename) {

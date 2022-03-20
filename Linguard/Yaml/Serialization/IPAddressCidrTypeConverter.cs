@@ -1,8 +1,9 @@
-﻿using YamlDotNet.Core;
+﻿using Linguard.Core;
+using YamlDotNet.Core;
 using YamlDotNet.Core.Events;
 using YamlDotNet.Serialization;
 
-namespace Linguard.Core.Configuration.Serialization; 
+namespace Linguard.Yaml.Serialization; 
 
 public class IPAddressCidrTypeConverter : IYamlTypeConverter {
     

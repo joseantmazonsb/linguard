@@ -4,6 +4,7 @@ using Castle.Core.Internal;
 using FluentAssertions;
 using Linguard.Cli.Commands;
 using Linguard.Core;
+using Linguard.Core.Configuration;
 using Linguard.Core.Models.Wireguard.Validators;
 using Typin.Attributes;
 using Xunit;
@@ -37,7 +38,7 @@ public class AddInterfaceCommandShouldNot {
         await app.App.RunAsync(commandLine);
         var errors = app.Error.GetString();
         errors.Should().Contain(Validation.InterfaceNameAlreadyInUse);
-        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Should().HaveCount(1);
+        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Should().HaveCount(1);
     }
     
     [Fact]

@@ -20,7 +20,8 @@ public class ShowInterfacesCommand : ICommand {
     }
     
     public ValueTask ExecuteAsync(IConsole console) {
-        var iface = Configuration.Wireguard.Interfaces.SingleOrDefault(i => i.Name.Equals(Name));
+        var iface = Configuration.GetModule<IWireguardConfiguration>()!
+            .Interfaces.SingleOrDefault(i => i.Name.Equals(Name));
         if (iface == default) {
             console.Error.WriteLine(Validation.InterfaceNotFound);
             return ValueTask.CompletedTask;

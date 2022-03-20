@@ -30,7 +30,7 @@
     <div class="col-md-6 mt-2">
         <RadzenCard>
             <h3>History</h3>
-            @if (!Configuration.Traffic.Enabled) {
+            @if (!Configuration.GetModule<ITrafficConfiguration>()!.Enabled) {
                 <p>
                     It looks like traffic data storage is disabled.
                     <a href="/settings">Enable it</a> to get more statistics.

@@ -24,43 +24,42 @@ public abstract class ConfigurationManagerBase : IConfigurationManager {
     public IConfiguration Configuration { get; set; }
     public IWorkingDirectory WorkingDirectory { get; set; }
 
-    public void LoadDefaults() {
-        LoadWebDefaults();
+    public virtual void LoadDefaults() {
         LoadLoggingDefaults();
         LoadTrafficDefaults();
         LoadWireguardDefaults();
     }
-
-    private void LoadWebDefaults() {
-        Configuration.Web = new WebConfiguration();
-        Configuration.Web.LoginAttempts = 10;
-        Configuration.Web.SecretKey = "";
-    }
+    
     private void LoadLoggingDefaults() {
-        Configuration.Logging = new LoggingConfiguration();
-        Configuration.Logging.Level = LogLevel.Information;
-        Configuration.Logging.DateTimeFormat = _logger.DateTimeFormat;
+        var configuration = new LoggingConfiguration {
+            Level = LogLevel.Information,
+            DateTimeFormat = _logger.DateTimeFormat
+        };
+        Configuration.Modules.Add(configuration);
     }
     private void LoadTrafficDefaults() {
-        Configuration.Traffic = new TrafficConfiguration();
-        Configuration.Traffic.Enabled = true;
-        Configuration.Traffic.StorageDriver = new JsonTrafficStorageDriver();
+        var configuration = new TrafficConfiguration {
+            Enabled = true,
+            StorageDriver = new JsonTrafficStorageDriver()
+        };
+        Configuration.Modules.Add(configuration);
     }
     private void LoadWireguardDefaults() {
-        Configuration.Wireguard = new WireguardConfiguration();
-        Configuration.Wireguard.Interfaces = new HashSet<Interface>();
-        Configuration.Wireguard.Interfaces = new HashSet<Interface>();
-        Configuration.Wireguard.PrimaryDns = new("8.8.8.8", UriKind.RelativeOrAbsolute);
-        Configuration.Wireguard.SecondaryDns = new("8.8.4.4", UriKind.RelativeOrAbsolute);
+        var configuration = new WireguardConfiguration {
+            Interfaces = new HashSet<Interface>(),
+            PrimaryDns = new("8.8.8.8", UriKind.RelativeOrAbsolute),
+            SecondaryDns = new("8.8.4.4", UriKind.RelativeOrAbsolute)
+        };
+        Configuration.Modules.Add(configuration);
         var publicIp = Network.GetPublicIPAddress();
-        Configuration.Wireguard.Endpoint = publicIp == default
+        configuration.Endpoint = publicIp == default
             ? default
             : new(publicIp.ToString(), UriKind.RelativeOrAbsolute);
-        Configuration.Wireguard.IptablesBin = _systemWrapper
+        configuration.IptablesBin = _systemWrapper
             .RunCommand("whereis iptables | tr ' ' '\n' | grep bin").Stdout;
-        Configuration.Wireguard.WireguardBin = _systemWrapper
+        configuration.WireguardBin = _systemWrapper
             .RunCommand("whereis wg | tr ' ' '\n' | grep bin").Stdout;
-        Configuration.Wireguard.WireguardQuickBin = _systemWrapper
+        configuration.WireguardQuickBin = _systemWrapper
             .RunCommand("whereis wg-quick | tr ' ' '\n' | grep bin").Stdout;
     }
 
@@ -71,12 +70,13 @@ public abstract class ConfigurationManagerBase : IConfigurationManager {
         DoSave();
     }
 
-    private void ApplyChanges() {
+    protected virtual void ApplyChanges() {
         ApplyLogChanges();
 
         void ApplyLogChanges() {
-            _logger.LogLevel = Configuration.Logging.Level;
-            _logger.DateTimeFormat = Configuration.Logging.DateTimeFormat;
+            var configuration = Configuration.GetModule<ILoggingConfiguration>()!;
+            _logger.LogLevel = configuration.Level;
+            _logger.DateTimeFormat = configuration.DateTimeFormat;
         }
     }
 

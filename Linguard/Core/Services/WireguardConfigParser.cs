@@ -21,7 +21,7 @@ public class WireguardConfigParser : IWireguardConfigParser {
         _faker = faker;
     }
 
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
+    private IWireguardConfiguration Configuration => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
     
     /// <summary>
     /// Valid sections in a Wireguard configuration file.

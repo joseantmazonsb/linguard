@@ -1,10 +1,8 @@
 ﻿@page "/settings"
 @using Linguard.Core.Utils
-@using Linguard.Core.Managers
-@using Linguard.Core.Configuration
-@using Linguard.Log
+@using Linguard.Web.Configuration
 @using Linguard.Web.Helpers
-@using Linguard.Web.Services
+@using Linguard.Core.Configuration
 
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
 
@@ -15,15 +13,15 @@
         <RadzenTabs SelectedIndex="0" RenderMode="TabRenderMode.Server">
             <Tabs>
                 <RadzenTabsItem Text="Web">
-                    <WebSettings Configuration="@_configuration.Web"/>
+                    <WebSettings Configuration="@(_configuration.GetModule<IWebConfiguration>())"/>
                 </RadzenTabsItem>
                 <RadzenTabsItem Text="Wireguard">
-                    <WireguardSettings Configuration="@_configuration.Wireguard"/>
+                    <WireguardSettings Configuration="@(_configuration.GetModule<IWireguardConfiguration>())"/>
                 </RadzenTabsItem>
                 @*TODO<RadzenTabsItem Text="Traffic">
                 </RadzenTabsItem>*@
                 <RadzenTabsItem Text="Logging">
-                    <LoggingSettings Configuration="@_configuration.Logging"/>
+                    <LoggingSettings Configuration="@(_configuration.GetModule<ILoggingConfiguration>())"/>
                 </RadzenTabsItem>
             </Tabs>
         </RadzenTabs>
@@ -52,7 +50,7 @@
         _configuration = (IConfiguration) _configurationManager.Configuration.Clone();
     }
     
-    private void Save(IConfiguration configuration) {
+    private void Save(ICloneable configuration) {
         try {
             _configurationManager.Configuration = (IConfiguration)configuration.Clone();
             _configurationManager.Save();

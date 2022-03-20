@@ -1,14 +1,13 @@
 ﻿using System.Net.NetworkInformation;
 using Linguard.Core.Configuration;
 using Linguard.Core.Configuration.Exceptions;
-using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.OS;
 using Linguard.Core.Services;
 using Linguard.Core.Utils;
 using Linguard.Log;
-using Linguard.Web.Auth;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using IConfigurationManager = Linguard.Web.Configuration.IConfigurationManager;
 
 namespace Linguard.Web.Services; 
 
@@ -24,7 +23,8 @@ public class LifetimeService : ILifetimeService {
     private readonly IConfigurationManager _configurationManager;
     private readonly IWebService _webService;
     private readonly IServiceScope _scope;
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
+    private IWireguardConfiguration? Configuration 
+        => _configurationManager.Configuration.GetModule<IWireguardConfiguration>();
     
     #endregion
     
@@ -40,15 +40,18 @@ public class LifetimeService : ILifetimeService {
 
     public void OnAppStarted() {
         _logger.LogInformation("Booting up...");
+        _configurationManager.WorkingDirectory.BaseDirectory = GetWorkingDirectory();
         InitializeDatabases();
         LoadConfiguration();
         StartInterfaces();
+        _logger.LogInformation($"{AssemblyInfo.Product} is ready.");
     }
 
     private void InitializeDatabases() {
         _logger.LogInformation("Initializing databases...");
-        var context = _scope.ServiceProvider.GetService<ApplicationDbContext>();
+        var context = _scope.ServiceProvider.GetService<IdentityDbContext>();
         context?.Database.EnsureCreated();
+        _logger.LogInformation("Databases initialized.");
     }
 
     public void OnAppStopping() {
@@ -63,7 +66,6 @@ public class LifetimeService : ILifetimeService {
     #region Auxiliary methods
     
     private void LoadConfiguration() {
-        _configurationManager.WorkingDirectory.BaseDirectory = GetWorkingDirectory();
         try {
             _configurationManager.Load();
             _webService.IsSetupNeeded = false;

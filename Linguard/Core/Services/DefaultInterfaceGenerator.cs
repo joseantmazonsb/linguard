@@ -14,7 +14,7 @@ public class DefaultInterfaceGenerator : IInterfaceGenerator {
     private readonly ISystemWrapper _system;
     private readonly IConfigurationManager _configurationManager;
     private const int MaxTries = 100;
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
+    private IWireguardConfiguration Configuration => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
 
     public DefaultInterfaceGenerator(IConfigurationManager configurationManager, 
         IWireguardService wireguardService, ISystemWrapper system) {

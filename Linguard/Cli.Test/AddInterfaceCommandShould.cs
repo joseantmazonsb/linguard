@@ -3,6 +3,7 @@ using Castle.Core.Internal;
 using Core.Test.Mocks;
 using FluentAssertions;
 using Linguard.Cli.Commands;
+using Linguard.Core.Configuration;
 using Typin.Attributes;
 using Xunit;
 
@@ -21,7 +22,7 @@ public class AddInterfaceCommandShould {
         await app.App.RunAsync(commandLine);
         var errors = app.Error.GetString();
         errors.Should().BeEmpty();
-        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Should().NotBeEmpty();
+        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Should().NotBeEmpty();
     }
     
     [Fact]
@@ -36,7 +37,7 @@ public class AddInterfaceCommandShould {
         await app.App.RunAsync(commandLine);
         var errors = app.Error.GetString();
         errors.Should().BeEmpty();
-        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Should().HaveCount(2);
+        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Should().HaveCount(2);
     }
     
     [Fact]
@@ -50,7 +51,7 @@ public class AddInterfaceCommandShould {
         await app.App.RunAsync(commandLine);
         var errors = app.Error.GetString();
         errors.Should().BeEmpty();
-        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Should().NotBeEmpty();
+        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Should().NotBeEmpty();
     }
     
     [Fact]
@@ -65,6 +66,6 @@ public class AddInterfaceCommandShould {
         await app.App.RunAsync(commandLine);
         var errors = app.Error.GetString();
         errors.Should().BeEmpty();
-        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Should().NotBeEmpty();
+        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Should().NotBeEmpty();
     }
 }

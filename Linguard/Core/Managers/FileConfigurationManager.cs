@@ -6,7 +6,7 @@ using Linguard.Log;
 
 namespace Linguard.Core.Managers; 
 
-public abstract class FileConfigurationManager : ConfigurationManagerBase {
+public abstract class FileConfigurationManager<T> : ConfigurationManagerBase where T : IConfiguration {
     
     protected FileConfigurationManager(IConfiguration configuration, IWorkingDirectory workingDirectory, 
         ISystemWrapper systemWrapper, IConfigurationSerializer serializer, ILinguardLogger logger) 
@@ -28,7 +28,7 @@ public abstract class FileConfigurationManager : ConfigurationManagerBase {
             );
         }
         try {
-            Configuration = Serializer.Deserialize(File.ReadAllText(ConfigurationFile.FullName));
+            Configuration = Serializer.Deserialize<T>(File.ReadAllText(ConfigurationFile.FullName));
         }
         catch (Exception e) {
             throw new ConfigurationNotLoadedError(

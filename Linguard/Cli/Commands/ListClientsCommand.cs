@@ -16,7 +16,8 @@ public class ListClientsCommand : ICommand {
     }
 
     private readonly IConfigurationManager _configurationManager;
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
+    private IWireguardConfiguration Configuration 
+        => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
     
     [CommandOption("interface", Description = "Name of the client's interface.")]
     public string? Interface { get; set; } = default;

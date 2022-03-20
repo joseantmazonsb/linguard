@@ -21,7 +21,7 @@ function setStylesheet(path) {
 
 window.authFunctions = {
     setCookie: function (name, value, lifetimeInSeconds) {
-        const maxAge = `MaxAge=${lifetimeInSeconds}`;
+        const maxAge = `Max-Age=${lifetimeInSeconds}`;        
         const nameValue = `${name}=${value}`;
         const path = "Path=/"
         const secure = "Secure"
@@ -29,7 +29,7 @@ window.authFunctions = {
         document.cookie = `${nameValue}; ${maxAge}; ${path}; ${secure}; ${sameSite};`;
     },
     deleteCookie: function (name) {
-        document.cookie = name + "=; MaxAge=0;";
+        document.cookie = name + "=; Max-Age=0;";
     }
 }
 

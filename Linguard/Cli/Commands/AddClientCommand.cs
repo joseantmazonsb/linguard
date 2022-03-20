@@ -28,7 +28,8 @@ public class AddClientCommand : ICommand {
     private readonly ILogger _logger;
     private readonly IClientGenerator _generator;
     private readonly IConfigurationManager _configurationManager;
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.Wireguard;
+    private IWireguardConfiguration Configuration 
+        => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
     
     [CommandOption("name", Description = "Name of the peer.")]
     public string? Name { get; set; }

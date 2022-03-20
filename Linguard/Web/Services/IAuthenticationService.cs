@@ -1,9 +1,11 @@
 ﻿using Auth.Models;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Identity;
 
 namespace Linguard.Web.Services; 
 
 public interface IAuthenticationService {
+    Task<IdentityResult> SignUp(ICredentials credentials);
     /// <summary>
     /// Try to login a user given its credentials.
     /// </summary>
@@ -15,4 +17,5 @@ public interface IAuthenticationService {
     /// </summary>
     /// <returns></returns>
     void Logout();
+    TimeSpan BannedFor { get; }
 }

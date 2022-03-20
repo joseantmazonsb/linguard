@@ -15,7 +15,8 @@ namespace Core.Test;
 
 public class WireguardDumpParserShould {
     private static readonly Mock<IConfigurationManager> ConfigurationManagerMock = new DefaultConfigurationManager();
-    private static IWireguardConfiguration Configuration => ConfigurationManagerMock.Object.Configuration.Wireguard;
+    private static IWireguardConfiguration Configuration 
+        => ConfigurationManagerMock.Object.Configuration.GetModule<IWireguardConfiguration>()!;
     
     public WireguardDumpParserShould() {
         var iface = new Interface {

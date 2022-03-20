@@ -8,4 +8,5 @@ namespace Linguard.Core.Configuration;
 public interface IWorkingDirectory {
     DirectoryInfo BaseDirectory { get; set; }
     FileInfo GetInterfaceConfigurationFile(Interface @interface);
+    string CredentialsPath { get; }
 }
