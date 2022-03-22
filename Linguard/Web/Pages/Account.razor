@@ -1,0 +1,177 @@
+﻿@page "/account"
+@using Linguard.Core.Utils
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Identity
+@using System.Security.Claims
+@using Linguard.Web.Services
+
+<PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
+
+<RadzenHeading Text="@Title" class="mb-3"/>
+
+<RadzenCard class="mb-2">
+    <RadzenTemplateForm class="align-items-center" Data="@("")">
+        <RadzenTabs SelectedIndex="0" RenderMode="TabRenderMode.Server">
+            <Tabs>
+                <RadzenTabsItem Text="Details">
+                    <div class="row">
+                        <div class="col-xxl">
+                            <div class="row">
+                                <div class=" mb-2">
+                                    <RadzenLabel Text="Username"/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-xxl-3">
+                                    <RadzenTextBox @bind-Value="_user.UserName" class="w-100"/>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col">
+                                    <RadzenButton ButtonType="ButtonType.Button" Icon="save" Text="Save" class="me-2"
+                                                  ButtonStyle="ButtonStyle.Primary" Click="Save"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </RadzenTabsItem>
+                <RadzenTabsItem Text="Password">
+                    <div class="row">
+                        <div class="col-xxl">
+                            <div class="row mb-2">
+                                <div class="col">
+                                    <RadzenLabel Text="Current password"/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-xxl-3">
+                                    <RadzenPassword @ref="_currentPassword" class="w-100"/>
+                                </div>
+                            </div>
+                            <div class="row my-2">
+                                <div class="col">
+                                    <RadzenLabel Text="New password"/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-xxl-3">
+                                    <RadzenPassword @ref="_newPassword" class="w-100"/>
+                                </div>
+                            </div>
+                            <div class="row my-2">
+                                <div class="col">
+                                    <RadzenLabel Text="Confirm new password"/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-xxl-3">
+                                    <RadzenPassword @ref="_confirmNewPassword" class="w-100"/>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col">
+                                    <RadzenButton ButtonType="ButtonType.Button" Icon="save" Text="Save" class="me-2"
+                                                  ButtonStyle="ButtonStyle.Primary" Click="ChangePassword"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </RadzenTabsItem>
+            </Tabs>
+        </RadzenTabs>
+    </RadzenTemplateForm>
+</RadzenCard>
+
+@inject NotificationService _notificationService
+@inject ILogger _logger
+@inject AuthenticationStateProvider _authenticationStateProvider
+@inject UserManager<IdentityUser> _userManager
+@inject IStateHasChangedNotifierService _notifier
+
+@code {
+    private const string Title = "Account";
+    private IdentityUser _user;
+    private RadzenPassword _currentPassword;
+    private RadzenPassword _newPassword;
+    private RadzenPassword _confirmNewPassword;
+
+
+    protected override async Task OnInitializedAsync() {
+        var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.Claims.SingleOrDefault(c => c.Type.Equals(ClaimTypes.NameIdentifier));
+        _user = await _userManager.FindByIdAsync(userId?.Value);
+    }
+    
+    private async Task Save() {
+        try {
+            await _userManager.UpdateAsync(_user);
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Success,
+                Summary = "Account updated!"
+            });
+            _notifier.Notify();
+        }
+        catch (Exception e) {
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = "Failed to update account",
+                Detail = e.Message
+            });
+        }
+    }
+
+    private async Task ChangePassword() {
+        var result = await IsPasswordValid();
+        if (!result) return;
+        try {
+            await _userManager.ChangePasswordAsync(_user, _currentPassword.Value, _newPassword.Value);
+            // TODO not working
+            // _currentPassword.Value = string.Empty;
+            // _newPassword.Value = string.Empty;
+            // _confirmNewPassword.Value = string.Empty;
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Success,
+                Summary = "Password updated!"
+            });
+            StateHasChanged();
+        }
+        catch (Exception e) {
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = "Unable to update password!",
+                Detail = e.Message
+            });
+        }
+    }
+
+    private async Task<bool> IsPasswordValid() {
+        var passwordOk = !string.IsNullOrEmpty(_currentPassword.Value) 
+                         && await _userManager.CheckPasswordAsync(_user, _currentPassword.Value);
+        if (!passwordOk) {
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = "Unable to update password!",
+                Detail = "Current password is not correct."
+            });
+            return await Task.FromResult(false);
+        }
+        if (string.IsNullOrEmpty(_newPassword.Value) || string.IsNullOrEmpty(_confirmNewPassword.Value)) {
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = "Unable to update password!",
+                Detail = "Password cannot be empty."
+            });
+            return await Task.FromResult(false);
+        } 
+        if (!_newPassword.Value.Equals(_confirmNewPassword.Value)) {
+            _notificationService.Notify(new NotificationMessage {
+                Severity = NotificationSeverity.Error,
+                Summary = "Unable to update password!",
+                Detail = "Passwords do not match."
+            });
+            return await Task.FromResult(false);
+        }
+        return await Task.FromResult(true);
+    }
+
+}

@@ -27,12 +27,14 @@
 @inject AuthenticationStateProvider _authenticationStateProvider
 @inject IJSRuntime _jsRuntime
 @inject IAuthenticationService _authenticationService
+@inject UserManager<IdentityUser> _userManager
+@inject IStateHasChangedNotifierService _notifier
 
 @code {
 
-    string? _user;
+    IdentityUser? _user;
     string? _email;
-    string GreetingMessage => $"Hi, {_user}";
+    string GreetingMessage => $"Hi, {_user?.UserName}";
     string GravatarEmail => _email ?? "user@example.com";
     
     async Task OnStyleChanged(string value) {
@@ -44,8 +46,12 @@
 
     protected override async Task OnInitializedAsync() {
         await base.OnInitializedAsync();
-        var state = await _authenticationStateProvider.GetAuthenticationStateAsync();
-        _user = state.User.Identity?.Name;
+        var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.Claims.SingleOrDefault(c => c.Type.Equals(ClaimTypes.NameIdentifier));
+        _user = await _userManager.FindByIdAsync(userId?.Value);
+        _notifier.Subscribe((_, _) => {
+            StateHasChanged();
+        });
     }
     
     private void Logout() {

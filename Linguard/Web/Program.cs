@@ -42,6 +42,7 @@ builder.Services.AddTransient<AbstractValidator<Client>, ClientValidator>();
 #region Web services
 
 builder.Services.AddSingleton<IWebService, WebService>();
+builder.Services.AddSingleton<IStateHasChangedNotifierService, StateHasChangedNotifierService>();
 builder.Services.AddTransient<IWebHelper, WebHelper>();
 builder.Services.AddTransient<QRCodeGenerator, QRCodeGenerator>();
 builder.Services.AddTransient<ILifetimeService, LifetimeService>();
@@ -61,7 +62,7 @@ builder.Services.AddScoped<ContextMenuService>();
 #region Authentication
 
 builder.Services.AddDbContext<ApplicationDbContext>();
-builder.Services.AddTransient<IdentityDbContext, ApplicationDbContext>();
+builder.Services.AddScoped<IdentityDbContext, ApplicationDbContext>();
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddIdentityCore<IdentityUser>(options => {
         options.SignIn.RequireConfirmedAccount = false;
@@ -69,6 +70,7 @@ builder.Services.AddIdentityCore<IdentityUser>(options => {
         options.Password.RequiredLength = 1;
         options.Password.RequireUppercase = false;
         options.Password.RequireNonAlphanumeric = false;
+        options.Password.RequireLowercase = false;
     })
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()

@@ -64,6 +64,7 @@ builder.Services.AddTransient<AbstractValidator<Client>, ClientValidator>();
 #region Web services
 
 builder.Services.AddSingleton<IWebService, WebService>();
+builder.Services.AddSingleton<IStateHasChangedNotifierService, StateHasChangedNotifierService>();
 builder.Services.AddTransient<IWebHelper, WebHelper>();
 builder.Services.AddTransient<QRCodeGenerator, QRCodeGenerator>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
