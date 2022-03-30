@@ -19,9 +19,9 @@ public class WireguardServiceMock : Mock<IWireguardService> {
         Setup(o => o.StopInterface(It.IsAny<Interface>()))
             .Callback<Interface>(systemWrapper.RemoveNetworkInterface);
         Setup(o => o.GeneratePrivateKey())
-            .Returns(faker.Lorem.Sentence());
+            .Returns(faker.Random.String2(20));
         Setup(o => o.GeneratePublicKey(It.IsAny<string>()))
-            .Returns(faker.Lorem.Sentence());
+            .Returns(faker.Random.String2(20));
         Setup(o => o.GetTrafficData(It.IsAny<Client>()))
             .Returns<Client>(client => new TrafficData {
                 Peer = client,

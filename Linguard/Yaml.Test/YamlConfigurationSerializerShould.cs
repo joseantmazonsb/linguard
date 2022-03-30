@@ -41,8 +41,7 @@ public class YamlConfigurationSerializerShould {
       PrimaryDns: ''
       SecondaryDns: ''
       Endpoint: vpn.example.com
-      Id: 00000000-0000-0000-0000-000000000000
-      PublicKey: 
+      PublicKey: 00000000-0000-0000-0000-000000000000
       PrivateKey: 
       IPv4Address: 1.1.1.2/30
       IPv6Address: ''
@@ -55,8 +54,7 @@ public class YamlConfigurationSerializerShould {
       PrimaryDns: ''
       SecondaryDns: ''
       Endpoint: 192.168.0.1
-      Id: 00000000-0000-0000-0000-000000000001
-      PublicKey: 
+      PublicKey: 00000000-0000-0000-0000-000000000001
       PrivateKey: 
       IPv4Address: 1.1.1.3/30
       IPv6Address: ''
@@ -67,8 +65,7 @@ public class YamlConfigurationSerializerShould {
       PrimaryDns: ''
       SecondaryDns: ''
       Endpoint: ''
-      Id: 00000000-0000-0000-0000-000000000002
-      PublicKey: 
+      PublicKey: 00000000-0000-0000-0000-000000000002
       PrivateKey: 
       IPv4Address: 1.1.1.4/30
       IPv6Address: ''
@@ -81,8 +78,7 @@ public class YamlConfigurationSerializerShould {
     PrimaryDns: ''
     SecondaryDns: ''
     Endpoint: ''
-    Id: 00000000-0000-0000-0000-000000000000
-    PublicKey: 
+    PublicKey: ifacePubkey
     PrivateKey: 
     IPv4Address: 1.1.1.1/24
     IPv6Address: ''
@@ -119,6 +115,7 @@ public class YamlConfigurationSerializerShould {
                 },
                 new WireguardConfiguration {
                     Interfaces = new HashSet<Interface> {new() {
+                        PublicKey = "ifacePubkey",
                         Name = "wg1",
                         IPv4Address = IPAddressCidr.Parse("1.1.1.1/24"),
                         Gateway = new NetworkInterfaceMock("eth0").Object,
@@ -130,7 +127,7 @@ public class YamlConfigurationSerializerShould {
                                 AllowedIPs = new HashSet<IPAddressCidr> {
                                     IPAddressCidr.Parse("1.1.1.0/24"), IPAddressCidr.Parse("1.1.2.0/24")
                                 },
-                                Id = Guid.Parse("00000000-0000-0000-0000-000000000000")
+                                PublicKey = "00000000-0000-0000-0000-000000000000"
                             },
                             new() {
                                 Endpoint = new Uri("192.168.0.1", UriKind.RelativeOrAbsolute),
@@ -139,12 +136,12 @@ public class YamlConfigurationSerializerShould {
                                 AllowedIPs = new HashSet<IPAddressCidr> {
                                     IPAddressCidr.Parse("1.1.1.0/24"), IPAddressCidr.Parse("1.1.2.0/24")
                                 },
-                                Id = Guid.Parse("00000000-0000-0000-0000-000000000001")
+                                PublicKey = "00000000-0000-0000-0000-000000000001"
                             },
                             new() {
                                 Name = "peer3",
                                 IPv4Address = IPAddressCidr.Parse("1.1.1.4/30"),
-                                Id = Guid.Parse("00000000-0000-0000-0000-000000000002")
+                                PublicKey = "00000000-0000-0000-0000-000000000002"
                             }
                         },
                         OnUp = new HashSet<Rule> {

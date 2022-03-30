@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using Bogus;
 using ByteSizeLib;
 using Core.Test.Mocks;
 using FluentAssertions;
@@ -22,6 +23,8 @@ public class JsonSerializerShould {
     private static readonly ITrafficStorageDriver TrafficStorageDriver 
         = new TrafficStorageDriver();
 
+    private Faker _faker = new();
+    
     private static IWireguardConfiguration WireguardConfiguration =>
         ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
 
@@ -34,18 +37,18 @@ public class JsonSerializerShould {
         ConfigurationManager.Configuration.GetModule<ITrafficConfiguration>()!.StorageDriver = TrafficStorageDriver;
         
         WireguardConfiguration.Interfaces.Add(new Interface {
-            Id = Guid.NewGuid(),
+            PublicKey = _faker.Random.String2(20),
             Clients = new HashSet<Client> {
                 new() {
-                    Id = Guid.NewGuid()
+                    PublicKey = _faker.Random.String2(20),
                 }
             }
         });
         WireguardConfiguration.Interfaces.Add(new Interface {
-            Id = Guid.NewGuid(),
+            PublicKey = _faker.Random.String2(20),
             Clients = new HashSet<Client> {
                 new() {
-                    Id = Guid.NewGuid()
+                    PublicKey = _faker.Random.String2(20),
                 }
             }
         });
@@ -54,7 +57,7 @@ public class JsonSerializerShould {
     private static string ToJson(ITrafficData data) {
         return
             "{" +
-            @$"""Peer"":""{data.Peer.Id}""," +
+            @$"""Peer"":""{data.Peer.PublicKey}""," +
             @$"""SentData"":{data.SentData.Bytes}," +
             @$"""ReceivedData"":{data.ReceivedData.Bytes}," + 
             @$"""TimeStamp"":""{data.TimeStamp.ToString(DateTimeFormat)}""" +

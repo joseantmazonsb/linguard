@@ -19,14 +19,6 @@ public class DefaultClientGenerator : IClientGenerator {
 
     public Client Generate(Interface iface) {
         return new Faker<Client>()
-            .RuleFor(c => c.Id, () => {
-                var clients = Configuration.Interfaces.SelectMany(i => i.Clients).ToList();
-                Guid id = default;
-                while (id == default || clients.Any(c => c.Id == id)) {
-                    id = Guid.NewGuid();
-                }
-                return id;
-            })
             .RuleFor(c => c.Nat, false)
             .RuleFor(c => c.Description, f => f.Lorem.Sentence())
             .RuleFor(c => c.Name, f => f.Person.FullName)

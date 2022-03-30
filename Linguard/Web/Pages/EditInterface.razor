@@ -1,4 +1,4 @@
-﻿@page "/interface/{id:guid}"
+﻿@page "/interface/{publicKey}"
 @using Linguard.Core.Utils.Extensions
 @using Linguard.Core.Managers
 @using Linguard.Core.Models.Wireguard
@@ -23,7 +23,7 @@
 @code {
     const string Title = "Interface";
     [Parameter]
-    public Guid Id { get; set; }
+    public string PublicKey { get; set; }
     
     IConfiguration Configuration => _configurationManager.Configuration;
     Interface? _iface;
@@ -118,16 +118,19 @@
 
     protected override void OnInitialized() {
         base.OnInitialized();
-        _iface = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.SingleOrDefault(i => i.Id == Id)?.Clone() as Interface;
+        _iface = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces
+            .SingleOrDefault(i => i.PublicKey == PublicKey)?.Clone() as Interface;
     }
 
     void Submit(Interface iface) {
         var result = _validator.Validate(iface);
         if (result.IsValid) {
-            var originalIface = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.SingleOrDefault(i => i.Id == Id);
-            Configuration.GetModule<IWireguardConfiguration>()!.Interfaces = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces
+            var originalIface = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces
+                .SingleOrDefault(i => i.PublicKey == PublicKey);
+            var interfaces = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces
                 .Replace(originalIface, iface)
                 .ToHashSet();
+            Configuration.GetModule<IWireguardConfiguration>()!.Interfaces = interfaces; 
             _configurationManager.Save();
             _notificationService.Notify(NotificationSeverity.Success, "Interface saved!");
             return;
@@ -151,6 +154,6 @@
 
     void AddClient() {
         _navigationManager.NavigateTo(
-            $"/{nameof(Interface)}/{_iface.Id}/add-{nameof(Client).ToLower()}");
+            $"/{nameof(Interface)}/{_iface.PublicKey}/add-{nameof(Client).ToLower()}");
     }
 }

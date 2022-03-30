@@ -106,9 +106,7 @@ public class WireguardConfigParser : IWireguardConfigParser {
     }
 
     private Interface ParseInterface(IEnumerable<string> lines) {
-        var iface = new Interface {
-            Id = Guid.NewGuid()
-        };
+        var iface = new Interface();
         const StringComparison stringComparison = StringComparison.OrdinalIgnoreCase;
         const StringSplitOptions splitOptions = StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries;
         WireguardSection section = default;
@@ -176,7 +174,6 @@ public class WireguardConfigParser : IWireguardConfigParser {
     
     private Client ParseClient(IEnumerable<string> lines) {
         var client = new Client {
-            Id = Guid.NewGuid(),
             Name = _faker.Person.FullName
         };
         Interface? iface = default;

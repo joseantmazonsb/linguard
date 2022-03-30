@@ -25,13 +25,6 @@ public class DefaultInterfaceGenerator : IInterfaceGenerator {
 
     public Interface Generate() {
         return new Faker<Interface>()
-            .RuleFor(i => i.Id, () => {
-                Guid id = default;
-                while (id == default || Configuration.Interfaces.Any(iface => iface.Id == id)) {
-                    id = Guid.NewGuid();
-                }
-                return id;
-            })
             .RuleFor(i => i.Auto, true)
             .RuleFor(i => i.Description, f => f.Lorem.Sentence())
             .RuleFor(i => i.Gateway, f => {

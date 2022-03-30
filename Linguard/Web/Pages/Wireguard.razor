@@ -102,7 +102,7 @@
         </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="Client" Title="Interface">
             <Template Context="data">
-                <a href="/interface/@(Configuration.GetModule<IWireguardConfiguration>()!.GetInterface(data)?.Id)">
+                <a href="/interface/@(Configuration.GetModule<IWireguardConfiguration>()!.GetInterface(data)?.PublicKey)">
                     @(Configuration.GetModule<IWireguardConfiguration>()!.GetInterface(data)?.Name)
                 </a>
             </Template>
@@ -190,7 +190,7 @@
 
     void EditWireguardPeer(IWireguardPeer peer) {
         var modelType = peer.GetType().Name.ToLower();
-        _navigationManager.NavigateTo($"{modelType}/{peer.Id}");
+        _navigationManager.NavigateTo($"{modelType}/{peer.PublicKey}");
     }
 
     private RadzenDropDown<string> _addClientInterfaces;
@@ -237,7 +237,7 @@
         var item = _addClientInterfaces.SelectedItem;
         if (item == default) return;
         var iface = _wireguardInterfaces.Single(i => i.Name.Equals(item));
-        _navigationManager.NavigateTo($"/{nameof(Interface).ToLower()}/{iface.Id}/add-{nameof(Client).ToLower()}");
+        _navigationManager.NavigateTo($"/{nameof(Interface).ToLower()}/{iface.PublicKey}/add-{nameof(Client).ToLower()}");
     }
     
     void AddInterface(RadzenSplitButtonItem? item) {

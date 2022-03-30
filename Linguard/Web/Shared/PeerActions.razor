@@ -139,7 +139,7 @@
     }
     
     void EditWireguardPeer(IWireguardPeer peer) {
-        _navigationManager.NavigateTo($"{peer.GetType().Name.ToLower()}/{peer.Id}");
+        _navigationManager.NavigateTo($"{peer.GetType().Name.ToLower()}/{peer.PublicKey}");
     }
 
 }

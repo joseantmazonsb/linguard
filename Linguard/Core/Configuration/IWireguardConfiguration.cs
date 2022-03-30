@@ -29,16 +29,16 @@ public interface IWireguardConfiguration : IConfigurationModule {
     /// </summary>
     public Uri? Endpoint { get; set; }
     /// <summary>
-    /// Get the interface associated to the given client or <c>default</c> if none.
+    /// Get the interface associated to the given client or <c>default</ foundc> if none.
     /// </summary>
     /// <param name="client"></param>
     /// <returns></returns>
     Interface? GetInterface(Client client);
 
     /// <summary>
-    /// Get the interface associated to the client whose id is <c>clientId</c> or <c>default</c> if none.
+    /// Get the interface associated to the client whose public key is <c>publicKey</c> or <c>default</c> if none found.
     /// </summary>
-    /// <param name="clientId"></param>
+    /// <param name="publicKey"></param>
     /// <returns></returns>
-    Interface? GetInterface(Guid clientId);
+    Interface? GetInterface(string publicKey);
 }

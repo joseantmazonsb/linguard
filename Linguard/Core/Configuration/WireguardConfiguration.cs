@@ -13,8 +13,8 @@ public class WireguardConfiguration : IWireguardConfiguration {
     public Interface? GetInterface(Client client) => Interfaces
         .SingleOrDefault(i => i.Clients.Contains(client));
 
-    public Interface? GetInterface(Guid clientId) => Interfaces
-        .SingleOrDefault(i => i.Clients.Any(c => c.Id == clientId));
+    public Interface? GetInterface(string publicKey) => Interfaces
+        .SingleOrDefault(i => i.Clients.Any(c => c.PublicKey == publicKey));
 
     public object Clone() {
         return MemberwiseClone();

@@ -141,7 +141,7 @@
                                 }
                                 <div class="col">
                                     @{var iface = Configuration.GetInterface(client);}
-                                    <a href="@($"{nameof(Interface).ToLower()}/{iface.Id}")">
+                                    <a href="@($"{nameof(Interface).ToLower()}/{iface.PublicKey}")">
                                         <RadzenIcon Icon="public" class="align-bottom"/>@iface?.Name
                                     </a>
                                     <RadzenIcon Icon="arrow_downward" class="align-bottom ms-1"/>
@@ -236,7 +236,7 @@
         var item = _addClientInterfaces.SelectedItem;
         if (item == default) return;
         var iface = Configuration.Interfaces.Single(i => i.Name.Equals(item));
-        _navigationManager.NavigateTo($"/{nameof(Interface).ToLower()}/{iface.Id}/add-{nameof(Client).ToLower()}");
+        _navigationManager.NavigateTo($"/{nameof(Interface).ToLower()}/{iface.PublicKey}/add-{nameof(Client).ToLower()}");
     }
     
     /*private IEnumerable<TrafficData> GetRealTimeTraffic() {

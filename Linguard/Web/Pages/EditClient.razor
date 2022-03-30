@@ -1,4 +1,4 @@
-﻿@page "/client/{id:guid}"
+﻿@page "/client/{publicKey}"
 @using Linguard.Core.Utils.Extensions
 @using Linguard.Core.Managers
 @using Linguard.Core.Models.Wireguard
@@ -50,7 +50,7 @@
 
     const string Title = "Client";
     [Parameter]
-    public Guid Id { get; set; }
+    public string PublicKey { get; set; }
     
     IConfiguration Configuration => _configurationManager.Configuration;
     Client? _client;
@@ -58,15 +58,15 @@
     
     protected override void OnInitialized() {
         base.OnInitialized();
-        _interface = Configuration.GetModule<IWireguardConfiguration>()!.GetInterface(Id);
+        _interface = Configuration.GetModule<IWireguardConfiguration>()!.GetInterface(PublicKey);
         if (_interface == default) return;
-        _client = _interface.Clients.SingleOrDefault(c => c.Id == Id);
+        _client = _interface.Clients.SingleOrDefault(c => c.PublicKey == PublicKey);
     }
 
     private void Submit(Client client) {
         var result = _validator.Validate(client);
         if (result.IsValid) {
-            var originalClient = _interface!.Clients.SingleOrDefault(c => c.Id == Id);
+            var originalClient = _interface!.Clients.SingleOrDefault(c => c.PublicKey == PublicKey);
             _interface.Clients = _interface.Clients.Replace(originalClient, client).ToHashSet();
             _configurationManager.Save();
             _notificationService.Notify(NotificationSeverity.Success, "Client saved!");

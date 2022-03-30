@@ -41,9 +41,9 @@ public sealed class DefaultConfiguration : Mock<IConfiguration> {
             .Returns<Client>(c => 
                 interfaces.SingleOrDefault(i => i.Clients.Contains(c))
             );
-        wireguardConfiguration.Setup(o => o.GetInterface(It.IsAny<Guid>()))
-            .Returns<Guid>(id => 
-                interfaces.SingleOrDefault(i => i.Clients.Any(c => c.Id == id))
+        wireguardConfiguration.Setup(o => o.GetInterface(It.IsAny<string>()))
+            .Returns<string>(pubkey => 
+                interfaces.SingleOrDefault(i => i.Clients.Any(c => c.PublicKey == pubkey))
             );
         return wireguardConfiguration;
     }

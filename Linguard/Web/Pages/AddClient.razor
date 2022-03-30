@@ -1,4 +1,4 @@
-﻿@page "/interface/{interfaceId:guid}/add-client"
+﻿@page "/interface/{interfacePublicKey}/add-client"
 @using Linguard.Core.Managers
 @using Linguard.Core.Models.Wireguard
 @using Linguard.Core.Services
@@ -39,7 +39,7 @@
     const string Title = "Add client";
     
     [Parameter]
-    public Guid InterfaceId { get; set; }
+    public string InterfacePublicKey { get; set; }
     
     IConfiguration Configuration => _configurationManager.Configuration;
     private Interface? Interface { get; set; }
@@ -47,7 +47,7 @@
     
     protected override void OnInitialized() {
         Interface = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces
-            .SingleOrDefault(i => i.Id.Equals(InterfaceId));
+            .SingleOrDefault(i => i.PublicKey.Equals(InterfacePublicKey));
         if (Interface == default) return;
         Client = _generator.Generate(Interface);
     }

@@ -46,7 +46,7 @@ public class LifetimeService : ILifetimeService {
         LoadPlugins();
         LoadConfiguration();
         StartInterfaces();
-        _logger.LogInformation($"{AssemblyInfo.Product} is ready.");
+        _logger.LogInformation($"{AssemblyInfo.Product} v{AssemblyInfo.Version.ProductVersion} is ready.");
     }
 
     public Task OnAppStopping() {

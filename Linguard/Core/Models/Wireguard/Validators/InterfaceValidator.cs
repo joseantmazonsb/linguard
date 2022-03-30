@@ -105,7 +105,7 @@ public class InterfaceValidator : AbstractValidator<Interface> {
                                  $"{Validation.CharactersAllowedForInterfaceName}.");
                 RuleFor(i => i.Name)
                     .Must((iface, name) => !configuration.Interfaces
-                        .Where(i => i.Id != iface.Id)
+                        .Where(i => i.PublicKey != iface.PublicKey)
                         .Select(i => i.Name).Contains(name))
                     .WithMessage($"{Validation.InterfaceNameAlreadyInUse}.");
             });

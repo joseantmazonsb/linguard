@@ -13,13 +13,13 @@ public class WireguardPeerConverter : JsonConverter<IWireguardPeer> {
     }
 
     public override IWireguardPeer? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
-        var id = reader.GetGuid();
-        var peer = _configuration.GetInterface(id) 
-                   ?? _configuration.Interfaces.SingleOrDefault(p => p.Id.Equals(id));
+        var publicKey = reader.GetString();
+        var peer = _configuration.GetInterface(publicKey) 
+                   ?? _configuration.Interfaces.SingleOrDefault(p => p.PublicKey.Equals(publicKey));
         return peer;
     }
 
     public override void Write(Utf8JsonWriter writer, IWireguardPeer value, JsonSerializerOptions options) {
-        writer.WriteStringValue(value.Id.ToString());
+        writer.WriteStringValue(value.PublicKey);
     }
 }

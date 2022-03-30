@@ -96,7 +96,7 @@ public class ClientValidator : AbstractValidator<Client> {
                 RuleFor(c => c.Name)
                     .Must((client, name) => !configuration.Interfaces
                         .SelectMany(i => i.Clients)
-                        .Where(c => c.Id != client.Id)
+                        .Where(c => c.PublicKey != client.PublicKey)
                         .Select(c => c.Name).Contains(name))
                     .WithMessage($"{Validation.ClientNameAlreadyInUse}.");
             });

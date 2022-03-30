@@ -3,7 +3,6 @@
 namespace Linguard.Core.Models.Wireguard; 
 
 public abstract class WireguardPeerBase : IWireguardPeer {
-    public Guid Id { get; set; }
     public string PublicKey { get; set; }
     public string PrivateKey { get; set; }
 
@@ -34,7 +33,7 @@ public abstract class WireguardPeerBase : IWireguardPeer {
     public abstract string Brief();
     
     protected bool Equals(WireguardPeerBase other) {
-        return Id == other.Id;
+        return PublicKey == other.PublicKey;
     }
 
     public override bool Equals(object? obj) {
@@ -44,6 +43,6 @@ public abstract class WireguardPeerBase : IWireguardPeer {
     }
 
     public override int GetHashCode() {
-        return Id.GetHashCode();
+        return PublicKey.GetHashCode();
     }
 }

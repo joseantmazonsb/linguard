@@ -20,15 +20,15 @@ public class WireguardDumpParserShould {
     
     public WireguardDumpParserShould() {
         var iface = new Interface {
+            PublicKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE=",
+            PrivateKey = "/TOE4TKtAqVsePRVR+5AA43HkAK5DSntkOCO7nYq5xU=",
             Name = "wg1",
             Clients = new HashSet<Client> {
                 new() {
-                    Id = Guid.Parse("00000000-0000-0000-0000-000000000001"),
                     PublicKey = "fE/wdxzl0klVp/IR8UcaoGUMjqaWi3jAd7KzHKFS6Ds=",
                     AllowedIPs = new HashSet<IPAddressCidr>()
                 },
                 new() {
-                    Id = Guid.Parse("00000000-0000-0000-0000-000000000002"),
                     PublicKey = "jUd41n3XYa3yXBzyBvWqlLhYgRef5RiBD7jwo70U+Rw=",
                     AllowedIPs = new HashSet<IPAddressCidr>()
                 }
