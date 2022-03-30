@@ -3,6 +3,7 @@
 @using Linguard.Web.Configuration
 @using Linguard.Web.Helpers
 @using Linguard.Core.Configuration
+@using Linguard.Core.Services
 
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
 
@@ -18,8 +19,9 @@
                 <RadzenTabsItem Text="Wireguard">
                     <WireguardSettings Configuration="@(_configuration.GetModule<IWireguardConfiguration>())"/>
                 </RadzenTabsItem>
-                @*TODO<RadzenTabsItem Text="Traffic">
-                </RadzenTabsItem>*@
+                <RadzenTabsItem Text="Traffic">
+                    <TrafficSettings Configuration="@(_configuration.GetModule<ITrafficConfiguration>())"/>
+                </RadzenTabsItem>
                 <RadzenTabsItem Text="Logging">
                     <LoggingSettings Configuration="@(_configuration.GetModule<ILoggingConfiguration>())"/>
                 </RadzenTabsItem>
@@ -41,6 +43,7 @@
 @inject NotificationService _notificationService
 @inject IWebHelper _webHelper
 @inject ILogger _logger
+@inject ITrafficStorageService _storageService
 
 @code {
     const string Title = "Settings";
@@ -54,6 +57,7 @@
         try {
             _configurationManager.Configuration = (IConfiguration)configuration.Clone();
             _configurationManager.Save();
+            ApplyTrafficStorageDriverConfiguration();
             _notificationService.Notify(new NotificationMessage {
                 Severity = NotificationSeverity.Success,
                 Summary = "Configuration saved!",
@@ -66,5 +70,9 @@
                 Detail = e.Message
             });
         }
+    }
+
+    private void ApplyTrafficStorageDriverConfiguration() {
+        _storageService.RefreshConfiguration();
     }
 }

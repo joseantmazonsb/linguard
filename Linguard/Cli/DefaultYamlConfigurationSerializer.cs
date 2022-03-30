@@ -3,6 +3,7 @@ using Linguard.Core.Configuration;
 using Linguard.Core.Configuration.Serialization;
 using Linguard.Core.Drivers.TrafficStorage;
 using Linguard.Core.Models.Wireguard;
+using Linguard.Json;
 using Linguard.Yaml.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 using UriTypeConverter = Linguard.Yaml.Serialization.UriTypeConverter;
@@ -20,7 +21,7 @@ public static class DefaultYamlConfigurationSerializer {
         .WithTypeMapping<IWireguardConfiguration, WireguardConfiguration>()
         .WithTypeMapping<ILoggingConfiguration, LoggingConfiguration>()
         .WithTypeMapping<ITrafficConfiguration, TrafficConfiguration>()
-        .WithTypeMapping<ITrafficStorageDriver, JsonTrafficStorageDriver>()
+        .WithTypeMapping<ITrafficStorageDriver, TrafficStorageDriver>()
         .WithTypeMapping<ISet<Interface>, HashSet<Interface>>()
         .WithTypeMapping<ISet<Client>, HashSet<Client>>()
         .WithTypeMapping<ISet<IPAddressCidr>, HashSet<IPAddressCidr>>()

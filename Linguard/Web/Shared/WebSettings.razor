@@ -5,7 +5,7 @@
 
 <!-- Default endpoint and dns -->
 <div class="row mb-2">
-    <div class="col-xxl">
+    <div class="col-3 col-xxl-2">
         <div class="row">
             <div class="col">
                 <RadzenLabel class="mb-2" Text="Maximum login attempts"/>
@@ -18,17 +18,18 @@
             </div>
         </div>
     </div>
-    <div class="col-xxl">
+    <div class="col-3 col-xxl-2">
         <div class="row">
             <div class="col">
                 <RadzenLabel class="mb-2" Text="Login ban time"/>
             </div>
         </div>
         <div class="row">
-            <div class="col">
+            <div class="col d-flex">
                 <RadzenNumeric TValue="int" Min="1" Placeholder="60" Trim="true" class="w-100"
                                Value="@((int) Configuration.LoginBanTime.TotalSeconds)" 
                                ValueChanged="i => Configuration.LoginBanTime = TimeSpan.FromSeconds(i)"/>
+                <em class="ms-2 align-self-center">seconds</em>
             </div>
         </div>
     </div>

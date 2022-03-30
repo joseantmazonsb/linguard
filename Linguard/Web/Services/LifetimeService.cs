@@ -38,15 +38,30 @@ public class LifetimeService : ILifetimeService {
         _scope = scopeFactory.CreateScope();
     }
 
-    public void OnAppStarted() {
+    public async Task OnAppStarted() {
         _logger.LogInformation("Booting up...");
         _configurationManager.WorkingDirectory.BaseDirectory = GetWorkingDirectory();
+        //await Task.WhenAll(new Task(InitializeDatabases), new Task(LoadPlugins));
         InitializeDatabases();
+        LoadPlugins();
         LoadConfiguration();
         StartInterfaces();
         _logger.LogInformation($"{AssemblyInfo.Product} is ready.");
     }
 
+    public Task OnAppStopping() {
+        _logger.LogInformation("Shutting down...");
+        StopInterfaces();
+        return Task.CompletedTask;
+    }
+    
+    public Task OnAppStopped() {
+        _logger.LogInformation("Shutdown completed.");
+        return Task.CompletedTask;
+    }
+    
+    #region Auxiliary methods
+    
     private void InitializeDatabases() {
         _logger.LogInformation("Initializing databases...");
         var context = _scope.ServiceProvider.GetService<IdentityDbContext>();
@@ -54,16 +69,12 @@ public class LifetimeService : ILifetimeService {
         _logger.LogInformation("Databases initialized.");
     }
 
-    public void OnAppStopping() {
-        _logger.LogInformation("Shutting down...");
-        StopInterfaces();
+    private void LoadPlugins() {
+        _logger.LogInformation("Loading plugins...");
+        var plugins = _configurationManager.PluginEngine
+            .LoadPlugins(_configurationManager.WorkingDirectory.PluginsDirectory, _configurationManager);
+        _logger.LogInformation($"{plugins} plugins were loaded.");
     }
-    
-    public void OnAppStopped() {
-        _logger.LogInformation("Shutdown completed.");
-    }
-    
-    #region Auxiliary methods
     
     private void LoadConfiguration() {
         try {

@@ -22,6 +22,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Web.Test", "Web.Test\Web.Te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Yaml.Test", "Yaml.Test\Yaml.Test.csproj", "{071598D1-9366-4CEE-B0BC-E7CAB4A1FA17}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Json", "Json\Json.csproj", "{B72039ED-CCF6-42B9-9801-F3CE5AED64F6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Json.Test", "Json.Test\Json.Test.csproj", "{AD5EE406-8C91-4594-B71B-8D62FC5D62ED}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -72,5 +76,13 @@ Global
 		{071598D1-9366-4CEE-B0BC-E7CAB4A1FA17}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{071598D1-9366-4CEE-B0BC-E7CAB4A1FA17}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{071598D1-9366-4CEE-B0BC-E7CAB4A1FA17}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B72039ED-CCF6-42B9-9801-F3CE5AED64F6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B72039ED-CCF6-42B9-9801-F3CE5AED64F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B72039ED-CCF6-42B9-9801-F3CE5AED64F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B72039ED-CCF6-42B9-9801-F3CE5AED64F6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD5EE406-8C91-4594-B71B-8D62FC5D62ED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD5EE406-8C91-4594-B71B-8D62FC5D62ED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD5EE406-8C91-4594-B71B-8D62FC5D62ED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD5EE406-8C91-4594-B71B-8D62FC5D62ED}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -3,6 +3,6 @@
 namespace Linguard.Core.Configuration; 
 
 public interface ITrafficConfiguration : IConfigurationModule {
-    public bool Enabled { get; set; }
-    public ITrafficStorageDriver StorageDriver { get; set; }
+    bool Enabled { get; set; }
+    ITrafficStorageDriver StorageDriver { get; set; }
 }

@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using Core.Test.Mocks;
+using Core.Test.Stubs;
 using FluentAssertions;
 using Linguard.Core;
 using Linguard.Core.Configuration;
-using Linguard.Core.Drivers.TrafficStorage;
 using Linguard.Core.Models.Wireguard;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -23,7 +23,11 @@ public class YamlConfigurationSerializerShould {
 - !Traffic
   Enabled: false
   StorageDriver:
-    TimestampFormat: aaa
+    Name: Stub driver
+    Description: This is a stub driver
+    CollectionInterval: 01:00:00
+    AdditionalOptions:
+      Fake: Option
 - !Wireguard
   Interfaces:
   - Gateway: eth0
@@ -70,7 +74,9 @@ public class YamlConfigurationSerializerShould {
       IPv6Address: ''
       Name: peer3
       Description: 
-    OnUp: 
+    OnUp:
+    - iptables fake rule 1
+    - iptables fake rule 2
     OnDown: 
     PrimaryDns: ''
     SecondaryDns: ''
@@ -109,9 +115,7 @@ public class YamlConfigurationSerializerShould {
                 },
                 new TrafficConfiguration {
                     Enabled = false,
-                    StorageDriver = new JsonTrafficStorageDriver {
-                        TimestampFormat = "aaa"
-                    }
+                    StorageDriver = new TrafficStorageDriverStub()
                 },
                 new WireguardConfiguration {
                     Interfaces = new HashSet<Interface> {new() {
@@ -142,6 +146,9 @@ public class YamlConfigurationSerializerShould {
                                 IPv4Address = IPAddressCidr.Parse("1.1.1.4/30"),
                                 Id = Guid.Parse("00000000-0000-0000-0000-000000000002")
                             }
+                        },
+                        OnUp = new HashSet<Rule> {
+                            "iptables fake rule 1", "iptables fake rule 2"
                         }
                     }},
                     IptablesBin = "iptables",

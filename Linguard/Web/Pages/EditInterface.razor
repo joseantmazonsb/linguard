@@ -54,7 +54,7 @@
 <RadzenAccordion Multiple="true">
     <Items>
         <RadzenAccordionItem Text="Actions" Icon="construction">
-            <PeerActions Peer="_iface" class="my-2 d-flex"
+            <PeerActions Peer="_iface" class="my-2 d-flex" ReloadPageAfterInterfaceStatusChanged="true"
                          AfterDelete="@(() => _navigationManager.NavigateTo("wireguard"))"/>
         </RadzenAccordionItem>
         <RadzenAccordionItem Selected="true" Text="Configuration" Icon="settings">
@@ -106,7 +106,7 @@
             </RadzenCard>
         </RadzenAccordionItem>
         <RadzenAccordionItem Text="Traffic data" Icon="swap_vert">
-            <RealTimeTraffic Peer="_iface"/>
+            <TrafficInformation Peer="_iface"/>
         </RadzenAccordionItem>
     </Items>
 </RadzenAccordion>

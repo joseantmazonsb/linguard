@@ -6,7 +6,6 @@ using Linguard.Core.Models.Wireguard;
 namespace Linguard.Core.Utils.Wireguard; 
 
 public static class WireguardDumpParser {
-
     /// <summary>
     /// Get traffic data for the specified interface and all its clients from a Wireguard dump string.
     /// </summary>
@@ -16,6 +15,7 @@ public static class WireguardDumpParser {
     public static IReadOnlySet<TrafficData> GetTrafficData(string data, Interface iface) {
         var trafficData = new HashSet<TrafficData>();
         const StringSplitOptions trimOptions = StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries;
+        var timeStamp = DateTime.Now;
         var lines = data
             .Split(Environment.NewLine, trimOptions)
             .Select(l => Regex.Replace(l, @"\s+", " "));
@@ -32,7 +32,8 @@ public static class WireguardDumpParser {
                 continue;
             }
             var entry = new TrafficData {
-                Peer = client
+                Peer = client,
+                TimeStamp = timeStamp
             };
             try {
                 entry.ReceivedData = ByteSize.FromBytes(long.Parse(split[6]));

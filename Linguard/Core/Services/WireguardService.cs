@@ -99,8 +99,8 @@ public class WireguardService : IWireguardService {
         var rawData = _systemWrapper
             .RunCommand($"{Configuration.WireguardBin} show {iface.Name} dump")
             .Stdout;
-        return string.IsNullOrEmpty(rawData) 
-            ? Enumerable.Empty<TrafficData>() 
+        return string.IsNullOrEmpty(rawData)
+            ? Enumerable.Empty<TrafficData>()
             : WireguardDumpParser.GetTrafficData(rawData, iface);
     }
 }

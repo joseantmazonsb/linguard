@@ -4,6 +4,7 @@ using Linguard.Web.Configuration;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Models.Wireguard.Validators;
 using Linguard.Core.OS;
+using Linguard.Core.Plugins;
 using Linguard.Core.Services;
 using Linguard.Log;
 using Linguard.Web.Auth;
@@ -27,10 +28,9 @@ builder.Services.AddServerSideBlazor();
 builder.Services.AddSingleton<IConfigurationManager, WebConfigurationManager>();
 builder.Services.AddSingleton<Linguard.Core.Managers.IConfigurationManager>(provider 
     => provider.GetRequiredService<IConfigurationManager>());
-
+builder.Services.AddTransient<IPluginEngine, PluginEngine>();
 builder.Services.AddTransient<Linguard.Core.Configuration.IConfiguration, ConfigurationBase>();
 builder.Services.AddTransient<IWorkingDirectory, WorkingDirectory>();
-builder.Services.AddSingleton(DefaultYamlConfigurationSerializer.Instance);
 builder.Services.AddTransient<ISystemWrapper, SystemWrapper>();
 builder.Services.AddTransient<IWireguardService, WireguardService>();
 builder.Services.AddTransient<IInterfaceGenerator, DefaultInterfaceGenerator>();
@@ -42,6 +42,7 @@ builder.Services.AddTransient<AbstractValidator<Client>, ClientValidator>();
 #region Web services
 
 builder.Services.AddSingleton<IWebService, WebService>();
+builder.Services.AddSingleton<ITrafficStorageService, TrafficStorageService>();
 builder.Services.AddSingleton<IStateHasChangedNotifierService, StateHasChangedNotifierService>();
 builder.Services.AddTransient<IWebHelper, WebHelper>();
 builder.Services.AddTransient<QRCodeGenerator, QRCodeGenerator>();

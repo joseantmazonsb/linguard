@@ -22,6 +22,10 @@
             <WireguardSettings Configuration="@(_configuration.GetModule<IWireguardConfiguration>())"/>
         </RadzenCard>
         <RadzenCard class="mt-2">
+            <h2>Traffic</h2>
+            <TrafficSettings Configuration="@(_configuration.GetModule<ITrafficConfiguration>())"/>
+        </RadzenCard>
+        <RadzenCard class="mt-2">
             <h2>Logging</h2>
             <LoggingSettings Configuration="@(_configuration.GetModule<ILoggingConfiguration>())"/>
         </RadzenCard>
@@ -52,7 +56,7 @@
     private void Save(IConfiguration configuration) {
         try {
             _logger.LogDebug("Saving configuration...");
-            _configurationManager.Configuration = (IConfiguration)configuration.Clone();
+            _configurationManager.Configuration = configuration;
             _configurationManager.Save();
             _webService.IsSetupNeeded = false;
             _logger.LogInformation("Setup completed. Redirecting...");

@@ -1,0 +1,221 @@
+﻿@using Linguard.Core.Configuration
+@using Linguard.Core.Drivers.TrafficStorage
+@using Linguard.Web.Configuration
+@using Microsoft.AspNetCore.Components
+@namespace Linguard.Web.Shared
+
+<div class="row mt-2">
+    <div class="col-xxl">
+        <div class="row mb-2">
+            <div class="col">
+                <p>Collect data</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col d-flex">
+                <RadzenSwitch @bind-Value="@Configuration.Enabled" Disabled="@(Configuration.StorageDriver == default)"/>
+            </div>
+        </div>
+    </div>
+</div>
+@if (Configuration.StorageDriver == default) {
+    <em class="mt-2">There are no traffic drivers currently available.</em>
+    return;   
+}
+
+<div class="row mt-3">
+    <div class="col-9 col-md-6 col-lg-3 col-xl-2 col-xxl-1 d-flex">
+        <em class="me-2 align-self-center">Every</em>
+        <RadzenNumeric TValue="int" Min="1" Placeholder="60" Trim="true"
+                       Value="@((int)Configuration.StorageDriver.CollectionInterval.TotalMinutes)"
+                       ValueChanged="i => Configuration.StorageDriver.CollectionInterval = TimeSpan.FromMinutes(i)"/>
+        <em class="ms-2 align-self-center">minutes</em>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-3 col-xxl-2">
+        <div class="row mb-2">
+            <div class="col">
+                <RadzenLabel Text="Driver"/>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <RadzenDropDown TValue="string" AllowClear="false" Placeholder="Select a traffic driver"
+                                Data="@(_configurationManager.PluginEngine.Plugins
+                                          .Where(p => p is ITrafficStorageDriver)
+                                          .Select(d => d.Name))"
+                                Value="@Configuration.StorageDriver.Name"
+                                ValueChanged="OnChangedTrafficDriver"
+                />
+            </div>
+        </div>
+    </div>
+    <em class="my-1">@Configuration.StorageDriver.Description</em>
+</div>
+
+<div class="row mt-2">
+    <div class="col-xxl">
+        <div class="row mb-2">
+            <div class="col">
+                <p>Additional options</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col col-xl-3 col-xxl-2">
+                <RadzenButton Icon="add" Text="Add option"
+                              style="margin-bottom: 10px"
+                              ButtonStyle="ButtonStyle.Secondary"
+                              Click="InsertRow"/>
+                <RadzenDataGrid @ref="_optionsGrid" AllowColumnResize="true" AllowFiltering="true" AllowPaging="true"
+                                AllowSorting="true" EditMode="DataGridEditMode.Single"
+                                Data="_additionalOptions"
+                                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                RowCreate="OnRowCreate" RowUpdate="OnRowUpdate"
+                                TItem="Option">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="Option" Property="Name" Title="Name">
+                            <EditTemplate Context="data">
+                                <RadzenTextBox @bind-Value="@data.Name" class="w-100"/>
+                            </EditTemplate>
+                            <FooterTemplate>
+                                Total: <b>@_additionalOptions.Count</b>
+                            </FooterTemplate>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="Option" Property="Value" Title="Value">
+                            <EditTemplate Context="data">
+                                <RadzenTextBox @bind-Value="@data.Value" class="w-100"/>
+                            </EditTemplate>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="Option" Title="Actions" Resizable="false"
+                                              Filterable="false" Sortable="false" Width="120px">
+                            <Template Context="data">
+                                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" title="Edit"
+                                              Click="_ => EditRow(data)"/>
+                                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Light" title="Delete"
+                                              Click="_ => DeleteRow(data)"/>
+                            </Template>
+                            <EditTemplate Context="data">
+                                <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Success" Class="m-1"
+                                              Click="_ => SaveRow(data)"/>
+                                <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Light" Class="m-1"
+                                              Click="_ => CancelEditRow(data)"/>
+                            </EditTemplate>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            </div>
+        </div>
+    </div>
+</div>
+
+@inject IConfigurationManager _configurationManager
+@inject NotificationService _notificationService
+
+@code {
+    private RadzenDropDown<string> _trafficDriverDropDown;
+
+    record Option {
+        public string Name { get; set; }
+        public string Value { get; set; }
+
+        public virtual bool Equals(Option? other) {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return Name == other.Name;
+        }
+
+        public override int GetHashCode() {
+            return Name.GetHashCode();
+        }
+    }
+    
+    [Parameter]
+    public ITrafficConfiguration Configuration { get; set; }
+
+    private ITrafficStorageDriver? _storageDriver;
+
+    private ISet<Option> _additionalOptions;
+
+    protected override void OnInitialized() {
+        base.OnInitialized();
+        if (Configuration.StorageDriver != default) {
+            _additionalOptions = GetAdditionalOptions().ToHashSet();
+            return;
+        }
+        Configuration.StorageDriver = (_configurationManager.PluginEngine.Plugins
+            .FirstOrDefault(p => p is ITrafficStorageDriver) as ITrafficStorageDriver)!;
+        _additionalOptions = GetAdditionalOptions().ToHashSet();
+    }
+
+    private IEnumerable<Option> GetAdditionalOptions() {
+        return Configuration.StorageDriver.AdditionalOptions.Select(p => new Option {
+            Name = p.Key,
+            Value = p.Value
+        });
+    } 
+
+    private RadzenDataGrid<Option> _optionsGrid;
+
+    Option _editingRow;
+    
+    private void EditRow(Option value) {
+        _editingRow = new Option {
+            Name = value.Name,
+            Value = value.Value
+        };
+        _optionsGrid.EditRow(value);
+    }
+    
+    private void DeleteRow(Option value) {
+        _additionalOptions.Remove(value);
+        Configuration.StorageDriver.AdditionalOptions.Remove(value.Name);
+        _optionsGrid.Reload();
+    }
+
+    private void SaveRow(Option value) {
+        _optionsGrid.UpdateRow(value);
+    }
+
+    private void CancelEditRow(Option value) {
+        value = _editingRow;
+        _optionsGrid.CancelEditRow(value);
+    }
+
+    private void OnRowCreate(Option value) {
+        if (!Configuration.StorageDriver.AdditionalOptions.TryAdd(value.Name, value.Value)) {
+            _notificationService.Notify(NotificationSeverity.Error, 
+                $"There is already an option named {value.Name}!");
+            return;
+        }
+        _additionalOptions.Add(value);
+    }
+
+    private async Task InsertRow() {
+        var tries = 1;
+        var option = new Option {
+            Name = "option",
+            Value = "value"
+        };
+        while (_additionalOptions.Contains(option)) {
+            option.Name = $"option{++tries}";
+        }
+        await _optionsGrid.InsertRow(option);
+    }
+
+    private void OnRowUpdate(Option value) {
+        _additionalOptions.Remove(_editingRow);
+        _additionalOptions.Add(value);
+        Configuration.StorageDriver.AdditionalOptions.Remove(_editingRow.Name);
+        Configuration.StorageDriver.AdditionalOptions.TryAdd(value.Name, value.Value);
+    }
+
+    private void OnChangedTrafficDriver(string s) {
+        Configuration.StorageDriver = _configurationManager.PluginEngine.Plugins
+            .OfType<ITrafficStorageDriver>()
+            .SingleOrDefault(d => d.Name.Equals(s))!;
+        StateHasChanged();
+    }
+
+}

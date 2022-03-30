@@ -48,7 +48,8 @@ public class WireguardDumpParserShould {
 wg1     fE/wdxzl0klVp/IR8UcaoGUMjqaWi3jAd7KzHKFS6Ds=    (none)  (none)  (none)  0       0       0       off
 wg1     jUd41n3XYa3yXBzyBvWqlLhYgRef5RiBD7jwo70U+Rw=    (none)  (none)  10.7.1.0/24     0       0       0       off";
         
-        var data = WireguardDumpParser.GetTrafficData(sampleData, Configuration.Interfaces.First());
+        var data = 
+            WireguardDumpParser.GetTrafficData(sampleData, Configuration.Interfaces.First());
         data.Should().HaveCount(3);
         var clients = data.Where(e => e.Peer is Client);
         clients.Should().HaveCount(2);
@@ -71,7 +72,8 @@ wg1     jUd41n3XYa3yXBzyBvWqlLhYgRef5RiBD7jwo70U+Rw=    (none)  (none)  10.7.1.0
 wg1	fE/wdxzl0klVp/IR8UcaoGUMjqaWi3jAd7KzHKFS6Ds=	(none)	172.19.0.8:51822	10.0.0.2/32	1617235493	3481633	33460136	off
 wg1	jUd41n3XYa3yXBzyBvWqlLhYgRef5RiBD7jwo70U+Rw=	(none)	172.19.0.7:51823	10.0.0.3/32	1609974495	1403752	19462368	off";
         
-        var data = WireguardDumpParser.GetTrafficData(sampleData, Configuration.Interfaces.First());
+        var data = 
+            WireguardDumpParser.GetTrafficData(sampleData, Configuration.Interfaces.First());
         data.Should().HaveCount(3);
         var clients = data.Where(e => e.Peer is Client);
         clients.Should().HaveCount(2);

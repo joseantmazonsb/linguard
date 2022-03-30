@@ -38,13 +38,45 @@
                 return;
             }
             <!-- TODO -->
-            <p>There is no data yet.</p>
+            <RadzenChart>
+                <RadzenAreaSeries Smooth="true" CategoryProperty="DateTime" Title="Transmitted" 
+                                  ValueProperty="Value.Bytes" RenderingOrder="1"
+                                  Data="@(_historyTraffic
+                                            .Select(t => new ChartTrafficData {
+                                                Key = "Transmitted", Value = t.SentData, DateTime = t.TimeStamp
+                                            }))">
+                    <TooltipTemplate Context="data">
+                        <strong>@($"{data.Key}: {data.Value.Format()}")</strong>
+                        <br/>
+                        <em>@($"{data.DateTime:G}")</em>
+                    </TooltipTemplate>
+                </RadzenAreaSeries>
+                <RadzenAreaSeries Smooth="true" CategoryProperty="DateTime" Title="Received"
+                                  ValueProperty="Value.Bytes" RenderingOrder="1"
+                                  Data="@(_historyTraffic
+                                            .Select(t => new ChartTrafficData {
+                                                Key = "Received", Value = t.ReceivedData, DateTime = t.TimeStamp 
+                                            }))">
+                    <TooltipTemplate Context="data">
+                        <strong>@($"{data.Key}: {data.Value.Format()}")</strong>
+                        <br/>
+                        <em>@($"{data.DateTime:G}")</em>
+                    </TooltipTemplate>
+                </RadzenAreaSeries>
+                <RadzenCategoryAxis Padding="20" FormatString="{0:MMM}" />
+                @*<RadzenValueAxis Formatter="@FormatAsUSD">
+                    <RadzenGridLines Visible="true" />
+                    <RadzenAxisTitle Text="Revenue in USD" />
+                </RadzenValueAxis>*@
+            </RadzenChart>
+            @*<p>There is no data yet.</p>*@
         </RadzenCard>
     </div>
 </div>
 
 @inject IConfigurationManager _configurationManager
 @inject IWireguardService _wireguardService
+@inject ITrafficStorageService _storageService
 
 @code {
     IConfiguration Configuration => _configurationManager.Configuration;
@@ -52,7 +84,8 @@
     [Parameter]
     public IWireguardPeer Peer { get; set; }
 
-    TrafficData? _realTimeTraffic;
+    ITrafficData? _realTimeTraffic;
+    IEnumerable<ITrafficData> _historyTraffic;
 
     IEnumerable<ChartTrafficData> _realTimeChartData => new List<ChartTrafficData> {
         new() {
@@ -68,6 +101,8 @@
     protected override void OnInitialized() {
         base.OnInitialized();
         _realTimeTraffic = GetRealTimeTraffic();
+        _historyTraffic = _storageService.LoadData()
+            .Where(d => d.Peer.Equals(Peer));
     }
 
     private TrafficData? GetRealTimeTraffic() {

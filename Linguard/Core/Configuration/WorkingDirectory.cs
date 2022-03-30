@@ -15,4 +15,5 @@ public sealed class WorkingDirectory : IWorkingDirectory {
             WireguardConfigurationFileExtension));
 
     public string CredentialsPath => Path.Combine(BaseDirectory.FullName, $"{AssemblyInfo.Product.ToLower()}.db");
+    public DirectoryInfo PluginsDirectory => new(Path.Combine(BaseDirectory.FullName, "plugins"));
 }

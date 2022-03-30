@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Core.Test.Stubs;
 using Linguard.Core.Configuration;
-using Linguard.Core.Drivers.TrafficStorage;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Web.Configuration;
 using Moq;
@@ -60,7 +60,8 @@ public sealed class DefaultConfiguration : Mock<IConfiguration> {
     
     private Mock<ITrafficConfiguration> GetTrafficConfigurationMock() {
         var mock = new Mock<ITrafficConfiguration>()
-            .SetupProperty(c => c.StorageDriver, new Mock<ITrafficStorageDriver>().Object);
+            .SetupProperty(c => c.StorageDriver, new TrafficStorageDriverStub())
+            .SetupProperty(c => c.Enabled, true);
         return mock;
     }
 }

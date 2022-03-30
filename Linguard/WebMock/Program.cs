@@ -5,6 +5,7 @@ using Linguard.Core.Configuration;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Models.Wireguard.Validators;
 using Linguard.Core.OS;
+using Linguard.Core.Plugins;
 using Linguard.Core.Services;
 using Linguard.Core.Utils;
 using Linguard.Log;
@@ -46,9 +47,6 @@ builder.Services.AddSingleton<Linguard.Core.Managers.IConfigurationManager>(prov
     => provider.GetRequiredService<IConfigurationManager>());
 
 builder.Services.AddTransient<IWorkingDirectory, WorkingDirectory>();
-builder.Services.AddSingleton(DefaultYamlConfigurationSerializer.Instance);
-builder.Services.AddTransient<ISystemWrapper, SystemWrapper>();
-builder.Services.AddTransient<IWireguardService, WireguardService>();
 builder.Services.AddTransient<IInterfaceGenerator, DefaultInterfaceGenerator>();
 builder.Services.AddTransient<IClientGenerator, DefaultClientGenerator>();
 builder.Services.AddTransient<AbstractValidator<Interface>, InterfaceValidator>();
@@ -69,6 +67,7 @@ builder.Services.AddTransient<IWebHelper, WebHelper>();
 builder.Services.AddTransient<QRCodeGenerator, QRCodeGenerator>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddTransient<ILifetimeService, LifetimeService>();
+builder.Services.AddSingleton<ITrafficStorageService, TrafficStorageService>();
 
 #region Radzen
 

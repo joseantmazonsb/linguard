@@ -1,5 +1,4 @@
-﻿using Linguard.Core.Configuration;
-using Linguard.Core.Configuration.Serialization;
+﻿using Linguard.Core.Configuration.Serialization;
 using YamlDotNet.Core;
 using YamlDotNet.Serialization;
 
@@ -21,7 +20,7 @@ public class YamlConfigurationSerializerBuilder {
         return this;
     }
     
-    public YamlConfigurationSerializerBuilder WithTypeConverter(IYamlTypeConverter converter) {
+    public YamlConfigurationSerializerBuilder WithTypeConverter<T>(T converter) where T : IYamlTypeConverter {
         _deserializerBuilder.WithTypeConverter(converter);
         _serializerBuilder.WithTypeConverter(converter);
         return this;

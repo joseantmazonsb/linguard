@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AssemblyName>Linguard.Json</AssemblyName>
+        <RootNamespace>Linguard.Json</RootNamespace>
+        <PackageId>Linguard.Json</PackageId>
+        <PackageVersion>2.0.0</PackageVersion>
+        <Title>Linguard.Json</Title>
+        <Authors>José Antonio Mazón San Bartolomé</Authors>
+        <Company>José Antonio Mazón San Bartolomé</Company>
+        <Product>Linguard</Product>
+        <VersionPrefix>2.0.0</VersionPrefix>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Core\Core.csproj" />
+    </ItemGroup>
+
+    <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+        <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(SolutionDir)Web\plugins" />
+        <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(SolutionDir)WebMock\plugins" />
+    </Target>
+    
+</Project>

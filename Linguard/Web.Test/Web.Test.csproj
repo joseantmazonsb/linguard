@@ -22,6 +22,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\Core.Test\Core.Test.csproj" />
         <ProjectReference Include="..\Core\Core.csproj" />
         <ProjectReference Include="..\Web\Web.csproj" />
         <ProjectReference Include="..\Yaml\Yaml.csproj" />

@@ -1,4 +1,5 @@
 ﻿using Linguard.Core.Configuration;
+using Linguard.Core.Plugins;
 using Linguard.Log;
 
 namespace Linguard.Core.Managers; 
@@ -16,6 +17,10 @@ public interface IConfigurationManager {
     /// Working directory of the application.
     /// </summary>
     IWorkingDirectory WorkingDirectory { get; set; }
+    /// <summary>
+    /// Manage plugins of the application.
+    /// </summary>
+    IPluginEngine PluginEngine { get; set; }
     /// <summary>
     /// Load default options.
     /// </summary>

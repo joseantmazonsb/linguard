@@ -106,7 +106,72 @@ public class WireguardConfigParser : IWireguardConfigParser {
     }
 
     private Interface ParseInterface(IEnumerable<string> lines) {
-        throw new NotImplementedException();
+        var iface = new Interface {
+            Id = Guid.NewGuid()
+        };
+        const StringComparison stringComparison = StringComparison.OrdinalIgnoreCase;
+        const StringSplitOptions splitOptions = StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries;
+        WireguardSection section = default;
+        foreach (var line in lines) {
+            if (line.StartsWith("#")) {
+                ParseComment(line[1..], iface);
+                continue;
+            }
+            if (line.Equals("[Interface]", stringComparison)) {
+                section = WireguardSection.Interface;
+                continue;
+            }
+            if (line.Equals("[Peer]", stringComparison)) {
+                section = WireguardSection.Peer;
+                continue;
+            }
+            if (section == WireguardSection.Interface) {
+                var setting = (WireguardInterfaceSetting) ParseLine(line, section);
+                switch (setting.Name) {
+                    case WireguardInterfaceConfigurationOption.Address:
+                        GetIPAddresses(iface, setting);
+                        break;
+                    case WireguardInterfaceConfigurationOption.PrivateKey:
+                        iface.PrivateKey = setting.Value;
+                        iface.PublicKey = _wireguardService.GeneratePublicKey(iface.PrivateKey);
+                        break;
+                    case WireguardInterfaceConfigurationOption.ListenPort:
+                        iface.Port = int.Parse(setting.Value);
+                        break;
+                    case WireguardInterfaceConfigurationOption.PostUp:
+                        iface.OnUp = setting.Value.Split(";", splitOptions)
+                            .Select(r => new Rule {Command = r})
+                            .ToHashSet(); 
+                        break;
+                    case WireguardInterfaceConfigurationOption.PostDown:
+                        iface.OnDown = setting.Value.Split(";", splitOptions)
+                            .Select(r => new Rule {Command = r})
+                            .ToHashSet();
+                        break;
+                    default:
+                        throw new WireguardConfigurationParsingError(
+                            $"Unexpected option found: {setting.Name}");
+                }
+                continue;
+            }
+            if (section == WireguardSection.Peer) {
+                var setting = (WireguardPeerSetting) ParseLine(line, section);
+                switch (setting.Name) {
+                    case WireguardPeerConfigurationOption.AllowedIPs:
+                        break;
+                    case WireguardPeerConfigurationOption.Endpoint:
+                        break;
+                    case WireguardPeerConfigurationOption.PublicKey:
+                        break;
+                    case WireguardPeerConfigurationOption.PersistentKeepalive:
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+        }
+
+        return iface;
     }
     
     private Client ParseClient(IEnumerable<string> lines) {
@@ -211,16 +276,16 @@ public class WireguardConfigParser : IWireguardConfigParser {
         return client;
     }
 
-    private static void ParseComment(string line, IWireguardPeer client) {
+    private static void ParseComment(string line, IWireguardPeer peer) {
         var split = line.Split("=", SplitOptions);
         if (split.Length != 2) {
             return;
         }
-        if (split[0].Equals(nameof(client.Name), StringComparison.OrdinalIgnoreCase)) {
-            client.Name = split[1];
+        if (split[0].Equals(nameof(peer.Name), StringComparison.OrdinalIgnoreCase)) {
+            peer.Name = split[1];
         }
-        if (split[0].Equals(nameof(client.Description), StringComparison.OrdinalIgnoreCase)) {
-            client.Description = split[1];
+        if (split[0].Equals(nameof(peer.Description), StringComparison.OrdinalIgnoreCase)) {
+            peer.Description = split[1];
         }
     }
 
@@ -246,7 +311,7 @@ public class WireguardConfigParser : IWireguardConfigParser {
         client.SecondaryDns = new Uri(split[1], UriKind.RelativeOrAbsolute);
     }
 
-    private static void GetIPAddresses(IWireguardPeer client, WireguardConfigurationSetting setting) {
+    private static void GetIPAddresses(IWireguardPeer peer, WireguardConfigurationSetting setting) {
         var split = setting.Value.Split(",", SplitOptions);
         if (split.Length > 2) {
             throw new WireguardConfigurationParsingError(
@@ -264,7 +329,7 @@ public class WireguardConfigParser : IWireguardConfigParser {
                 }
                 lastAddressWasIPv4 = true;
                 lastAddressWasIPv6 = false;
-                client.IPv4Address = ip;
+                peer.IPv4Address = ip;
                 continue;
             }
             if (ip.IsIPv6()) {
@@ -274,7 +339,7 @@ public class WireguardConfigParser : IWireguardConfigParser {
                 }
                 lastAddressWasIPv4 = false;
                 lastAddressWasIPv6 = true;
-                client.IPv6Address = ip;
+                peer.IPv6Address = ip;
             }
         }
     }

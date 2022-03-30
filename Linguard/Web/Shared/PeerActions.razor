@@ -55,11 +55,15 @@
     [Parameter]
     public Action? AfterDelete { get; set; }
     
+    [Parameter]
+    public bool ReloadPageAfterInterfaceStatusChanged { get; set; }
+    
     #region Interface only methods
     
     void StartInterface() {
         try {
             _wireguardService.StartInterface((Interface) Peer);
+            if (!ReloadPageAfterInterfaceStatusChanged) return;
             // TODO: find a more elegant way to update the up/down badge
             _navigationManager.NavigateTo(_navigationManager.Uri, true);
         }
@@ -75,6 +79,7 @@
     void StopInterface() {
         try {
             _wireguardService.StopInterface((Interface) Peer);
+            if (!ReloadPageAfterInterfaceStatusChanged) return;
             // TODO: find a more elegant way to update the up/down badge
             _navigationManager.NavigateTo(_navigationManager.Uri, true);
         }

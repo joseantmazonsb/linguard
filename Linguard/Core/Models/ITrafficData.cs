@@ -7,4 +7,5 @@ public interface ITrafficData {
     public IWireguardPeer Peer { get; set; }
     ByteSize SentData { get; set; }
     ByteSize ReceivedData { get; set; }
+    DateTime TimeStamp { get; set; }
 }
