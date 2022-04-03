@@ -22,9 +22,6 @@
                 <RadzenTabsItem Text="Traffic">
                     <TrafficSettings Configuration="@(_configuration.GetModule<ITrafficConfiguration>())"/>
                 </RadzenTabsItem>
-                <RadzenTabsItem Text="Logging">
-                    <LoggingSettings Configuration="@(_configuration.GetModule<ILoggingConfiguration>())"/>
-                </RadzenTabsItem>
             </Tabs>
         </RadzenTabs>
         <div class="row mt-2 d-flex">
@@ -42,7 +39,7 @@
 @inject IConfigurationManager _configurationManager
 @inject NotificationService _notificationService
 @inject IWebHelper _webHelper
-@inject ILogger _logger
+@inject ILogger<Settings> _logger
 @inject ITrafficStorageService _storageService
 
 @code {

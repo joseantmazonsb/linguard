@@ -3,16 +3,15 @@ using Linguard.Core.Configuration.Exceptions;
 using Linguard.Core.Configuration.Serialization;
 using Linguard.Core.OS;
 using Linguard.Core.Plugins;
-using Linguard.Log;
 
 namespace Linguard.Core.Managers; 
 
 public abstract class FileConfigurationManager<T> : ConfigurationManagerBase where T : IConfiguration {
     
     protected FileConfigurationManager(IConfiguration configuration, IWorkingDirectory workingDirectory, 
-        ISystemWrapper systemWrapper, IConfigurationSerializer serializer, ILinguardLogger logger, 
+        ISystemWrapper systemWrapper, IConfigurationSerializer serializer, 
         IPluginEngine pluginEngine) 
-        : base(configuration, workingDirectory, systemWrapper, logger, pluginEngine) {
+        : base(configuration, workingDirectory, systemWrapper, pluginEngine) {
         Configuration = configuration;
         WorkingDirectory = workingDirectory;
         Serializer = serializer;

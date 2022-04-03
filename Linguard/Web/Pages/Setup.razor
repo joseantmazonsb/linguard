@@ -25,10 +25,6 @@
             <h2>Traffic</h2>
             <TrafficSettings Configuration="@(_configuration.GetModule<ITrafficConfiguration>())"/>
         </RadzenCard>
-        <RadzenCard class="mt-2">
-            <h2>Logging</h2>
-            <LoggingSettings Configuration="@(_configuration.GetModule<ILoggingConfiguration>())"/>
-        </RadzenCard>
         <div class="row mt-3 d-flex">
             <div class="col-md-12 align-items-end">
                 <RadzenButton ButtonType="ButtonType.Submit" Icon="save" Text="Save" class="me-2"
@@ -41,7 +37,7 @@
 @inject IConfigurationManager _configurationManager
 @inject NotificationService _notificationService
 @inject IWebHelper _webHelper
-@inject ILogger _logger
+@inject ILogger<Setup> _logger
 @inject NavigationManager _navigationManager
 @inject IWebService _webService
 

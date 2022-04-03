@@ -17,9 +17,6 @@ public class YamlConfigurationSerializerShould {
     #region Yaml string
 
     const string yaml = @"Modules:
-- !Logging
-  Level: Debug
-  DateTimeFormat: yyyy-MM-dd
 - !Traffic
   Enabled: false
   StorageDriver:
@@ -96,7 +93,6 @@ public class YamlConfigurationSerializerShould {
     public void Deserialize() {
         var serializer = YamlConfigurationSerializerMock.Instance;
         var config = serializer.Deserialize<IConfiguration>(yaml);
-        config.Modules.Should().ContainItemsAssignableTo<ILoggingConfiguration>();
         config.Modules.Should().ContainItemsAssignableTo<IWireguardConfiguration>();
         config.Modules.Should().ContainItemsAssignableTo<ITrafficConfiguration>();
     }
@@ -105,10 +101,6 @@ public class YamlConfigurationSerializerShould {
     public void Serialize() {
         var config = new ConfigurationBase {
             Modules = {
-                new LoggingConfiguration {
-                    Level = LogLevel.Debug,
-                    DateTimeFormat = "yyyy-MM-dd"
-                },
                 new TrafficConfiguration {
                     Enabled = false,
                     StorageDriver = new TrafficStorageDriverStub()

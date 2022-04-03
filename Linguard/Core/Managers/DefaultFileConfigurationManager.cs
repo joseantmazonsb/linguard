@@ -3,16 +3,15 @@ using Linguard.Core.Configuration.Serialization;
 using Linguard.Core.OS;
 using Linguard.Core.Plugins;
 using Linguard.Core.Utils;
-using Linguard.Log;
 
 namespace Linguard.Core.Managers; 
 
 public abstract class DefaultFileConfigurationManager<T> : FileConfigurationManager<T> where T : IConfiguration {
     
     protected DefaultFileConfigurationManager(IConfiguration configuration, IWorkingDirectory workingDirectory, 
-        ISystemWrapper systemWrapper, IConfigurationSerializer serializer, ILinguardLogger logger, 
+        ISystemWrapper systemWrapper, IConfigurationSerializer serializer, 
         IPluginEngine pluginEngine) 
-        : base(configuration, workingDirectory, systemWrapper, serializer, logger, pluginEngine) {
+        : base(configuration, workingDirectory, systemWrapper, serializer, pluginEngine) {
     }
 
     private FileInfo? _configurationFile;

@@ -13,7 +13,6 @@ public sealed class DefaultConfiguration : Mock<IConfiguration> {
     public DefaultConfiguration() {
         SetupProperty(c => c.Modules, new HashSet<IConfigurationModule> {
             GetWireguardConfigurationMock().Object,
-            GetLoggingConfigurationMock().Object,
             GetTrafficConfigurationMock().Object
         });
         Setup(o => o.Clone()).Returns(Object);
@@ -46,10 +45,6 @@ public sealed class DefaultConfiguration : Mock<IConfiguration> {
                 interfaces.SingleOrDefault(i => i.Clients.Any(c => c.PublicKey == pubkey))
             );
         return wireguardConfiguration;
-    }
-
-    private Mock<ILoggingConfiguration> GetLoggingConfigurationMock() {
-        return new Mock<ILoggingConfiguration>();;
     }
     
     private Mock<ITrafficConfiguration> GetTrafficConfigurationMock() {

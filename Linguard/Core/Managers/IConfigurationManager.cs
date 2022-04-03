@@ -1,6 +1,5 @@
 ﻿using Linguard.Core.Configuration;
 using Linguard.Core.Plugins;
-using Linguard.Log;
 
 namespace Linguard.Core.Managers; 
 

@@ -2,7 +2,6 @@
 using Linguard.Core.Configuration.Serialization;
 using Linguard.Core.OS;
 using Linguard.Core.Plugins;
-using Linguard.Log;
 
 namespace Linguard.Core.Managers; 
 
@@ -13,8 +12,8 @@ public class YamlConfigurationManager<T> : DefaultFileConfigurationManager<T> wh
     };
 
     public YamlConfigurationManager(IConfiguration configuration, IWorkingDirectory workingDirectory, 
-        ISystemWrapper systemWrapper, IConfigurationSerializer serializer, ILinguardLogger logger,
+        ISystemWrapper systemWrapper, IConfigurationSerializer serializer,
         IPluginEngine pluginEngine) 
-        : base(configuration, workingDirectory, systemWrapper, serializer, logger, pluginEngine) {
+        : base(configuration, workingDirectory, systemWrapper, serializer, pluginEngine) {
     }
 }

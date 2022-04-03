@@ -3,23 +3,19 @@ using Linguard.Core.Models.Wireguard;
 using Linguard.Core.OS;
 using Linguard.Core.Plugins;
 using Linguard.Core.Utils;
-using Linguard.Log;
-using Microsoft.Extensions.Logging;
 
 namespace Linguard.Core.Managers; 
 
 public abstract class ConfigurationManagerBase : IConfigurationManager {
     
     private readonly ISystemWrapper _systemWrapper;
-    private readonly ILinguardLogger _logger;
 
     protected ConfigurationManagerBase(IConfiguration configuration, IWorkingDirectory workingDirectory, 
-        ISystemWrapper systemWrapper, ILinguardLogger logger, IPluginEngine pluginEngine) {
+        ISystemWrapper systemWrapper, IPluginEngine pluginEngine) {
         Configuration = configuration;
         WorkingDirectory = workingDirectory;
         PluginEngine = pluginEngine;
         _systemWrapper = systemWrapper;
-        _logger = logger;
     }
     
     public IConfiguration Configuration { get; set; }
@@ -27,18 +23,10 @@ public abstract class ConfigurationManagerBase : IConfigurationManager {
     public IPluginEngine PluginEngine { get; set; }
 
     public virtual void LoadDefaults() {
-        LoadLoggingDefaults();
         LoadTrafficDefaults();
         LoadWireguardDefaults();
     }
     
-    protected virtual void LoadLoggingDefaults() {
-        var configuration = new LoggingConfiguration {
-            Level = LogLevel.Information,
-            DateTimeFormat = _logger.DateTimeFormat
-        };
-        Configuration.Modules.Add(configuration);
-    }
     protected virtual void LoadTrafficDefaults() {
         var configuration = new TrafficConfiguration {
             Enabled = false
@@ -67,18 +55,7 @@ public abstract class ConfigurationManagerBase : IConfigurationManager {
     public abstract void Load();
 
     public void Save() {
-        ApplyChanges();
         DoSave();
-    }
-
-    protected virtual void ApplyChanges() {
-        ApplyLogChanges();
-
-        void ApplyLogChanges() {
-            var configuration = Configuration.GetModule<ILoggingConfiguration>()!;
-            _logger.LogLevel = configuration.Level;
-            _logger.DateTimeFormat = configuration.DateTimeFormat;
-        }
     }
 
     protected abstract void DoSave();

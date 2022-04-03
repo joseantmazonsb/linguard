@@ -19,7 +19,6 @@ public static class DefaultYamlConfigurationSerializer {
         .WithTypeConverter<UriTypeConverter>()
         .WithTypeMapping<IConfiguration, ConfigurationBase>()
         .WithTypeMapping<IWireguardConfiguration, WireguardConfiguration>()
-        .WithTypeMapping<ILoggingConfiguration, LoggingConfiguration>()
         .WithTypeMapping<ITrafficConfiguration, TrafficConfiguration>()
         .WithTypeMapping<ITrafficStorageDriver, TrafficStorageDriver>()
         .WithTypeMapping<ISet<Interface>, HashSet<Interface>>()

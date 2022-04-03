@@ -4,19 +4,18 @@ using FluentValidation;
 using Linguard.Core.Configuration;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Models.Wireguard.Validators;
-using Linguard.Core.OS;
-using Linguard.Core.Plugins;
 using Linguard.Core.Services;
 using Linguard.Core.Utils;
-using Linguard.Log;
 using Linguard.Web.Auth;
 using Linguard.Web.Helpers;
 using Linguard.Web.Configuration;
 using Linguard.Web.Services;
+using Linguard.Web.Utils;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using NLog.Web;
 using QRCoder;
 using Radzen;
 using WebMock;
@@ -111,7 +110,7 @@ builder.Services.AddAuthentication(options => {
 
 #region Logging
 
-builder.Logging.AddSimpleFileLogger();
+builder.Logging.UseNlog();
 
 #endregion
 

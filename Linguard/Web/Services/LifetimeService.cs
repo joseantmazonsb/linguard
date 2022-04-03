@@ -5,7 +5,6 @@ using Linguard.Core.Models.Wireguard;
 using Linguard.Core.OS;
 using Linguard.Core.Services;
 using Linguard.Core.Utils;
-using Linguard.Log;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using IConfigurationManager = Linguard.Web.Configuration.IConfigurationManager;
 
@@ -17,7 +16,7 @@ public class LifetimeService : ILifetimeService {
 
     private static readonly string WorkingDirectoryEnvironmentVariable = $"{AssemblyInfo.Product}Workdir";
     
-    private readonly ILinguardLogger _logger;
+    private readonly ILogger<ILifetimeService> _logger;
     private readonly ISystemWrapper _system;
     private readonly IWireguardService _wireguardService;
     private readonly IConfigurationManager _configurationManager;
@@ -29,7 +28,7 @@ public class LifetimeService : ILifetimeService {
     #endregion
     
     public LifetimeService(IConfigurationManager configurationManager, IWireguardService wireguardService, 
-        ILinguardLogger logger, ISystemWrapper system, IWebService webService, IServiceScopeFactory scopeFactory) {
+        ILogger<LifetimeService> logger, ISystemWrapper system, IWebService webService, IServiceScopeFactory scopeFactory) {
         _configurationManager = configurationManager;
         _wireguardService = wireguardService;
         _logger = logger;
@@ -38,15 +37,16 @@ public class LifetimeService : ILifetimeService {
         _scope = scopeFactory.CreateScope();
     }
 
-    public async Task OnAppStarted() {
-        _logger.LogInformation("Booting up...");
+    public Task OnAppStarted() {
+        _logger.LogInformation($"{AssemblyInfo.Product} v{AssemblyInfo.Version.ProductVersion} is booting up...");
         _configurationManager.WorkingDirectory.BaseDirectory = GetWorkingDirectory();
         //await Task.WhenAll(new Task(InitializeDatabases), new Task(LoadPlugins));
         InitializeDatabases();
         LoadPlugins();
         LoadConfiguration();
         StartInterfaces();
-        _logger.LogInformation($"{AssemblyInfo.Product} v{AssemblyInfo.Version.ProductVersion} is ready.");
+        _logger.LogInformation($"{AssemblyInfo.Product} is ready.");
+        return Task.CompletedTask;
     }
 
     public Task OnAppStopping() {
@@ -63,24 +63,25 @@ public class LifetimeService : ILifetimeService {
     #region Auxiliary methods
     
     private void InitializeDatabases() {
-        _logger.LogInformation("Initializing databases...");
+        _logger.LogDebug("Initializing databases...");
         var context = _scope.ServiceProvider.GetService<IdentityDbContext>();
         context?.Database.EnsureCreated();
-        _logger.LogInformation("Databases initialized.");
+        _logger.LogDebug("Databases initialized.");
     }
 
     private void LoadPlugins() {
-        _logger.LogInformation("Loading plugins...");
+        _logger.LogDebug("Loading plugins...");
         var plugins = _configurationManager.PluginEngine
             .LoadPlugins(_configurationManager.WorkingDirectory.PluginsDirectory, _configurationManager);
-        _logger.LogInformation($"{plugins} plugins were loaded.");
+        _logger.LogDebug($"{plugins} plugins were loaded.");
     }
     
     private void LoadConfiguration() {
         try {
+            _logger.LogDebug("Loading configuration...");
             _configurationManager.Load();
             _webService.IsSetupNeeded = false;
-            _logger.LogInformation("Configuration loaded.");
+            _logger.LogDebug("Configuration loaded.");
         }
         catch (ConfigurationNotLoadedError e) {
             _logger.LogWarning(e, "Unable to load configuration. Using defaults");
@@ -89,6 +90,7 @@ public class LifetimeService : ILifetimeService {
     }
     
     private DirectoryInfo GetWorkingDirectory() {
+        _logger.LogDebug("Setting up working directory...");
         DirectoryInfo workingDirectory;
         var useCurrentDirectory = false;
         if (Environment.GetEnvironmentVariables()[WorkingDirectoryEnvironmentVariable] is string workdir) {
@@ -98,14 +100,11 @@ public class LifetimeService : ILifetimeService {
             workingDirectory = new DirectoryInfo(Path.GetFullPath("."));
             useCurrentDirectory = true;
         }
-        var logFilename = Path.ChangeExtension(AssemblyInfo.Product.ToLower(), "log");
-        var logfile = new FileInfo(Path.Combine(workingDirectory.FullName, logFilename));
-        _logger.Target = new FileLogTarget(logfile);
         if (useCurrentDirectory) {
             _logger.LogWarning("No working directory specified through environment variable " +
                                $"'{WorkingDirectoryEnvironmentVariable}'.");
         }
-        _logger.LogInformation($"Using '{workingDirectory.FullName}' as working directory...");
+        _logger.LogDebug($"Using '{workingDirectory.FullName}' as working directory...");
         workingDirectory.Create();
         return workingDirectory;
     }

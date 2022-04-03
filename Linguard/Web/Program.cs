@@ -6,10 +6,10 @@ using Linguard.Core.Models.Wireguard.Validators;
 using Linguard.Core.OS;
 using Linguard.Core.Plugins;
 using Linguard.Core.Services;
-using Linguard.Log;
 using Linguard.Web.Auth;
 using Linguard.Web.Helpers;
 using Linguard.Web.Services;
+using Linguard.Web.Utils;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server;
 using Microsoft.AspNetCore.Identity;
@@ -92,7 +92,7 @@ builder.Services.AddAuthentication(options => {
 
 #region Logging
 
-builder.Logging.AddSimpleFileLogger();
+builder.Logging.UseNlog();
 
 #endregion
 
@@ -117,7 +117,6 @@ app.Lifetime.ApplicationStopped.Register(() => {
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment()) {
     app.UseDeveloperExceptionPage();
-    app.Services.GetService<ILinguardLogger>()!.LogLevel = LogLevel.Debug;
 }
 else {
     app.UseExceptionHandler("/Error");

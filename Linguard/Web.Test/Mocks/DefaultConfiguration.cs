@@ -14,7 +14,6 @@ public sealed class DefaultConfiguration : Mock<IConfiguration> {
     public DefaultConfiguration() {
         SetupProperty(c => c.Modules, new HashSet<IConfigurationModule> {
             GetWireguardConfigurationMock().Object,
-            GetLoggingConfigurationMock().Object,
             GetTrafficConfigurationMock().Object,
             GetWebConfigurationMock().Object
         });
@@ -50,10 +49,6 @@ public sealed class DefaultConfiguration : Mock<IConfiguration> {
         return wireguardConfiguration;
     }
 
-    private Mock<ILoggingConfiguration> GetLoggingConfigurationMock() {
-        return new Mock<ILoggingConfiguration>();
-    }
-    
     private Mock<IWebConfiguration> GetWebConfigurationMock() {
         return new Mock<IWebConfiguration>();
     }

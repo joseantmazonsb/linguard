@@ -1,14 +1,11 @@
 ﻿using FluentValidation;
 using Linguard.Cli.Middlewares;
 using Linguard.Core.Configuration;
-using Linguard.Core.Configuration.Serialization;
 using Linguard.Core.Managers;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Models.Wireguard.Validators;
 using Linguard.Core.OS;
 using Linguard.Core.Services;
-using Linguard.Log;
-using Linguard.Yaml.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Typin;
 using Typin.Directives;
@@ -29,9 +26,9 @@ public class CliStartup : ICliStartup {
         services.AddTransient<IClientGenerator, DefaultClientGenerator>();
         services.AddTransient<AbstractValidator<Interface>, InterfaceValidator>();
         services.AddTransient<AbstractValidator<Client>, ClientValidator>();
-        services.AddLogging(builder => {
-            builder.UseSimpleFileLogger();
-        });
+        // services.AddLogging(builder => {
+        //     builder.UseSimpleFileLogger();
+        // });
     }
 
     public void Configure(CliApplicationBuilder app)

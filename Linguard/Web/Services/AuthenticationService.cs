@@ -19,7 +19,7 @@ public class AuthenticationService : IAuthenticationService {
     
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IConfigurationManager _configurationManager;
-    private readonly ILogger _logger;
+    private readonly ILogger<IAuthenticationService> _logger;
     private readonly UserManager<IdentityUser> _userManager;
     private readonly SignInManager<IdentityUser> _signInManager;
     private readonly AuthenticationStateProvider _authenticationStateProvider;
@@ -31,7 +31,7 @@ public class AuthenticationService : IAuthenticationService {
     private static readonly TimeSpan AuthCookieExpireTimeSpan = TimeSpan.FromHours(2);
     private IWebConfiguration WebConfiguration => _configurationManager.Configuration.GetModule<IWebConfiguration>()!;
 
-    public AuthenticationService(ILogger logger, UserManager<IdentityUser> userManager, 
+    public AuthenticationService(ILogger<AuthenticationService> logger, UserManager<IdentityUser> userManager, 
         SignInManager<IdentityUser> signInManager, AuthenticationStateProvider authenticationStateProvider, 
         IHostEnvironmentAuthenticationStateProvider hostAuthentication, IJSRuntime jsRuntime,
         IOptionsMonitor<CookieAuthenticationOptions> cookieAuthenticationOptionsMonitor,

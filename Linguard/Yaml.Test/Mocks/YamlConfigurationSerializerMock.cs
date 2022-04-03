@@ -27,8 +27,6 @@ public static class YamlConfigurationSerializerMock {
             .WithTypeMapping<IConfiguration, ConfigurationBase>()
             .WithTypeMapping<IWireguardConfiguration, WireguardConfiguration>()
             .WithTagMapping<WireguardConfiguration>("!Wireguard")
-            .WithTypeMapping<ILoggingConfiguration, LoggingConfiguration>()
-            .WithTagMapping<LoggingConfiguration>("!Logging")
             .WithTypeMapping<IWebConfiguration, WebConfiguration>()
             .WithTagMapping<WebConfiguration>("!Web")
             .WithTypeMapping<ITrafficConfiguration, TrafficConfiguration>()
