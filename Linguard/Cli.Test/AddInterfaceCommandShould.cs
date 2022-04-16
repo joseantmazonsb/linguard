@@ -22,7 +22,7 @@ public class AddInterfaceCommandShould {
         await app.App.RunAsync(commandLine);
         var errors = app.Error.GetString();
         errors.Should().BeEmpty();
-        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Should().NotBeEmpty();
+        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Should().NotBeEmpty();
     }
     
     [Fact]
@@ -37,7 +37,7 @@ public class AddInterfaceCommandShould {
         await app.App.RunAsync(commandLine);
         var errors = app.Error.GetString();
         errors.Should().BeEmpty();
-        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Should().HaveCount(2);
+        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Should().HaveCount(2);
     }
     
     [Fact]
@@ -51,7 +51,7 @@ public class AddInterfaceCommandShould {
         await app.App.RunAsync(commandLine);
         var errors = app.Error.GetString();
         errors.Should().BeEmpty();
-        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Should().NotBeEmpty();
+        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Should().NotBeEmpty();
     }
     
     [Fact]
@@ -66,6 +66,6 @@ public class AddInterfaceCommandShould {
         await app.App.RunAsync(commandLine);
         var errors = app.Error.GetString();
         errors.Should().BeEmpty();
-        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Should().NotBeEmpty();
+        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Should().NotBeEmpty();
     }
 }

@@ -10,36 +10,51 @@ public abstract class ConfigurationManagerBase : IConfigurationManager {
     
     private readonly ISystemWrapper _systemWrapper;
 
-    protected ConfigurationManagerBase(IConfiguration configuration, IWorkingDirectory workingDirectory, 
-        ISystemWrapper systemWrapper, IPluginEngine pluginEngine) {
+    protected ConfigurationManagerBase(IConfiguration configuration, ISystemWrapper systemWrapper, 
+        IPluginEngine pluginEngine) {
         Configuration = configuration;
-        WorkingDirectory = workingDirectory;
         PluginEngine = pluginEngine;
         _systemWrapper = systemWrapper;
     }
     
+    public string ConfigurationSource { get; set; }
     public IConfiguration Configuration { get; set; }
-    public IWorkingDirectory WorkingDirectory { get; set; }
     public IPluginEngine PluginEngine { get; set; }
 
     public virtual void LoadDefaults() {
+        LoadAuthenticationDefaults();
         LoadTrafficDefaults();
         LoadWireguardDefaults();
+        LoadPluginDefaults();
+    }
+
+    protected virtual void LoadAuthenticationDefaults() {
+        var configuration = new AuthenticationOptions {
+            DataSource = $"{AssemblyInfo.Product}.db"
+        };
+        Configuration.Authentication = configuration;
     }
     
+    protected virtual void LoadPluginDefaults() {
+        var configuration = new PluginOptions {
+            PluginsDirectory = new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory(), "plugins"))
+        };
+        Configuration.Plugins = configuration;
+    }
+
     protected virtual void LoadTrafficDefaults() {
-        var configuration = new TrafficConfiguration {
+        var configuration = new TrafficOptions {
             Enabled = false
         };
-        Configuration.Modules.Add(configuration);
+        Configuration.Traffic = configuration;
     }
     protected virtual void LoadWireguardDefaults() {
-        var configuration = new WireguardConfiguration {
+        var configuration = new WireguardOptions {
             Interfaces = new HashSet<Interface>(),
             PrimaryDns = new("8.8.8.8", UriKind.RelativeOrAbsolute),
             SecondaryDns = new("8.8.4.4", UriKind.RelativeOrAbsolute)
         };
-        Configuration.Modules.Add(configuration);
+        Configuration.Wireguard = configuration;
         var publicIp = Network.GetPublicIPAddress();
         configuration.Endpoint = publicIp == default
             ? default

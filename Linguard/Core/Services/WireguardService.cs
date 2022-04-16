@@ -17,62 +17,62 @@ public class WireguardService : IWireguardService {
         _systemWrapper = systemWrapper;
     }
 
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
+    private IWireguardOptions Options => _configurationManager.Configuration.Wireguard;
 
     public void StartInterface(Interface iface) {
         if (_systemWrapper.IsInterfaceUp(iface)) return;
-        var filepath = _configurationManager.WorkingDirectory.GetInterfaceConfigurationFile(iface).FullName;
+        var filepath = _configurationManager.Configuration.Wireguard.GetInterfaceConfigurationFile(iface).FullName;
         _systemWrapper.WriteAllText(filepath, WireguardUtils.GenerateWireguardConfiguration(iface));
         var result = _systemWrapper
-            .RunCommand($"sudo {Configuration.WireguardQuickBin} up {iface.Name}");
+            .RunCommand($"sudo {Options.WireguardQuickBin} up {iface.Name}");
         if (!result.Success) throw new WireguardException(result.Stderr);
     }
 
     public void StopInterface(Interface iface) {
         if (_systemWrapper.IsInterfaceDown(iface)) return;
         var result = _systemWrapper
-            .RunCommand($"sudo {Configuration.WireguardQuickBin} down {iface.Name}");
+            .RunCommand($"sudo {Options.WireguardQuickBin} down {iface.Name}");
         if (!result.Success) throw new WireguardException(result.Stderr);
     }
 
     public void AddClient(Interface iface, Client client) {
-        var cmd = $"sudo {Configuration.WireguardQuickBin} set {iface.Name} peer {client.PublicKey} " + 
+        var cmd = $"sudo {Options.WireguardQuickBin} set {iface.Name} peer {client.PublicKey} " + 
                   $"allowed-ips {string.Join(",", client.AllowedIPs)}";
         var result = _systemWrapper.RunCommand(cmd);
         if (!result.Success) throw new WireguardException(result.Stderr);
     }
 
     public void RemoveClient(Client client) {
-        var iface = Configuration.GetInterface(client);
-        var cmd = $"sudo {Configuration.WireguardQuickBin} set {iface.Name} peer {client.PublicKey} remove";
+        var iface = Options.GetInterface(client);
+        var cmd = $"sudo {Options.WireguardQuickBin} set {iface.Name} peer {client.PublicKey} remove";
         var result = _systemWrapper.RunCommand(cmd);
         if (!result.Success) throw new WireguardException(result.Stderr);
     }
     
     public void RemoveInterface(Interface iface) {
         StopInterface(iface);
-        var file = _configurationManager.WorkingDirectory.GetInterfaceConfigurationFile(iface);
+        var file = _configurationManager.Configuration.Wireguard.GetInterfaceConfigurationFile(iface);
         if (!file.Exists) return;
         file.Delete();
     }
 
     public string GeneratePrivateKey() {
         var result = _systemWrapper
-            .RunCommand($"sudo {Configuration.WireguardBin} genkey");
+            .RunCommand($"sudo {Options.WireguardBin} genkey");
         if (!result.Success) throw new WireguardException(result.Stderr);
         return result.Stdout;
     }
     
     public string GeneratePublicKey(string privateKey) {
         var result = _systemWrapper
-            .RunCommand($"echo {privateKey} | sudo {Configuration.WireguardBin} pubkey");
+            .RunCommand($"echo {privateKey} | sudo {Options.WireguardBin} pubkey");
         if (!result.Success) throw new WireguardException(result.Stderr);
         return result.Stdout;
     }
 
     public DateTime GetLastHandshake(Client client) {
         var rawData = _systemWrapper
-            .RunCommand($"{Configuration.WireguardBin} show {Configuration.GetInterface(client).Name} dump")
+            .RunCommand($"{Options.WireguardBin} show {Options.GetInterface(client).Name} dump")
             .Stdout;
         try {
             return WireguardDumpParser.GetLastHandshake(rawData, client);
@@ -84,20 +84,20 @@ public class WireguardService : IWireguardService {
     
     public IEnumerable<TrafficData> GetTrafficData() {
         var data = new List<TrafficData>();
-        foreach (var iface in Configuration.Interfaces) {
+        foreach (var iface in Options.Interfaces) {
             data.AddRange(GetTrafficData(iface));
         }
         return data;
     }
     
     public TrafficData? GetTrafficData(Client client) {
-        var data = GetTrafficData(Configuration.GetInterface(client));
+        var data = GetTrafficData(Options.GetInterface(client));
         return data.SingleOrDefault(e => e.Peer.Equals(client));
     }
 
     public IEnumerable<TrafficData> GetTrafficData(Interface iface) {
         var rawData = _systemWrapper
-            .RunCommand($"{Configuration.WireguardBin} show {iface.Name} dump")
+            .RunCommand($"{Options.WireguardBin} show {iface.Name} dump")
             .Stdout;
         return string.IsNullOrEmpty(rawData)
             ? Enumerable.Empty<TrafficData>()

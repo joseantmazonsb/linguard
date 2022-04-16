@@ -14,7 +14,7 @@ public class DefaultInterfaceGenerator : IInterfaceGenerator {
     private readonly ISystemWrapper _system;
     private readonly IConfigurationManager _configurationManager;
     private const int MaxTries = 100;
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
+    private IWireguardOptions Options => _configurationManager.Configuration.Wireguard;
 
     public DefaultInterfaceGenerator(IConfigurationManager configurationManager, 
         IWireguardService wireguardService, ISystemWrapper system) {
@@ -36,7 +36,7 @@ public class DefaultInterfaceGenerator : IInterfaceGenerator {
             .RuleFor(i => i.Name, () => {
                 for (var tries = 0; tries < MaxTries; tries++) {
                     var name = $"wg{tries}";
-                    if (!Configuration.Interfaces.Select(i => i.Name).Contains(name)) {
+                    if (!Options.Interfaces.Select(i => i.Name).Contains(name)) {
                         return name;
                     }
                 }
@@ -45,16 +45,16 @@ public class DefaultInterfaceGenerator : IInterfaceGenerator {
             .RuleFor(i => i.Port, f => {
                 for (var tries = 0; tries < MaxTries; tries++) {
                     var port = f.Internet.Port();
-                    if (!Configuration.Interfaces.Select(i => i.Port).Contains(port)) {
+                    if (!Options.Interfaces.Select(i => i.Port).Contains(port)) {
                         return port;
                     }
                 }
                 return default;
             })
             .RuleFor(i => i.OnDown, 
-                (_, i) => WireguardUtils.GenerateOnDownRules(Configuration.IptablesBin, i.Name, i.Gateway))
+                (_, i) => WireguardUtils.GenerateOnDownRules(Options.IptablesBin, i.Name, i.Gateway))
             .RuleFor(i => i.OnUp, 
-                (_, i) => WireguardUtils.GenerateOnUpRules(Configuration.IptablesBin, i.Name, i.Gateway))
+                (_, i) => WireguardUtils.GenerateOnUpRules(Options.IptablesBin, i.Name, i.Gateway))
             .RuleFor(i => i.PrivateKey, _wireguardService.GeneratePrivateKey())
             .RuleFor(i => i.PublicKey, 
                 (_, i) => _wireguardService.GeneratePublicKey(i.PrivateKey))
@@ -63,7 +63,7 @@ public class DefaultInterfaceGenerator : IInterfaceGenerator {
                     var addr = f.Internet.IpAddress();
                     var ip = IPAddressCidr.Parse(addr, IPNetwork.Parse(addr.ToString()).Cidr);
                     var canBeUsed = true;
-                    foreach (var address in Configuration.Interfaces.Select(i => i.IPv4Address)) {
+                    foreach (var address in Options.Interfaces.Select(i => i.IPv4Address)) {
                         if (ip.Equals(address) || address.Contains(ip.IPAddress)) {
                             canBeUsed = false;
                             break;
@@ -78,7 +78,7 @@ public class DefaultInterfaceGenerator : IInterfaceGenerator {
                     var addr = f.Internet.Ipv6Address();
                     var ip = IPAddressCidr.Parse(addr, IPNetwork.Parse(addr.ToString()).Cidr);
                     var canBeUsed = true;
-                    foreach (var address in Configuration.Interfaces.Select(i => i.IPv6Address)) {
+                    foreach (var address in Options.Interfaces.Select(i => i.IPv6Address)) {
                         if (ip.Equals(address) || address.Contains(ip.IPAddress)) {
                             canBeUsed = false;
                             break;
@@ -88,9 +88,9 @@ public class DefaultInterfaceGenerator : IInterfaceGenerator {
                 }
                 return default;
             })
-            .RuleFor(i => i.Endpoint, Configuration.Endpoint)
-            .RuleFor(i => i.PrimaryDns, Configuration.PrimaryDns)
-            .RuleFor(i => i.SecondaryDns, Configuration.SecondaryDns)
+            .RuleFor(i => i.Endpoint, Options.Endpoint)
+            .RuleFor(i => i.PrimaryDns, Options.PrimaryDns)
+            .RuleFor(i => i.SecondaryDns, Options.SecondaryDns)
             .RuleFor(i => i.Clients, new HashSet<Client>())
             .Generate();
     }

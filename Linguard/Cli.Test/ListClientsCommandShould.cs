@@ -24,7 +24,7 @@ public class ListClientsCommandShould {
         var commandName = command.GetAttribute<CommandAttribute>().Name!;
         var app = Utils.BuildTestApp(command);
         var iface = GenerateInterface(app.ConfigurationManager);
-        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Add(iface);
+        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Add(iface);
         var peer = GeneratePeer(app.ConfigurationManager, iface);
         iface.Clients.Add(peer);
         
@@ -45,9 +45,9 @@ public class ListClientsCommandShould {
         var app = Utils.BuildTestApp(command);
 
         var iface1 = GenerateInterface(app.ConfigurationManager);
-        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Add(iface1);
+        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Add(iface1);
         var iface2 = GenerateInterface(app.ConfigurationManager);
-        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Add(iface2);
+        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Add(iface2);
         var peer = GeneratePeer(app.ConfigurationManager, iface1);
         iface1.Clients.Add(peer);
         iface2.Clients.Add(GeneratePeer(app.ConfigurationManager, iface2));

@@ -16,7 +16,7 @@ public class ApplicationDbContext : IdentityDbContext {
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) {
         base.OnConfiguring(optionsBuilder);
         var connectionString = new SqliteConnectionStringBuilder {
-            DataSource = _configurationManager.WorkingDirectory.CredentialsPath,
+            DataSource = _configurationManager.Configuration.Authentication.DataSource,
             Cache = SqliteCacheMode.Shared
         }.ConnectionString;
         optionsBuilder.UseSqlite(connectionString);

@@ -8,20 +8,17 @@ namespace Linguard.Core.Managers;
 
 public abstract class FileConfigurationManager<T> : ConfigurationManagerBase where T : IConfiguration {
     
-    protected FileConfigurationManager(IConfiguration configuration, IWorkingDirectory workingDirectory, 
+    protected FileConfigurationManager(IConfiguration configuration, 
         ISystemWrapper systemWrapper, IConfigurationSerializer serializer, 
         IPluginEngine pluginEngine) 
-        : base(configuration, workingDirectory, systemWrapper, pluginEngine) {
+        : base(configuration, systemWrapper, pluginEngine) {
         Configuration = configuration;
-        WorkingDirectory = workingDirectory;
         Serializer = serializer;
     }
 
-    protected abstract FileInfo ConfigurationFile { get; }
+    private FileInfo ConfigurationFile => new(ConfigurationSource);
     private IConfigurationSerializer Serializer { get; }
 
-    public abstract string[] SupportedExtensions { get; }
-    
     public override void Load() {
         if (!ConfigurationFile.Exists) {
             throw new ConfigurationNotLoadedError(
@@ -29,7 +26,8 @@ public abstract class FileConfigurationManager<T> : ConfigurationManagerBase whe
             );
         }
         try {
-            Configuration = Serializer.Deserialize<T>(File.ReadAllText(ConfigurationFile.FullName));
+            var text = File.ReadAllText(ConfigurationFile.FullName);
+            Configuration = Serializer.Deserialize<T>(text);
         }
         catch (Exception e) {
             throw new ConfigurationNotLoadedError(

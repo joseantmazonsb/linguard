@@ -23,7 +23,7 @@ public class WebHelper : IWebHelper {
     private IJSRuntime JsRuntime { get; }
     private IWireguardService WireguardService { get; }
     private IConfigurationManager ConfigurationManager { get; }
-    private IWireguardConfiguration Configuration => ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
+    private IWireguardOptions Options => ConfigurationManager.Configuration.Wireguard;
     private QRCodeGenerator QrCodeGenerator {get; }
 
     public async Task Download(string data, string filename) {
@@ -61,11 +61,11 @@ public class WebHelper : IWebHelper {
 
     private void RemoveClient(Client client) {
         WireguardService.RemoveClient(client);
-        Configuration.GetInterface(client)?.Clients.Remove(client);
+        Options.GetInterface(client)?.Clients.Remove(client);
     }
     
     private void RemoveInterface(Interface iface) {
-        Configuration.Interfaces.Remove(iface);
+        Options.Interfaces.Remove(iface);
         WireguardService.RemoveInterface(iface);
     }
 }

@@ -14,11 +14,11 @@ public class ListInterfacesCommand : ICommand {
     }
 
     private readonly IConfigurationManager _configurationManager;
-    private IWireguardConfiguration Configuration 
-        => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
+    private IWireguardOptions Options 
+        => _configurationManager.Configuration.Wireguard;
     
     public ValueTask ExecuteAsync(IConsole console) {
-        var interfaces = Configuration.Interfaces;
+        var interfaces = Options.Interfaces;
         if (!interfaces.Any()) {
             console.Output.WriteLine("There are no interfaces yet.");
             return ValueTask.CompletedTask;

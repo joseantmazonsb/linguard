@@ -21,7 +21,7 @@ public class WireguardConfigParser : IWireguardConfigParser {
         _faker = faker;
     }
 
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
+    private IWireguardOptions Options => _configurationManager.Configuration.Wireguard;
     
     /// <summary>
     /// Valid sections in a Wireguard configuration file.
@@ -222,7 +222,7 @@ public class WireguardConfigParser : IWireguardConfigParser {
                         break;
                     case WireguardPeerConfigurationOption.PublicKey:
                         var ifacePublicKey = setting.Value;
-                        iface = Configuration.Interfaces
+                        iface = Options.Interfaces
                             .SingleOrDefault(i => i.PublicKey == ifacePublicKey);
                         if (iface == default) {
                             throw new WireguardConfigurationParsingError(
@@ -256,7 +256,7 @@ public class WireguardConfigParser : IWireguardConfigParser {
         }
         if (client.Endpoint == default) {
             client.Endpoint = iface.Endpoint ??
-                              Configuration.Endpoint 
+                              Options.Endpoint 
                               ?? throw new WireguardConfigurationParsingError("No endpoint provided!");
         }
         if (client.AllowedIPs == default) {

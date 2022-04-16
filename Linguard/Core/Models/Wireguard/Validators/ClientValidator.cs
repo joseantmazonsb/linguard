@@ -7,14 +7,14 @@ namespace Linguard.Core.Models.Wireguard.Validators;
 
 public class ClientValidator : AbstractValidator<Client> {
     private readonly IConfigurationManager _configurationManager;
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
+    private IWireguardOptions Options => _configurationManager.Configuration.Wireguard;
 
     public ClientValidator(IConfigurationManager configurationManager) {
         _configurationManager = configurationManager;
     }
 
     public override ValidationResult Validate(ValidationContext<Client> context) {
-        SetNameRules(Configuration);
+        SetNameRules(Options);
         SetAllowedIPsRules();
         SetIPv4Rules();
         SetIpv6Rules();
@@ -26,26 +26,26 @@ public class ClientValidator : AbstractValidator<Client> {
         return base.Validate(context);
     }
 
-    private void SetPrivateKeyRules(IWireguardConfiguration configuration) {
+    private void SetPrivateKeyRules(IWireguardOptions options) {
         const string field = nameof(Client.PublicKey);
         RuleFor(c => c.PublicKey).NotEmpty()
             .WithMessage($"{field} {Validation.CannotBeEmpty}")
             .DependentRules(() => {
                 RuleFor(c => c.PublicKey)
-                    .Must(key => !configuration.Interfaces
+                    .Must(key => !options.Interfaces
                         .SelectMany(i => i.Clients)
                         .Select(c => c.PublicKey).Contains(key))
                     .WithMessage($"{Validation.ClientPublicKeyAlreadyInUse}.");
             });
     }
 
-    private void SetPublicKeyRules(IWireguardConfiguration configuration) {
+    private void SetPublicKeyRules(IWireguardOptions options) {
         const string field = nameof(Client.PrivateKey);
         RuleFor(c => c.PrivateKey).NotEmpty()
             .WithMessage($"{field} {Validation.CannotBeEmpty}")
             .DependentRules(() => {
                 RuleFor(c => c.PrivateKey)
-                    .Must(key => !configuration.Interfaces
+                    .Must(key => !options.Interfaces
                         .SelectMany(i => i.Clients)
                         .Select(c => c.PrivateKey).Contains(key))
                     .WithMessage($"{Validation.ClientPrivateKeyAlreadyInUse}.");
@@ -88,13 +88,13 @@ public class ClientValidator : AbstractValidator<Client> {
             .WithMessage($"{field} {Validation.CannotBeEmpty}");
     }
     
-    private void SetNameRules(IWireguardConfiguration configuration) {
+    private void SetNameRules(IWireguardOptions options) {
         const string field = nameof(Client.Name);
         RuleFor(c => c.Name).NotEmpty()
             .WithMessage($"{field} {Validation.CannotBeEmpty}.")
             .DependentRules(() => {
                 RuleFor(c => c.Name)
-                    .Must((client, name) => !configuration.Interfaces
+                    .Must((client, name) => !options.Interfaces
                         .SelectMany(i => i.Clients)
                         .Where(c => c.PublicKey != client.PublicKey)
                         .Select(c => c.Name).Contains(name))

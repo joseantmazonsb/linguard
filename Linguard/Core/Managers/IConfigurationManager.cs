@@ -9,13 +9,14 @@ namespace Linguard.Core.Managers;
 /// </summary>
 public interface IConfigurationManager {
     /// <summary>
+    /// Indicates where is the configuration.
+    /// </summary>
+    /// <remarks>Could be a path to a file, a connection string, etc.</remarks>
+    string ConfigurationSource { get; set; }
+    /// <summary>
     /// Configuration of the application.
     /// </summary>
     IConfiguration Configuration { get; set; }
-    /// <summary>
-    /// Working directory of the application.
-    /// </summary>
-    IWorkingDirectory WorkingDirectory { get; set; }
     /// <summary>
     /// Manage plugins of the application.
     /// </summary>

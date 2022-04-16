@@ -18,7 +18,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Core\Core.csproj" />
-      <ProjectReference Include="..\Json\Json.csproj" />
+      <ProjectReference Include="..\Plugins.TrafficDrivers.Json\Plugins.TrafficDrivers.Json.csproj" />
       <ProjectReference Include="..\Yaml\Yaml.csproj" />
     </ItemGroup>
 

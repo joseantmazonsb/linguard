@@ -24,7 +24,7 @@ public class ListInterfacesCommandShould {
         var commandName = command.GetAttribute<CommandAttribute>().Name!;
         var app = Utils.BuildTestApp(command);
         var iface = GenerateInterface(app.ConfigurationManager);
-        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Add(iface);
+        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Add(iface);
 
         var commandLine = $"{commandName}";
         

@@ -58,7 +58,7 @@
     
     protected override void OnInitialized() {
         base.OnInitialized();
-        _interface = Configuration.GetModule<IWireguardConfiguration>()!.GetInterface(PublicKey);
+        _interface = Configuration.Wireguard.GetInterface(PublicKey);
         if (_interface == default) return;
         _client = _interface.Clients.SingleOrDefault(c => c.PublicKey == PublicKey);
     }

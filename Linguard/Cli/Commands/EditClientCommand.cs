@@ -25,8 +25,8 @@ public class EditClientCommand : ICommand {
     private readonly AbstractValidator<Client> _validator;
     private readonly ILogger _logger;
     private readonly IConfigurationManager _configurationManager;
-    private IWireguardConfiguration Configuration 
-        => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
+    private IWireguardOptions Options 
+        => _configurationManager.Configuration.Wireguard;
     
     [CommandOption("name", Description = "Current name of the client.", IsRequired = true)]
     public string Name { get; set; }
@@ -77,7 +77,7 @@ public class EditClientCommand : ICommand {
     public string? NewInterface { get; set; }
     
     public ValueTask ExecuteAsync(IConsole console) {
-        var iface = Configuration.Interfaces.SingleOrDefault(i => i.Name.Equals(Interface));
+        var iface = Options.Interfaces.SingleOrDefault(i => i.Name.Equals(Interface));
         if (iface == default) {
             console.Error.WriteLine(Validation.InterfaceNotFound);
             return ValueTask.CompletedTask;
@@ -120,7 +120,7 @@ public class EditClientCommand : ICommand {
         if (AllowedIPs != default) client.AllowedIPs = AllowedIPs;
         if (Endpoint != default) client.Endpoint = Endpoint;
         if (NewInterface == default || NewInterface.Equals(Interface)) return;
-        var iface = Configuration.Interfaces
+        var iface = Options.Interfaces
             .SingleOrDefault(i => i.Name.Equals(NewInterface));
         if (iface == default) {
             throw new ArgumentException(

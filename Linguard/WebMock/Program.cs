@@ -1,7 +1,6 @@
 using Bogus;
 using Core.Test.Mocks;
 using FluentValidation;
-using Linguard.Core.Configuration;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Models.Wireguard.Validators;
 using Linguard.Core.Services;
@@ -15,7 +14,6 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using NLog.Web;
 using QRCoder;
 using Radzen;
 using WebMock;
@@ -45,7 +43,6 @@ builder.Services.AddSingleton(wireguardServiceMock);
 builder.Services.AddSingleton<Linguard.Core.Managers.IConfigurationManager>(provider 
     => provider.GetRequiredService<IConfigurationManager>());
 
-builder.Services.AddTransient<IWorkingDirectory, WorkingDirectory>();
 builder.Services.AddTransient<IInterfaceGenerator, DefaultInterfaceGenerator>();
 builder.Services.AddTransient<IClientGenerator, DefaultClientGenerator>();
 builder.Services.AddTransient<AbstractValidator<Interface>, InterfaceValidator>();
@@ -56,6 +53,7 @@ builder.Services.AddTransient<IClientGenerator, DefaultClientGenerator>();
 builder.Services.AddTransient<AbstractValidator<Interface>, InterfaceValidator>();
 builder.Services.AddTransient<AbstractValidator<Client>, ClientValidator>();
 
+builder.Services.AddScoped(_ => builder.Configuration);
 #endregion
 
 #region Web services

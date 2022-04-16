@@ -46,7 +46,7 @@
     private Client Client { get; set; }
     
     protected override void OnInitialized() {
-        Interface = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces
+        Interface = Configuration.Wireguard.Interfaces
             .SingleOrDefault(i => i.PublicKey.Equals(InterfacePublicKey));
         if (Interface == default) return;
         Client = _generator.Generate(Interface);

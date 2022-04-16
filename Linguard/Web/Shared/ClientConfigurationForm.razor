@@ -46,9 +46,9 @@
             <div class="row">
                 <div class="col-xxl-10">
                     <RadzenDropDown TValue="string" AllowClear="false" Placeholder="Select an interface"
-                                    Data="@(Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Select(i => i.Name))" 
+                                    Data="@(Configuration.Wireguard.Interfaces.Select(i => i.Name))" 
                                     Value="@Interface?.Name" class="w-100"
-                                    ValueChanged="o => Interface = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces
+                                    ValueChanged="o => Interface = Configuration.Wireguard.Interfaces
                                     .SingleOrDefault(i => i.Name.Equals(o))">
                     </RadzenDropDown>
                 </div>
@@ -264,7 +264,7 @@
     protected override void OnInitialized() {
         base.OnInitialized();
         if (Interface == default) {
-            Interface = Configuration.GetModule<IWireguardConfiguration>()!.GetInterface(Client);
+            Interface = Configuration.Wireguard.GetInterface(Client);
         }
     }
     

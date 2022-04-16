@@ -5,5 +5,5 @@
 /// </summary>
 public interface IConfigurationSerializer {
     string Serialize<T>(T configuration) where T : IConfiguration;
-    T Deserialize<T>(string text) where T : IConfiguration;
+    T? Deserialize<T>(string text) where T : IConfiguration;
 }

@@ -53,7 +53,7 @@
     void Submit(Interface iface) {
         var result = _validator.Validate(iface);
         if (result.IsValid) {
-            Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Add(iface);
+            Configuration.Wireguard.Interfaces.Add(iface);
             _configurationManager.Save();
             _navigationManager.NavigateTo("wireguard");
             return;

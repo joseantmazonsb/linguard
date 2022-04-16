@@ -118,19 +118,19 @@
 
     protected override void OnInitialized() {
         base.OnInitialized();
-        _iface = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces
+        _iface = Configuration.Wireguard.Interfaces
             .SingleOrDefault(i => i.PublicKey == PublicKey)?.Clone() as Interface;
     }
 
     void Submit(Interface iface) {
         var result = _validator.Validate(iface);
         if (result.IsValid) {
-            var originalIface = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces
+            var originalIface = Configuration.Wireguard.Interfaces
                 .SingleOrDefault(i => i.PublicKey == PublicKey);
-            var interfaces = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces
+            var interfaces = Configuration.Wireguard.Interfaces
                 .Replace(originalIface, iface)
                 .ToHashSet();
-            Configuration.GetModule<IWireguardConfiguration>()!.Interfaces = interfaces; 
+            Configuration.Wireguard.Interfaces = interfaces; 
             _configurationManager.Save();
             _notificationService.Notify(NotificationSeverity.Success, "Interface saved!");
             return;

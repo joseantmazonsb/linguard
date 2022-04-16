@@ -4,8 +4,15 @@ using Linguard.Core.Plugins;
 namespace Linguard.Core.Drivers.TrafficStorage; 
 
 public interface ITrafficStorageDriver : IPlugin {
-    TimeSpan CollectionInterval { get; set; }
+    /// <summary>
+    /// Additional settings of the driver. 
+    /// </summary>
+    /// <remarks>Custom plugins may find this useful.</remarks>
     IDictionary<string, string> AdditionalOptions { get; set; }
+    /// <summary>
+    /// Determines how frequently should we collect traffic data.
+    /// </summary>
+    TimeSpan CollectionInterval { get; set; }
     /// <summary>
     /// Store the given traffic data.
     /// </summary>

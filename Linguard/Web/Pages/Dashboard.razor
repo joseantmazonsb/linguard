@@ -79,7 +79,7 @@
                     </Template>
                 </RadzenDataList>
             }
-            else if (Configuration.Interfaces.Any()) {
+            else if (Options.Interfaces.Any()) {
                 <p>There are no interfaces online!</p>
             }
             else {
@@ -140,7 +140,7 @@
                                     var trafficData = _wireguardService.GetTrafficData(client);
                                 }
                                 <div class="col">
-                                    @{var iface = Configuration.GetInterface(client);}
+                                    @{var iface = Options.GetInterface(client);}
                                     <a href="@($"{nameof(Interface).ToLower()}/{iface.PublicKey}")">
                                         <RadzenIcon Icon="public" class="align-bottom"/>@iface?.Name
                                     </a>
@@ -157,7 +157,7 @@
             else if (_clients.Any()) {
                 <p>There are no clients online!</p>
             }
-            else if (Configuration.Interfaces.Any()) {
+            else if (Options.Interfaces.Any()) {
                 <p>
                     There are no clients yet, why don't you
                     <span role="button" class="btn-link" @onclick="PromptAddClient">add one</span>?
@@ -189,8 +189,8 @@
 @code {
     const string Title = "Dashboard";
 
-    IWireguardConfiguration Configuration => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
-    IEnumerable<Interface> OnlineInterfaces => Configuration.Interfaces
+    IWireguardOptions Options => _configurationManager.Configuration.Wireguard;
+    IEnumerable<Interface> OnlineInterfaces => Options.Interfaces
         .Where(i => _system.NetworkInterfaces.Any(iface => iface.Name.Equals(i.Name)))
         .OrderBy(i => i.Name);
     IEnumerable<Client> OnlineClients => OnlineInterfaces.SelectMany(i => i.Clients).OrderBy(c => c.Name);
@@ -198,7 +198,7 @@
 
     protected override async void OnInitialized() {
         await base.OnInitializedAsync();
-        _clients = Configuration.Interfaces.SelectMany(i => i.Clients).OrderBy(c => c.Name);
+        _clients = Options.Interfaces.SelectMany(i => i.Clients).OrderBy(c => c.Name);
         // TODO: Set timer to update real time traffic data
         //await using var timer = new Timer(_ => InvokeAsync(StateHasChanged));
         //timer.Change(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
@@ -212,7 +212,7 @@
                     <div class="row">
                         <div class="col">
                             <RadzenDropDown @ref="@_addClientInterfaces" TValue="string" AllowClear="false" Placeholder="Select an interface"
-                                            Data="Configuration.Interfaces.Select(i => i.Name)"/>                        
+                                            Data="Options.Interfaces.Select(i => i.Name)"/>                        
                         </div>                    
                     </div>
                     <div class="row mt-2">
@@ -235,7 +235,7 @@
     void AddClient() {
         var item = _addClientInterfaces.SelectedItem;
         if (item == default) return;
-        var iface = Configuration.Interfaces.Single(i => i.Name.Equals(item));
+        var iface = Options.Interfaces.Single(i => i.Name.Equals(item));
         _navigationManager.NavigateTo($"/{nameof(Interface).ToLower()}/{iface.PublicKey}/add-{nameof(Client).ToLower()}");
     }
     

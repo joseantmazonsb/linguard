@@ -19,9 +19,4 @@
       <ProjectReference Include="..\Core\Core.csproj" />
     </ItemGroup>
 
-    <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-        <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(SolutionDir)Web\plugins" />
-        <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(SolutionDir)WebMock\plugins" />
-    </Target>
-    
 </Project>

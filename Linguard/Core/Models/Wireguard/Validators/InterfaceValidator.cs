@@ -14,7 +14,7 @@ public class InterfaceValidator : AbstractValidator<Interface> {
     public const int MinNameLength = 2;
     
     private readonly IConfigurationManager _configurationManager;
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
+    private IWireguardOptions Options => _configurationManager.Configuration.Wireguard;
     private readonly ISystemWrapper _system;
 
     public InterfaceValidator(IConfigurationManager configurationManager, ISystemWrapper system) {
@@ -23,10 +23,10 @@ public class InterfaceValidator : AbstractValidator<Interface> {
     }
 
     public override ValidationResult Validate(ValidationContext<Interface> context) {
-        SetNameRules(Configuration);
-        SetPortRules(Configuration);
-        SetIpv4Rules(Configuration);
-        SetIpv6Rules(Configuration);
+        SetNameRules(Options);
+        SetPortRules(Options);
+        SetIpv4Rules(Options);
+        SetIpv6Rules(Options);
         SetOnUpRules();
         SetOnDownRules();
         SetGatewayRules();
@@ -35,13 +35,13 @@ public class InterfaceValidator : AbstractValidator<Interface> {
         return base.Validate(context);
     }
 
-    private void SetPrivateKeyRules(IWireguardConfiguration configuration) {
+    private void SetPrivateKeyRules(IWireguardOptions options) {
         const string field = nameof(Interface.PublicKey);
         RuleFor(i => i.PublicKey).NotEmpty()
             .WithMessage($"{field} {Validation.CannotBeEmpty}");
     }
 
-    private void SetPublicKeyRules(IWireguardConfiguration configuration) {
+    private void SetPublicKeyRules(IWireguardOptions options) {
         const string field = nameof(Interface.PrivateKey);
         RuleFor(i => i.PrivateKey).NotEmpty()
             .WithMessage($"{field} {Validation.CannotBeEmpty}");
@@ -67,21 +67,21 @@ public class InterfaceValidator : AbstractValidator<Interface> {
         // Ignore
     }
 
-    private void SetIpv6Rules(IWireguardConfiguration configuration) {
+    private void SetIpv6Rules(IWireguardOptions options) {
         const string field = nameof(Interface.IPv6Address);
         RuleFor(i => i.IPv6Address).NotEmpty()
             .When(i => i.IPv4Address == default)
             .WithMessage($"{field} {Validation.CannotBeEmpty}");
     }
 
-    private void SetIpv4Rules(IWireguardConfiguration configuration) {
+    private void SetIpv4Rules(IWireguardOptions options) {
         const string field = nameof(Interface.IPv4Address);
         RuleFor(i => i.IPv4Address).NotEmpty()
             .When(i => i.IPv6Address == default)
             .WithMessage($"{field} {Validation.CannotBeEmpty}");
     }
 
-    private void SetPortRules(IWireguardConfiguration configuration) {
+    private void SetPortRules(IWireguardOptions options) {
         const string field = nameof(Interface.Port);
         RuleFor(i => i.Port).NotEmpty()
             .WithMessage($"{field} {Validation.CannotBeEmpty}")
@@ -91,7 +91,7 @@ public class InterfaceValidator : AbstractValidator<Interface> {
             });
     }
     
-    private void SetNameRules(IWireguardConfiguration configuration) {
+    private void SetNameRules(IWireguardOptions options) {
         const string field = nameof(Interface.Name);
         RuleFor(i => i.Name).NotEmpty()
             .WithMessage($"{field} {Validation.CannotBeEmpty}.")
@@ -104,7 +104,7 @@ public class InterfaceValidator : AbstractValidator<Interface> {
                     .WithMessage($"{field} {Validation.CharactersNotAllowed}: " +
                                  $"{Validation.CharactersAllowedForInterfaceName}.");
                 RuleFor(i => i.Name)
-                    .Must((iface, name) => !configuration.Interfaces
+                    .Must((iface, name) => !options.Interfaces
                         .Where(i => i.PublicKey != iface.PublicKey)
                         .Select(i => i.Name).Contains(name))
                     .WithMessage($"{Validation.InterfaceNameAlreadyInUse}.");

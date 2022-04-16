@@ -2,7 +2,6 @@
 @using Linguard.Core.Utils
 @using Linguard.Web.Configuration
 @using Linguard.Web.Helpers
-@using Linguard.Core.Configuration
 @using Linguard.Core.Services
 
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
@@ -14,14 +13,20 @@
         <RadzenTabs SelectedIndex="0" RenderMode="TabRenderMode.Server">
             <Tabs>
                 <RadzenTabsItem Text="Web">
-                    <WebSettings Configuration="@(_configuration.GetModule<IWebConfiguration>())"/>
+                    <WebSettings Options="@(_configuration.Web)"/>
                 </RadzenTabsItem>
                 <RadzenTabsItem Text="Wireguard">
-                    <WireguardSettings Configuration="@(_configuration.GetModule<IWireguardConfiguration>())"/>
+                    <WireguardSettings Options="@(_configuration.Wireguard)"/>
                 </RadzenTabsItem>
                 <RadzenTabsItem Text="Traffic">
-                    <TrafficSettings Configuration="@(_configuration.GetModule<ITrafficConfiguration>())"/>
+                    <TrafficSettings Options="@(_configuration.Traffic)"/>
                 </RadzenTabsItem>
+                @*<RadzenTabsItem Text="Authentication">
+                    <AuthenticationSettings Configuration="@(_configuration.Authentication)"/>
+                </RadzenTabsItem>
+                <RadzenTabsItem Text="Plugins">
+                    <PluginSettings Configuration="@(_configuration.Plugins)"/>
+                </RadzenTabsItem>*@
             </Tabs>
         </RadzenTabs>
         <div class="row mt-2 d-flex">

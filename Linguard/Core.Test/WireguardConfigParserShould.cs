@@ -21,10 +21,10 @@ public class WireguardConfigParserShould {
     private static readonly Faker Faker = new ();
     private static readonly IWireguardService WireguardService = new WireguardServiceMock(Manager, System, Faker).Object;
     private static readonly IWireguardConfigParser Parser = new WireguardConfigParser(Manager, WireguardService, Faker);
-    private IWireguardConfiguration Configuration => Manager.Configuration.GetModule<IWireguardConfiguration>()!;
+    private IWireguardOptions Options => Manager.Configuration.Wireguard;
     
     public WireguardConfigParserShould() {
-        Configuration.Interfaces.Add(new Interface {
+        Options.Interfaces.Add(new Interface {
             Name = "wg0",
             PublicKey = "server-pubkey",
             PrivateKey = "server-privkey",
@@ -55,7 +55,7 @@ public class WireguardConfigParserShould {
     }
 
     public void ParseInterface() {
-        var iface = Configuration.Interfaces.First();
+        var iface = Options.Interfaces.First();
         var config = WireguardUtils.GenerateWireguardConfiguration(iface);
         var output = Parser.Parse<Interface>(config);
         output.Should().Be(iface);
@@ -87,7 +87,7 @@ AllowedIPs = 0.0.0.0/0, ::/0";
             IPAddressCidr.Parse("0.0.0.0/0"),
             IPAddressCidr.Parse("::/0"),
         });
-        Configuration.Interfaces
+        Options.Interfaces
             .Single(i => i.Name == "wg0")
             .Clients
             .First()

@@ -1,24 +1,23 @@
-﻿using Linguard.Core.Configuration;
-using Linguard.Core.OS;
+﻿using Linguard.Core.OS;
 using Linguard.Core.Plugins;
+using Linguard.Json;
 using Linguard.Web.Configuration.Serialization;
-using Linguard.Yaml;
-using IConfiguration = Linguard.Core.Configuration.IConfiguration;
 
 namespace Linguard.Web.Configuration; 
 
-public class WebConfigurationManager : YamlConfigurationManager<IConfiguration>, IConfigurationManager {
-    public WebConfigurationManager(IConfiguration configuration, IWorkingDirectory workingDirectory, 
+public class WebConfigurationManager : JsonConfigurationManager<IConfiguration>, IConfigurationManager {
+    public WebConfigurationManager(IConfiguration configuration, 
         ISystemWrapper systemWrapper, IPluginEngine pluginEngine) 
-        : base(configuration, workingDirectory, systemWrapper, new ConfigurationSerializer(pluginEngine), pluginEngine) {
+        : base(configuration, systemWrapper, new JsonConfigurationSerializerWeb(systemWrapper, pluginEngine), 
+            pluginEngine) {
     }
 
     public override void LoadDefaults() {
-        var configuration = new WebConfiguration {
+        var configuration = new WebOptions {
             LoginAttempts = 10,
             LoginBanTime = TimeSpan.FromMinutes(1)
         };
-        Configuration.Modules.Add(configuration);
+        ((Configuration) Configuration).Web = configuration;
         base.LoadDefaults();
     }
 }

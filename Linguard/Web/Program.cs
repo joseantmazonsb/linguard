@@ -1,5 +1,4 @@
 using FluentValidation;
-using Linguard.Core.Configuration;
 using Linguard.Web.Configuration;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Core.Models.Wireguard.Validators;
@@ -29,14 +28,17 @@ builder.Services.AddSingleton<IConfigurationManager, WebConfigurationManager>();
 builder.Services.AddSingleton<Linguard.Core.Managers.IConfigurationManager>(provider 
     => provider.GetRequiredService<IConfigurationManager>());
 builder.Services.AddTransient<IPluginEngine, PluginEngine>();
-builder.Services.AddTransient<Linguard.Core.Configuration.IConfiguration, ConfigurationBase>();
-builder.Services.AddTransient<IWorkingDirectory, WorkingDirectory>();
+builder.Services.AddTransient<Linguard.Web.Configuration.IConfiguration, Configuration>();
+builder.Services.AddTransient<Linguard.Core.Configuration.IConfiguration>(provider 
+    => provider.GetRequiredService<Linguard.Web.Configuration.IConfiguration>());
 builder.Services.AddTransient<ISystemWrapper, SystemWrapper>();
 builder.Services.AddTransient<IWireguardService, WireguardService>();
 builder.Services.AddTransient<IInterfaceGenerator, DefaultInterfaceGenerator>();
 builder.Services.AddTransient<IClientGenerator, DefaultClientGenerator>();
 builder.Services.AddTransient<AbstractValidator<Interface>, InterfaceValidator>();
 builder.Services.AddTransient<AbstractValidator<Client>, ClientValidator>();
+builder.Services.AddScoped(_ => builder.Configuration);
+
 #endregion
 
 #region Web services

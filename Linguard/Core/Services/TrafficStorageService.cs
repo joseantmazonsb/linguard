@@ -7,7 +7,7 @@ using Timer = System.Timers.Timer;
 namespace Linguard.Core.Services;
 
 public class TrafficStorageService : ITrafficStorageService {
-    private ITrafficConfiguration Configuration => _configurationManager.Configuration.GetModule<ITrafficConfiguration>()!;
+    private ITrafficOptions Options => _configurationManager.Configuration.Traffic;
     private readonly IConfigurationManager _configurationManager;
     private readonly IWireguardService _wireguardService;
     private readonly Timer _timer;
@@ -19,7 +19,7 @@ public class TrafficStorageService : ITrafficStorageService {
         _timer = new Timer {
             Enabled = false,
             AutoReset = true,
-            Interval = Configuration.StorageDriver.CollectionInterval.TotalMilliseconds
+            Interval = Options.StorageDriver.CollectionInterval.TotalMilliseconds
         };
         _timer.Elapsed += (_, _) => {
             CollectData();
@@ -27,15 +27,15 @@ public class TrafficStorageService : ITrafficStorageService {
     }
     private void CollectData() {
         var data = _wireguardService.GetTrafficData();
-        Configuration.StorageDriver.Save(data);
+        Options.StorageDriver.Save(data);
     }
     
     public void RefreshConfiguration() {
-        _timer.Enabled = Configuration.Enabled;
-        _timer.Interval = Configuration.StorageDriver.CollectionInterval.TotalMilliseconds;
+        _timer.Enabled = Options.Enabled;
+        _timer.Interval = Options.StorageDriver.CollectionInterval.TotalMilliseconds;
     }
 
     public IEnumerable<ITrafficData> LoadData() {
-        return Configuration.StorageDriver.Load();
+        return Options.StorageDriver.Load();
     }
 }

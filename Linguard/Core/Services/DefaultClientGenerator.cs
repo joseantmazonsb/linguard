@@ -8,7 +8,7 @@ using Linguard.Core.Utils;
 namespace Linguard.Core.Services; 
 
 public class DefaultClientGenerator : IClientGenerator {
-    private IWireguardConfiguration Configuration => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
+    private IWireguardOptions Options => _configurationManager.Configuration.Wireguard;
     private readonly IConfigurationManager _configurationManager;
     private readonly IWireguardService _wireguard;
 
@@ -49,14 +49,14 @@ public class DefaultClientGenerator : IClientGenerator {
                 return ips;
             })
             .RuleFor(c => c.Endpoint, iface.Endpoint 
-                                      ?? Configuration.Endpoint
+                                      ?? Options.Endpoint
                                       ?? new(Network.GetPublicIPAddress()?.ToString() ?? string.Empty, 
                                           UriKind.RelativeOrAbsolute))
             .RuleFor(c => c.PrimaryDns, iface.PrimaryDns 
-                                        ?? Configuration.PrimaryDns 
+                                        ?? Options.PrimaryDns 
                                         ?? new Uri("8.8.8.8", UriKind.RelativeOrAbsolute))
             .RuleFor(c => c.SecondaryDns, iface.SecondaryDns 
-                                          ?? Configuration.SecondaryDns 
+                                          ?? Options.SecondaryDns 
                                           ?? new Uri("8.8.4.4", UriKind.RelativeOrAbsolute))
             .Generate();
     }

@@ -30,7 +30,7 @@ public class TrafficStorageDriverStub : ITrafficStorageDriver {
     }
 
     public IEnumerable<ITrafficData> Load() {
-        var interfaces = _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces;
+        var interfaces = _configurationManager.Configuration.Wireguard.Interfaces;
         var data = new List<ITrafficData>();
         var entries = (int) TimeSpan.FromDays(2).TotalHours;
         var timestampBase = DateTime.Now - TimeSpan.FromHours(entries);

@@ -4,6 +4,9 @@
 /// Represents all configurable settings.
 /// </summary>
 public interface IConfiguration : ICloneable {
-    T? GetModule<T>() where T : IConfigurationModule;
-    ISet<IConfigurationModule> Modules { get; set; }
+    IWireguardOptions Wireguard { get; set; }
+    ITrafficOptions Traffic { get; set; }
+    IPluginOptions Plugins { get; set; }
+    IAuthenticationOptions Authentication { get; set; }
+
 }

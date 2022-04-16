@@ -71,7 +71,7 @@ public class AddInterfaceCommand : ICommand {
         if (!Validate(iface, console)) {
             return ValueTask.CompletedTask;
         }
-        Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Add(iface);
+        Configuration.Wireguard.Interfaces.Add(iface);
         ConfigurationManager.Save();
         var msg = $"Added interface '{iface.Name}'.";
         Logger.LogInformation(msg);

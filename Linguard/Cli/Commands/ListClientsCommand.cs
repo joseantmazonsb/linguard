@@ -16,8 +16,8 @@ public class ListClientsCommand : ICommand {
     }
 
     private readonly IConfigurationManager _configurationManager;
-    private IWireguardConfiguration Configuration 
-        => _configurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
+    private IWireguardOptions Options 
+        => _configurationManager.Configuration.Wireguard;
     
     [CommandOption("interface", Description = "Name of the client's interface.")]
     public string? Interface { get; set; } = default;
@@ -25,7 +25,7 @@ public class ListClientsCommand : ICommand {
     public ValueTask ExecuteAsync(IConsole console) {
         ICollection<Client> peers;
         if (Interface != default) {
-            var iface = Configuration.Interfaces.SingleOrDefault(i => i.Name.Equals(Interface));
+            var iface = Options.Interfaces.SingleOrDefault(i => i.Name.Equals(Interface));
             if (iface == default) {
                 console.Error.WriteLine(Validation.InterfaceNotFound);
                 return ValueTask.CompletedTask;
@@ -33,7 +33,7 @@ public class ListClientsCommand : ICommand {
             peers = iface.Clients;
         }
         else {
-            peers = Configuration.Interfaces.SelectMany(i => i.Clients).ToList();
+            peers = Options.Interfaces.SelectMany(i => i.Clients).ToList();
         }
         if (!peers.Any()) {
             console.Output.WriteLine("There are no clients yet.");

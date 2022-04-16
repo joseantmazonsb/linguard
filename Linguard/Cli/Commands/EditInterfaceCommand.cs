@@ -18,7 +18,7 @@ public class EditInterfaceCommand : AddInterfaceCommand {
     }
 
     public override ValueTask ExecuteAsync(IConsole console) {
-        var iface = Configuration.GetModule<IWireguardConfiguration>()!
+        var iface = Configuration.Wireguard
             .Interfaces.SingleOrDefault(i => i.Name.Equals(Name));
         if (iface == default) {
             Logger.LogError($"No interface named '{Name}' was found.");

@@ -30,25 +30,25 @@ public class ConfigurationSerializer : IConfigurationSerializer {
                 .WithTypeConverter<UriTypeConverter>()
                 .WithTypeConverter(new TrafficStorageDriverConverter(_pluginEngine))
                 .WithTypeConverter<RuleTypeConverter>()
-                .WithTypeMapping<IConfiguration, ConfigurationBase>()
-                .WithTypeMapping<IWireguardConfiguration, WireguardConfiguration>()
-                .WithTypeMapping<ITrafficConfiguration, TrafficConfiguration>()
-                .WithTypeMapping<IWebConfiguration, WebConfiguration>()
-                .WithTagMapping<WireguardConfiguration>("!Wireguard")
-                .WithTagMapping<TrafficConfiguration>("!Traffic")
-                .WithTagMapping<WebConfiguration>("!Web")
+                .WithTypeMapping<IConfiguration, Configuration>()
+                .WithTypeMapping<IWireguardOptions, WireguardOptions>()
+                .WithTypeMapping<ITrafficOptions, TrafficOptions>()
+                .WithTypeMapping<IWebOptions, WebOptions>()
+                .WithTagMapping<WireguardOptions>("!Wireguard")
+                .WithTagMapping<TrafficOptions>("!Traffic")
+                .WithTagMapping<WebOptions>("!Web")
                 .WithTypeMapping<ISet<Interface>, HashSet<Interface>>()
                 .WithTypeMapping<ISet<Client>, HashSet<Client>>()
                 .WithTypeMapping<ISet<IPAddressCidr>, HashSet<IPAddressCidr>>()
                 .WithTypeMapping<ISet<Rule>, HashSet<Rule>>()
-                .WithTypeMapping<ISet<IConfigurationModule>, HashSet<IConfigurationModule>>()
+                .WithTypeMapping<ISet<IOptionsModule>, HashSet<IOptionsModule>>()
                 .Build();
     
-    public string Serialize<T>(T configuration) where T : IConfiguration {
+    public string Serialize<T>(T configuration) where T : Core.Configuration.IConfiguration {
         return Serializer.Serialize(configuration);
     }
 
-    public T Deserialize<T>(string text) where T : IConfiguration {
+    public T? Deserialize<T>(string text) where T : Core.Configuration.IConfiguration {
         return Serializer.Deserialize<T>(text);
     }
 }

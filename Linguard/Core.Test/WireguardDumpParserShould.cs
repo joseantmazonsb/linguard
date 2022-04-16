@@ -15,8 +15,8 @@ namespace Core.Test;
 
 public class WireguardDumpParserShould {
     private static readonly Mock<IConfigurationManager> ConfigurationManagerMock = new DefaultConfigurationManager();
-    private static IWireguardConfiguration Configuration 
-        => ConfigurationManagerMock.Object.Configuration.GetModule<IWireguardConfiguration>()!;
+    private static IWireguardOptions Options 
+        => ConfigurationManagerMock.Object.Configuration.Wireguard;
     
     public WireguardDumpParserShould() {
         var iface = new Interface {
@@ -37,7 +37,7 @@ public class WireguardDumpParserShould {
             OnDown = new HashSet<Rule>(),
             Gateway = new NetworkInterfaceMock("a").Object
         };
-        Configuration.Interfaces.Add(iface);
+        Options.Interfaces.Add(iface);
         
     }
 
@@ -49,18 +49,18 @@ wg1     fE/wdxzl0klVp/IR8UcaoGUMjqaWi3jAd7KzHKFS6Ds=    (none)  (none)  (none)  
 wg1     jUd41n3XYa3yXBzyBvWqlLhYgRef5RiBD7jwo70U+Rw=    (none)  (none)  10.7.1.0/24     0       0       0       off";
         
         var data = 
-            WireguardDumpParser.GetTrafficData(sampleData, Configuration.Interfaces.First());
+            WireguardDumpParser.GetTrafficData(sampleData, Options.Interfaces.First());
         data.Should().HaveCount(3);
         var clients = data.Where(e => e.Peer is Client);
         clients.Should().HaveCount(2);
         var interfaces = data.Where(e => e.Peer is Interface);
         interfaces.Should().HaveCount(1);
-        clients.Select(e => e.Peer).Should().BeEquivalentTo(Configuration.Interfaces.First().Clients);
+        clients.Select(e => e.Peer).Should().BeEquivalentTo(Options.Interfaces.First().Clients);
         clients.First().ReceivedData.Should().Be(default);
         clients.First().SentData.Should().Be(default);
         clients.Last().ReceivedData.Should().Be(default);
         clients.Last().SentData.Should().Be(default);
-        interfaces.Single().Peer.Should().Be(Configuration.Interfaces.First());
+        interfaces.Single().Peer.Should().Be(Options.Interfaces.First());
         interfaces.Single().ReceivedData.Bytes.Should().Be(clients.Sum(e => e.ReceivedData.Bytes));
         interfaces.Single().SentData.Bytes.Should().Be(clients.Sum(e => e.SentData.Bytes));
     }
@@ -73,18 +73,18 @@ wg1	fE/wdxzl0klVp/IR8UcaoGUMjqaWi3jAd7KzHKFS6Ds=	(none)	172.19.0.8:51822	10.0.0.
 wg1	jUd41n3XYa3yXBzyBvWqlLhYgRef5RiBD7jwo70U+Rw=	(none)	172.19.0.7:51823	10.0.0.3/32	1609974495	1403752	19462368	off";
         
         var data = 
-            WireguardDumpParser.GetTrafficData(sampleData, Configuration.Interfaces.First());
+            WireguardDumpParser.GetTrafficData(sampleData, Options.Interfaces.First());
         data.Should().HaveCount(3);
         var clients = data.Where(e => e.Peer is Client);
         clients.Should().HaveCount(2);
         var interfaces = data.Where(e => e.Peer is Interface);
         interfaces.Should().HaveCount(1);
-        clients.Select(e => e.Peer).Should().BeEquivalentTo(Configuration.Interfaces.First().Clients);
+        clients.Select(e => e.Peer).Should().BeEquivalentTo(Options.Interfaces.First().Clients);
         clients.First().ReceivedData.Bytes.Should().Be(3481633);
         clients.First().SentData.Bytes.Should().Be(33460136);
         clients.Last().ReceivedData.Bytes.Should().Be(1403752);
         clients.Last().SentData.Bytes.Should().Be(19462368);
-        interfaces.Single().Peer.Should().Be(Configuration.Interfaces.First());
+        interfaces.Single().Peer.Should().Be(Options.Interfaces.First());
         interfaces.Single().ReceivedData.Bytes.Should().Be(clients.Sum(e => e.ReceivedData.Bytes));
         interfaces.Single().SentData.Bytes.Should().Be(clients.Sum(e => e.SentData.Bytes));
     }

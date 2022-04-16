@@ -102,8 +102,8 @@
         </RadzenDataGridColumn>
         <RadzenDataGridColumn TItem="Client" Title="Interface">
             <Template Context="data">
-                <a href="/interface/@(Configuration.GetModule<IWireguardConfiguration>()!.GetInterface(data)?.PublicKey)">
-                    @(Configuration.GetModule<IWireguardConfiguration>()!.GetInterface(data)?.Name)
+                <a href="/interface/@(Configuration.Wireguard.GetInterface(data)?.PublicKey)">
+                    @(Configuration.Wireguard.GetInterface(data)?.Name)
                 </a>
             </Template>
         </RadzenDataGridColumn>
@@ -135,7 +135,7 @@
     bool _stoppingAll;
 
     protected override void OnInitialized() {
-        _wireguardInterfaces = Configuration.GetModule<IWireguardConfiguration>()!.Interfaces
+        _wireguardInterfaces = Configuration.Wireguard.Interfaces
             .OrderBy(i => i.Name)
             .ToList();
         _clients = _wireguardInterfaces
@@ -174,7 +174,7 @@
     
     void StopAllInterfaces() {
         _stoppingAll = true;
-        foreach (var iface in Configuration.GetModule<IWireguardConfiguration>()!.Interfaces) {
+        foreach (var iface in Configuration.Wireguard.Interfaces) {
             StopInterface(iface);
         }
         _stoppingAll = false;
@@ -182,7 +182,7 @@
     
     void StartAllInterfaces() {
         _startingAll = true;
-        foreach (var iface in Configuration.GetModule<IWireguardConfiguration>()!.Interfaces) {
+        foreach (var iface in Configuration.Wireguard.Interfaces) {
             StartInterface(iface);
         }
         _startingAll = false;

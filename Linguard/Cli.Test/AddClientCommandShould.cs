@@ -25,7 +25,7 @@ public class AddClientCommandShould {
         var commandName = command.GetAttribute<CommandAttribute>().Name!;
         var app = Utils.BuildTestApp(command);
         var iface = GenerateInterface(app.ConfigurationManager);
-        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Add(iface);
+        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Add(iface);
 
         var commandLine = $"{commandName} --interface {iface.Name}";
 
@@ -41,7 +41,7 @@ public class AddClientCommandShould {
         var commandName = command.GetAttribute<CommandAttribute>().Name!;
         var app = Utils.BuildTestApp(command);
         var iface = GenerateInterface(app.ConfigurationManager);
-        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Add(iface);
+        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Add(iface);
 
         const string name = "bob";
         var commandLine = $"{commandName} --interface {iface.Name} --name {name}";
@@ -59,7 +59,7 @@ public class AddClientCommandShould {
         var commandName = command.GetAttribute<CommandAttribute>().Name!;
         var app = Utils.BuildTestApp(command);
         var iface = GenerateInterface(app.ConfigurationManager);
-        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Add(iface);
+        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Add(iface);
 
         const string endpoint = "vpn.example2.com";
         var commandLine = $"{commandName} --interface {iface.Name} --endpoint {endpoint}";
@@ -77,7 +77,7 @@ public class AddClientCommandShould {
         var commandName = command.GetAttribute<CommandAttribute>().Name!;
         var app = Utils.BuildTestApp(command);
         var iface = GenerateInterface(app.ConfigurationManager);
-        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Add(iface);
+        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Add(iface);
 
         var faker = new Faker();
         var ipv4 = $"{faker.Internet.Ip()}/24";
@@ -99,7 +99,7 @@ public class AddClientCommandShould {
         var commandName = command.GetAttribute<CommandAttribute>().Name!;
         var app = Utils.BuildTestApp(command);
         var iface = GenerateInterface(app.ConfigurationManager);
-        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Add(iface);
+        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Add(iface);
 
         var dns = "my.dns.com";
         var commandLine = $"{commandName} --interface {iface.Name} --dns1 {dns}";
@@ -119,7 +119,7 @@ public class AddClientCommandShould {
         var commandName = command.GetAttribute<CommandAttribute>().Name!;
         var app = Utils.BuildTestApp(command);
         var iface = GenerateInterface(app.ConfigurationManager);
-        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Add(iface);
+        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Add(iface);
 
         var dns1 = "my.dns.com";
         var dns2 = "8.8.8.8";
@@ -140,7 +140,7 @@ public class AddClientCommandShould {
         var commandName = command.GetAttribute<CommandAttribute>().Name!;
         var app = Utils.BuildTestApp(command);
         var iface = GenerateInterface(app.ConfigurationManager);
-        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Add(iface);
+        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Add(iface);
 
         const string allowedIPs = "10.7.1.2/24 10.7.1.3/24 10.8.1.3/24";
         var commandLine = $"{commandName} --interface {iface.Name} --allowedIps {allowedIPs}";

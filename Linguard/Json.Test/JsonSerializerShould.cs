@@ -1,134 +1,159 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.IO;
 using System.Text.Json;
-using Bogus;
-using ByteSizeLib;
 using Core.Test.Mocks;
+using Core.Test.Stubs;
 using FluentAssertions;
+using Json.Test.Stubs;
+using Linguard.Core;
 using Linguard.Core.Configuration;
-using Linguard.Core.Drivers.TrafficStorage;
-using Linguard.Core.Managers;
-using Linguard.Core.Models;
 using Linguard.Core.Models.Wireguard;
-using Linguard.Json;
 using Xunit;
 
 namespace Json.Test;
 
 public class JsonSerializerShould {
 
-    private static readonly IConfigurationManager ConfigurationManager 
-        = new DefaultConfigurationManager().Object;
-    private static readonly ITrafficStorageDriver TrafficStorageDriver 
-        = new TrafficStorageDriver();
-
-    private Faker _faker = new();
+    [Fact]
+    public void SerializeTrafficConfiguration() {
+        var config = new TrafficOptions {
+            Enabled = false,
+            StorageDriver = new TrafficStorageDriverStub()
+        };
+        const string expected = 
+            "{\"Enabled\":false,\"StorageDriver\":{\"Name\":\"Stub driver\"," +
+            "\"Description\":\"This is a stub driver\",\"CollectionInterval\":\"01:00:00\"," +
+            "\"AdditionalOptions\":{\"Fake\":\"Option\"}}}";
+        var options = new JsonSerializerOptionsBuilder(new SystemMock().Object, new PluginEngineMock().Object).Build();
+        var output = JsonSerializer.Serialize(config, options);
+        output.Trim().Should().Be(expected.Trim());
+    }
     
-    private static IWireguardConfiguration WireguardConfiguration =>
-        ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!;
-
-    private const string DateTimeFormat = "yyyy-MM-dd HH:mm:ss";
-    
-    private JsonSerializerOptions SerializerOptions =>
-        TrafficDataSerializerOptions.Build(WireguardConfiguration, DateTimeFormat);
-    
-    public JsonSerializerShould() {
-        ConfigurationManager.Configuration.GetModule<ITrafficConfiguration>()!.StorageDriver = TrafficStorageDriver;
-        
-        WireguardConfiguration.Interfaces.Add(new Interface {
-            PublicKey = _faker.Random.String2(20),
-            Clients = new HashSet<Client> {
+    [Fact]
+    public void SerializeConfiguration() {
+        var json = File.ReadAllText("expected.json");
+        var traffic = new TrafficOptions {
+            Enabled = false,
+            StorageDriver = new TrafficStorageDriverStub()
+        };
+        var auth = new AuthenticationOptions {
+            DataSource = "auth.db"
+        };
+        var wireguard = new WireguardOptions {
+            Interfaces = new HashSet<Interface> {
                 new() {
-                    PublicKey = _faker.Random.String2(20),
+                    PublicKey = "ifacePubkey",
+                    Name = "wg1",
+                    IPv4Address = IPAddressCidr.Parse("1.1.1.1/24"),
+                    Gateway = new NetworkInterfaceMock("eth0").Object,
+                    Clients = new HashSet<Client> {
+                        new() {
+                            Endpoint = new Uri("vpn.example.com", UriKind.RelativeOrAbsolute),
+                            Name = "peer1",
+                            IPv4Address = IPAddressCidr.Parse("1.1.1.2/30"),
+                            AllowedIPs = new HashSet<IPAddressCidr> {
+                                IPAddressCidr.Parse("1.1.1.0/24"), IPAddressCidr.Parse("1.1.2.0/24")
+                            },
+                            PublicKey = "00000000-0000-0000-0000-000000000000"
+                        },
+                        new() {
+                            Endpoint = new Uri("192.168.0.1", UriKind.RelativeOrAbsolute),
+                            Name = "peer2",
+                            IPv4Address = IPAddressCidr.Parse("1.1.1.3/30"),
+                            AllowedIPs = new HashSet<IPAddressCidr> {
+                                IPAddressCidr.Parse("1.1.1.0/24"), IPAddressCidr.Parse("1.1.2.0/24")
+                            },
+                            PublicKey = "00000000-0000-0000-0000-000000000001"
+                        },
+                        new() {
+                            Name = "peer3",
+                            IPv4Address = IPAddressCidr.Parse("1.1.1.4/30"),
+                            PublicKey = "00000000-0000-0000-0000-000000000002"
+                        }
+                    },
+                    OnUp = new HashSet<Rule> {
+                        "iptables fake rule 1", "iptables fake rule 2"
+                    }
                 }
-            }
-        });
-        WireguardConfiguration.Interfaces.Add(new Interface {
-            PublicKey = _faker.Random.String2(20),
-            Clients = new HashSet<Client> {
+            },
+            IptablesBin = "iptables",
+            WireguardBin = "wg",
+            WireguardQuickBin = "wg-quick"
+        };
+        var plugins = new PluginOptions();
+        var config = new ConfigurationBase {
+            Traffic = traffic,
+            Wireguard = wireguard,
+            Plugins = plugins,
+            Authentication = auth
+        };
+        var serializer = new JsonConfigurationSerializerStub(new SystemMock().Object, new PluginEngineMock().Object);
+        var output = serializer.Serialize(config);
+        output.Trim().Should().Be(json.Trim());
+    }
+    
+    [Fact]
+    public void DeserializeConfiguration() {
+        var json = File.ReadAllText("expected.json");
+        var traffic = new TrafficOptions {
+            Enabled = false,
+            StorageDriver = new TrafficStorageDriverStub()
+        };
+        var auth = new AuthenticationOptions {
+            DataSource = "auth.db"
+        };
+        var wireguard = new WireguardOptions {
+            Interfaces = new HashSet<Interface> {
                 new() {
-                    PublicKey = _faker.Random.String2(20),
+                    PublicKey = "ifacePubkey",
+                    Name = "wg1",
+                    IPv4Address = IPAddressCidr.Parse("1.1.1.1/24"),
+                    Gateway = new NetworkInterfaceMock("eth0").Object,
+                    Clients = new HashSet<Client> {
+                        new() {
+                            Endpoint = new Uri("vpn.example.com", UriKind.RelativeOrAbsolute),
+                            Name = "peer1",
+                            IPv4Address = IPAddressCidr.Parse("1.1.1.2/30"),
+                            AllowedIPs = new HashSet<IPAddressCidr> {
+                                IPAddressCidr.Parse("1.1.1.0/24"), IPAddressCidr.Parse("1.1.2.0/24")
+                            },
+                            PublicKey = "00000000-0000-0000-0000-000000000000"
+                        },
+                        new() {
+                            Endpoint = new Uri("192.168.0.1", UriKind.RelativeOrAbsolute),
+                            Name = "peer2",
+                            IPv4Address = IPAddressCidr.Parse("1.1.1.3/30"),
+                            AllowedIPs = new HashSet<IPAddressCidr> {
+                                IPAddressCidr.Parse("1.1.1.0/24"), IPAddressCidr.Parse("1.1.2.0/24")
+                            },
+                            PublicKey = "00000000-0000-0000-0000-000000000001"
+                        },
+                        new() {
+                            Name = "peer3",
+                            IPv4Address = IPAddressCidr.Parse("1.1.1.4/30"),
+                            PublicKey = "00000000-0000-0000-0000-000000000002"
+                        }
+                    },
+                    OnUp = new HashSet<Rule> {
+                        "iptables fake rule 1", "iptables fake rule 2"
+                    }
                 }
-            }
-        });
-    }
-
-    private static string ToJson(ITrafficData data) {
-        return
-            "{" +
-            @$"""Peer"":""{data.Peer.PublicKey}""," +
-            @$"""SentData"":{data.SentData.Bytes}," +
-            @$"""ReceivedData"":{data.ReceivedData.Bytes}," + 
-            @$"""TimeStamp"":""{data.TimeStamp.ToString(DateTimeFormat)}""" +
-            "}";
+            },
+            IptablesBin = "iptables",
+            WireguardBin = "wg",
+            WireguardQuickBin = "wg-quick"
+        };
+        var plugins = new PluginOptions();
+        var config = new ConfigurationBase {
+            Traffic = traffic,
+            Wireguard = wireguard,
+            Plugins = plugins,
+            Authentication = auth
+        };
+        var serializer = new JsonConfigurationSerializerStub(new SystemMock().Object, new PluginEngineMock().Object);
+        var output = serializer.Deserialize<IConfiguration>(json);
+        output.Should().BeEquivalentTo(config);
     }
     
-    [Fact]
-    public void SerializeTrafficData() {
-        ITrafficData data = new TrafficData {
-            Peer = WireguardConfiguration.Interfaces.First(),
-            ReceivedData = ByteSize.FromMegaBytes(1),
-            SentData = ByteSize.FromMegaBytes(2),
-            TimeStamp = DateTime.UnixEpoch
-        };
-        var expected = ToJson(data);
-        var output = JsonSerializer.Serialize(data, SerializerOptions);
-        output.Should().Be(expected);
-    }
-
-    [Fact]
-    public void SerializeTrafficDataList() { 
-        IEnumerable<ITrafficData> data = new List<ITrafficData> {
-            new TrafficData {
-                Peer = WireguardConfiguration.Interfaces.First(),
-                ReceivedData = ByteSize.FromMegaBytes(1),
-                SentData = ByteSize.FromMegaBytes(2),
-                TimeStamp = DateTime.UnixEpoch
-            },
-            new TrafficData {
-                Peer = WireguardConfiguration.Interfaces.Last(),
-                ReceivedData = ByteSize.FromMegaBytes(2),
-                SentData = ByteSize.FromMegaBytes(1),
-                TimeStamp = DateTime.UnixEpoch
-            }
-        };
-        var expected = $"[{string.Join(",", data.Select(ToJson))}]";
-        var output = JsonSerializer.Serialize(data, SerializerOptions);
-        output.Should().Be(expected);
-    }
-
-    [Fact]
-    public void DeserializeTrafficDataAsConcreteType() {
-        ITrafficData expected = new TrafficData {
-            Peer = WireguardConfiguration.Interfaces.First(),
-            ReceivedData = ByteSize.FromMegaBytes(1),
-            SentData = ByteSize.FromMegaBytes(2),
-            TimeStamp = DateTime.UnixEpoch
-        };
-        var data = ToJson(expected);
-        var output = JsonSerializer.Deserialize<ITrafficData>(data, SerializerOptions);
-        output.Should().Be(expected);
-    }
-    
-    [Fact]
-    public void DeserializeTrafficDataList() {
-        IEnumerable<ITrafficData> expected = new List<ITrafficData> {
-            new TrafficData {
-                Peer = WireguardConfiguration.Interfaces.First(),
-                ReceivedData = ByteSize.FromMegaBytes(1),
-                SentData = ByteSize.FromMegaBytes(2),
-                TimeStamp = DateTime.UnixEpoch
-            },
-            new TrafficData {
-                Peer = WireguardConfiguration.Interfaces.Last(),
-                ReceivedData = ByteSize.FromMegaBytes(2),
-                SentData = ByteSize.FromMegaBytes(1),
-                TimeStamp = DateTime.UnixEpoch
-            }
-        };
-        var data = $"[{string.Join(",", expected.Select(ToJson))}]";
-        var output = JsonSerializer.Deserialize<IEnumerable<ITrafficData>>(data, SerializerOptions);
-        output.Should().BeEquivalentTo(expected);
-    }
 }

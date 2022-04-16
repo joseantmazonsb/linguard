@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.JSInterop;
+using IConfiguration = Linguard.Web.Configuration.IConfiguration;
 using ICredentials = Auth.Models.ICredentials;
 
 namespace Linguard.Web.Services; 
@@ -29,7 +30,11 @@ public class AuthenticationService : IAuthenticationService {
     private readonly IAuthenticationCookieFormat _cookieFormat = AuthenticationCookieFormat.Default;
     private const string JsNamespace = "authFunctions";
     private static readonly TimeSpan AuthCookieExpireTimeSpan = TimeSpan.FromHours(2);
-    private IWebConfiguration WebConfiguration => _configurationManager.Configuration.GetModule<IWebConfiguration>()!;
+
+    private IConfiguration Configuration 
+        => (IConfiguration) _configurationManager.Configuration;
+    
+    private IWebOptions WebOptions => Configuration.Web;
 
     public AuthenticationService(ILogger<AuthenticationService> logger, UserManager<IdentityUser> userManager, 
         SignInManager<IdentityUser> signInManager, AuthenticationStateProvider authenticationStateProvider, 
@@ -56,11 +61,11 @@ public class AuthenticationService : IAuthenticationService {
             if (clientIp == default || !_loginBansByIpAddress.TryGetValue(clientIp, out var stopwatch)) {
                 return TimeSpan.Zero;
             }
-            if (stopwatch.Elapsed > WebConfiguration.LoginBanTime) {
+            if (stopwatch.Elapsed > WebOptions.LoginBanTime) {
                 _loginBansByIpAddress.TryRemove(clientIp, out _);
                 return TimeSpan.Zero;
             }
-            return WebConfiguration.LoginBanTime - stopwatch.Elapsed;
+            return WebOptions.LoginBanTime - stopwatch.Elapsed;
         }
     }
 
@@ -100,7 +105,7 @@ public class AuthenticationService : IAuthenticationService {
         if (!_loginAttemptsByIpAddress.TryUpdate(clientIp, attempt, attempts)) {
             _loginAttemptsByIpAddress.TryAdd(clientIp, attempt);
         }
-        if (attempt < WebConfiguration.LoginAttempts) return;
+        if (attempt < WebOptions.LoginAttempts) return;
         _loginBansByIpAddress.TryAdd(clientIp, Stopwatch.StartNew());
         _loginAttemptsByIpAddress.TryRemove(clientIp, out _);
     }

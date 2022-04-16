@@ -1,0 +1,96 @@
+﻿{
+  "Wireguard": {
+    "InterfacesDirectory": null,
+    "Interfaces": [
+      {
+        "Gateway": "eth0",
+        "Port": 0,
+        "Auto": false,
+        "Clients": [
+          {
+            "AllowedIPs": [
+              "1.1.1.0/24",
+              "1.1.2.0/24"
+            ],
+            "Nat": false,
+            "PrimaryDns": null,
+            "SecondaryDns": null,
+            "Endpoint": "vpn.example.com",
+            "PublicKey": "00000000-0000-0000-0000-000000000000",
+            "PrivateKey": null,
+            "IPv4Address": "1.1.1.2/30",
+            "IPv6Address": null,
+            "Name": "peer1",
+            "Description": null
+          },
+          {
+            "AllowedIPs": [
+              "1.1.1.0/24",
+              "1.1.2.0/24"
+            ],
+            "Nat": false,
+            "PrimaryDns": null,
+            "SecondaryDns": null,
+            "Endpoint": "192.168.0.1",
+            "PublicKey": "00000000-0000-0000-0000-000000000001",
+            "PrivateKey": null,
+            "IPv4Address": "1.1.1.3/30",
+            "IPv6Address": null,
+            "Name": "peer2",
+            "Description": null
+          },
+          {
+            "AllowedIPs": null,
+            "Nat": false,
+            "PrimaryDns": null,
+            "SecondaryDns": null,
+            "Endpoint": null,
+            "PublicKey": "00000000-0000-0000-0000-000000000002",
+            "PrivateKey": null,
+            "IPv4Address": "1.1.1.4/30",
+            "IPv6Address": null,
+            "Name": "peer3",
+            "Description": null
+          }
+        ],
+        "OnUp": [
+          "iptables fake rule 1",
+          "iptables fake rule 2"
+        ],
+        "OnDown": null,
+        "PrimaryDns": null,
+        "SecondaryDns": null,
+        "Endpoint": null,
+        "PublicKey": "ifacePubkey",
+        "PrivateKey": null,
+        "IPv4Address": "1.1.1.1/24",
+        "IPv6Address": null,
+        "Name": "wg1",
+        "Description": null
+      }
+    ],
+    "IptablesBin": "iptables",
+    "WireguardBin": "wg",
+    "WireguardQuickBin": "wg-quick",
+    "PrimaryDns": null,
+    "SecondaryDns": null,
+    "Endpoint": null
+  },
+  "Traffic": {
+    "Enabled": false,
+    "StorageDriver": {
+      "Name": "Stub driver",
+      "Description": "This is a stub driver",
+      "CollectionInterval": "01:00:00",
+      "AdditionalOptions": {
+        "Fake": "Option"
+      }
+    }
+  },
+  "Plugins": {
+    "PluginsDirectory": null
+  },
+  "Authentication": {
+    "DataSource": "auth.db"
+  }
+}

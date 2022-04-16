@@ -38,7 +38,7 @@ public class AddInterfaceCommandShouldNot {
         await app.App.RunAsync(commandLine);
         var errors = app.Error.GetString();
         errors.Should().Contain(Validation.InterfaceNameAlreadyInUse);
-        app.ConfigurationManager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces.Should().HaveCount(1);
+        app.ConfigurationManager.Configuration.Wireguard.Interfaces.Should().HaveCount(1);
     }
     
     [Fact]

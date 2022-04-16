@@ -6,29 +6,23 @@ using Linguard.Core.Configuration;
 using Linguard.Core.Models.Wireguard;
 using Linguard.Web.Configuration;
 using Moq;
+using IConfiguration = Linguard.Web.Configuration.IConfiguration;
 
 namespace Web.Test.Mocks;
 
 public sealed class DefaultConfiguration : Mock<IConfiguration> {
 
     public DefaultConfiguration() {
-        SetupProperty(c => c.Modules, new HashSet<IConfigurationModule> {
-            GetWireguardConfigurationMock().Object,
-            GetTrafficConfigurationMock().Object,
-            GetWebConfigurationMock().Object
-        });
+        SetupProperty(o => o.Wireguard, GetWireguardConfigurationMock().Object);
+        SetupProperty(o => o.Traffic, GetTrafficConfigurationMock().Object);
+        SetupProperty(o => o.Plugins, GetPluginConfigurationMock().Object);
+        SetupProperty(o => o.Web, GetWebConfigurationMock().Object);
         Setup(o => o.Clone()).Returns(Object);
-        Setup(o => o.GetModule<IConfigurationModule>())
-            .Returns(new InvocationFunc(invocation => {
-                var type = invocation.Method.GetGenericArguments()[0];
-                return Object.Modules.SingleOrDefault(m 
-                    => m.GetType() == type || m.GetType().GetInterface(type.Name) != default);
-            }));
     }
 
-    private Mock<IWireguardConfiguration> GetWireguardConfigurationMock() {
+    private Mock<IWireguardOptions> GetWireguardConfigurationMock() {
         var interfaces = new HashSet<Interface>();
-        var wireguardConfiguration = new Mock<IWireguardConfiguration>()
+        var mock = new Mock<IWireguardOptions>()
             .SetupProperty(c => c.Interfaces, interfaces)
             .SetupProperty(c => c.Endpoint,
                 new Uri("vpn.example.com", UriKind.RelativeOrAbsolute))
@@ -38,23 +32,29 @@ public sealed class DefaultConfiguration : Mock<IConfiguration> {
             .SetupProperty(c => c.PrimaryDns,
                 new Uri("8.8.8.8", UriKind.RelativeOrAbsolute))
             .SetupProperty(c => c.SecondaryDns, default);
-        wireguardConfiguration.Setup(o => o.GetInterface(It.IsAny<Client>()))
+        mock.Setup(o => o.GetInterface(It.IsAny<Client>()))
             .Returns<Client>(c => 
                 interfaces.SingleOrDefault(i => i.Clients.Contains(c))
             );
-        wireguardConfiguration.Setup(o => o.GetInterface(It.IsAny<string>()))
+        mock.Setup(o => o.GetInterface(It.IsAny<string>()))
             .Returns<string>(pubkey => 
                 interfaces.SingleOrDefault(i => i.Clients.Any(c => c.PublicKey == pubkey))
             );
-        return wireguardConfiguration;
+        return mock;
     }
 
-    private Mock<IWebConfiguration> GetWebConfigurationMock() {
-        return new Mock<IWebConfiguration>();
+    private Mock<IWebOptions> GetWebConfigurationMock() {
+        var mock = new Mock<IWebOptions>();
+        return mock;
     }
     
-    private Mock<ITrafficConfiguration> GetTrafficConfigurationMock() {
-        var mock = new Mock<ITrafficConfiguration>()
+    private Mock<IPluginOptions> GetPluginConfigurationMock() {
+        var mock = new Mock<IPluginOptions>();
+        return mock;
+    }
+    
+    private Mock<ITrafficOptions> GetTrafficConfigurationMock() {
+        var mock = new Mock<ITrafficOptions>()
             .SetupProperty(c => c.StorageDriver, new TrafficStorageDriverStub())
             .SetupProperty(c => c.Enabled, true);
         return mock;

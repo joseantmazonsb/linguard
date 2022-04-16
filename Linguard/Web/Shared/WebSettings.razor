@@ -14,7 +14,7 @@
         <div class="row">
             <div class="col">
                 <RadzenNumeric TValue="int" Min="1" Placeholder="10" Trim="true" class="w-100"
-                               @bind-Value="@Configuration.LoginAttempts"/>
+                               @bind-Value="@Options.LoginAttempts"/>
             </div>
         </div>
     </div>
@@ -27,8 +27,8 @@
         <div class="row">
             <div class="col d-flex">
                 <RadzenNumeric TValue="int" Min="1" Placeholder="60" Trim="true" class="w-100"
-                               Value="@((int) Configuration.LoginBanTime.TotalSeconds)" 
-                               ValueChanged="i => Configuration.LoginBanTime = TimeSpan.FromSeconds(i)"/>
+                               Value="@((int) Options.LoginBanTime.TotalSeconds)" 
+                               ValueChanged="i => Options.LoginBanTime = TimeSpan.FromSeconds(i)"/>
                 <em class="ms-2 align-self-center">seconds</em>
             </div>
         </div>
@@ -39,5 +39,5 @@
 
 @code {
     [Parameter]
-    public IWebConfiguration Configuration { get; set; }
+    public IWebOptions Options { get; set; }
 }

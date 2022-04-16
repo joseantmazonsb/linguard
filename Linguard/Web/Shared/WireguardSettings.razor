@@ -12,9 +12,9 @@
             </div>
             <div class="row">
                 <div class="col">
-                    <RadzenTextBox class="w-100" Value="@Configuration.Endpoint?.ToString()" 
+                    <RadzenTextBox class="w-100" Value="@Options.Endpoint?.ToString()" 
                                    Placeholder="vpn.example.com" 
-                                   ValueChanged="s => Configuration.Endpoint = new Uri(s, UriKind.RelativeOrAbsolute)"/>
+                                   ValueChanged="s => Options.Endpoint = new Uri(s, UriKind.RelativeOrAbsolute)"/>
                 </div>
             </div>
         </div>
@@ -26,9 +26,9 @@
             </div>
             <div class="row">
                 <div class="col">
-                    <RadzenTextBox class="w-100" Value="@Configuration.PrimaryDns?.ToString()" 
+                    <RadzenTextBox class="w-100" Value="@Options.PrimaryDns?.ToString()" 
                                    Placeholder="dns1.example.com"
-                                   ValueChanged="s => Configuration.PrimaryDns = new Uri(s, UriKind.RelativeOrAbsolute)"/>
+                                   ValueChanged="s => Options.PrimaryDns = new Uri(s, UriKind.RelativeOrAbsolute)"/>
                 </div>
             </div>
         </div>
@@ -40,9 +40,9 @@
             </div>
             <div class="row">
                 <div class="col">
-                    <RadzenTextBox class="w-100" Value="@Configuration.SecondaryDns?.ToString()" 
+                    <RadzenTextBox class="w-100" Value="@Options.SecondaryDns?.ToString()" 
                                    Placeholder="dns2.example.com"
-                                   ValueChanged="s => Configuration.SecondaryDns = new Uri(s, UriKind.RelativeOrAbsolute)"/>
+                                   ValueChanged="s => Options.SecondaryDns = new Uri(s, UriKind.RelativeOrAbsolute)"/>
                 </div>
             </div>
         </div>
@@ -57,7 +57,7 @@
             </div>
             <div class="row">
                 <div class="col">
-                    <RadzenTextBox class="w-100" @bind-Value="@Configuration.WireguardBin" 
+                    <RadzenTextBox class="w-100" @bind-Value="@Options.WireguardBin" 
                                    Placeholder="/usr/bin/wg"/>
                 </div>
             </div>
@@ -70,7 +70,7 @@
             </div>
             <div class="row">
                 <div class="col">
-                    <RadzenTextBox class="w-100" @bind-Value="@Configuration.WireguardQuickBin" 
+                    <RadzenTextBox class="w-100" @bind-Value="@Options.WireguardQuickBin" 
                                    Placeholder="/usr/bin/wg-quick"/>
                 </div>
             </div>
@@ -83,7 +83,7 @@
             </div>
             <div class="row">
                 <div class="col">
-                    <RadzenTextBox class="w-100" @bind-Value="@Configuration.IptablesBin" 
+                    <RadzenTextBox class="w-100" @bind-Value="@Options.IptablesBin" 
                                    Placeholder="/usr/sbin/iptables"/>
                 </div>
             </div>
@@ -93,5 +93,5 @@
 
 @code {
     [Parameter]
-    public IWireguardConfiguration Configuration { get; set; }
+    public IWireguardOptions Options { get; set; }
 }

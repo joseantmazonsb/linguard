@@ -44,7 +44,7 @@ public class WireguardServiceMock : Mock<IWireguardService> {
         Setup(o => o.GetTrafficData())
             .Returns(() => {
                 var data = new List<TrafficData>();
-                foreach (var iface in manager.Configuration.GetModule<IWireguardConfiguration>()!.Interfaces) {
+                foreach (var iface in manager.Configuration.Wireguard.Interfaces) {
                     data.AddRange(Object.GetTrafficData(iface));
                 }
                 return data;

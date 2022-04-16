@@ -5,7 +5,6 @@
 @using Linguard.Web.Helpers
 @using Linguard.Web.Services
 @using Linguard.Web.Shared.Layouts
-@using Linguard.Core.Configuration
 
 <PageTitle>@($"{AssemblyInfo.Product} | {Title}")</PageTitle>
 
@@ -15,16 +14,24 @@
     <RadzenTemplateForm Data="@_configuration" Submit="@((IConfiguration args) => { Save(args); })">
         <RadzenCard>
             <h2>Web</h2>
-            <WebSettings Configuration="@(_configuration.GetModule<IWebConfiguration>())"/>
+            <WebSettings Options="@(_configuration.Web)"/>
         </RadzenCard>
         <RadzenCard class="mt-2">
             <h2>Wireguard</h2>
-            <WireguardSettings Configuration="@(_configuration.GetModule<IWireguardConfiguration>())"/>
+            <WireguardSettings Options="@(_configuration.Wireguard)"/>
         </RadzenCard>
         <RadzenCard class="mt-2">
             <h2>Traffic</h2>
-            <TrafficSettings Configuration="@(_configuration.GetModule<ITrafficConfiguration>())"/>
+            <TrafficSettings Options="@(_configuration.Traffic)"/>
         </RadzenCard>
+        @*<RadzenCard class="mt-2">
+            <h2>Authentication</h2>
+            <AuthenticationSettings Options="@(_configuration.Authentication)"/>
+        </RadzenCard>
+        <RadzenCard class="mt-2">
+            <h2>Plugins</h2>
+            <PluginsSettings Options="@(_configuration.Plugins)"/>
+        </RadzenCard>*@
         <div class="row mt-3 d-flex">
             <div class="col-md-12 align-items-end">
                 <RadzenButton ButtonType="ButtonType.Submit" Icon="save" Text="Save" class="me-2"

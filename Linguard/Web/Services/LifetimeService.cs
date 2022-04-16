@@ -14,16 +14,14 @@ public class LifetimeService : ILifetimeService {
 
     #region Fields and properties
 
-    private static readonly string WorkingDirectoryEnvironmentVariable = $"{AssemblyInfo.Product}Workdir";
-    
     private readonly ILogger<ILifetimeService> _logger;
     private readonly ISystemWrapper _system;
     private readonly IWireguardService _wireguardService;
     private readonly IConfigurationManager _configurationManager;
     private readonly IWebService _webService;
     private readonly IServiceScope _scope;
-    private IWireguardConfiguration? Configuration 
-        => _configurationManager.Configuration.GetModule<IWireguardConfiguration>();
+    private IWireguardOptions? Configuration 
+        => _configurationManager.Configuration.Wireguard;
     
     #endregion
     
@@ -39,11 +37,10 @@ public class LifetimeService : ILifetimeService {
 
     public Task OnAppStarted() {
         _logger.LogInformation($"{AssemblyInfo.Product} v{AssemblyInfo.Version.ProductVersion} is booting up...");
-        _configurationManager.WorkingDirectory.BaseDirectory = GetWorkingDirectory();
         //await Task.WhenAll(new Task(InitializeDatabases), new Task(LoadPlugins));
-        InitializeDatabases();
-        LoadPlugins();
         LoadConfiguration();
+        InitializeDatabases();
+        InitializePlugins();
         StartInterfaces();
         _logger.LogInformation($"{AssemblyInfo.Product} is ready.");
         return Task.CompletedTask;
@@ -69,16 +66,21 @@ public class LifetimeService : ILifetimeService {
         _logger.LogDebug("Databases initialized.");
     }
 
-    private void LoadPlugins() {
-        _logger.LogDebug("Loading plugins...");
-        var plugins = _configurationManager.PluginEngine
-            .LoadPlugins(_configurationManager.WorkingDirectory.PluginsDirectory, _configurationManager);
-        _logger.LogDebug($"{plugins} plugins were loaded.");
+    private void InitializePlugins() {
+        _logger.LogDebug("Initializing plugins...");
+        _configurationManager.PluginEngine.InitializePlugins(_configurationManager);
+        _logger.LogDebug("Plugins initialized.");
     }
     
     private void LoadConfiguration() {
         try {
             _logger.LogDebug("Loading configuration...");
+            var manager = _scope.ServiceProvider.GetService<ConfigurationManager>();
+            var configurationSource = manager
+                .GetSection(AssemblyInfo.Product)
+                .GetSection(nameof(IConfigurationManager.ConfigurationSource))
+                .Value;
+            _configurationManager.ConfigurationSource = configurationSource;
             _configurationManager.Load();
             _webService.IsSetupNeeded = false;
             _logger.LogDebug("Configuration loaded.");
@@ -87,26 +89,6 @@ public class LifetimeService : ILifetimeService {
             _logger.LogWarning(e, "Unable to load configuration. Using defaults");
             _configurationManager.LoadDefaults();
         }
-    }
-    
-    private DirectoryInfo GetWorkingDirectory() {
-        _logger.LogDebug("Setting up working directory...");
-        DirectoryInfo workingDirectory;
-        var useCurrentDirectory = false;
-        if (Environment.GetEnvironmentVariables()[WorkingDirectoryEnvironmentVariable] is string workdir) {
-            workingDirectory = new DirectoryInfo(workdir);
-        }
-        else {
-            workingDirectory = new DirectoryInfo(Path.GetFullPath("."));
-            useCurrentDirectory = true;
-        }
-        if (useCurrentDirectory) {
-            _logger.LogWarning("No working directory specified through environment variable " +
-                               $"'{WorkingDirectoryEnvironmentVariable}'.");
-        }
-        _logger.LogDebug($"Using '{workingDirectory.FullName}' as working directory...");
-        workingDirectory.Create();
-        return workingDirectory;
     }
 
     private void StartInterfaces() {

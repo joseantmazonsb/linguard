@@ -11,15 +11,15 @@ public class PluginEngine : IPluginEngine {
         _logger = logger;
     }
 
-    private readonly List<IPlugin> _plugins = new();
-    public IEnumerable<IPlugin> Plugins => _plugins;
+    private readonly IDictionary<Type, IPlugin> _plugins = new Dictionary<Type, IPlugin>();
+    public IEnumerable<IPlugin> Plugins => _plugins.Values;
 
-    public int LoadPlugins(DirectoryInfo pluginsDirectory, IConfigurationManager configurationManager) {
+    public int LoadPlugins(DirectoryInfo directory) {
         var plugins = new List<IPlugin>();
-        foreach (var file in pluginsDirectory.EnumerateFiles()) {
+        foreach (var file in directory.EnumerateFiles()) {
             try {
                 _logger.LogDebug($"Loading plugins from file {file.FullName}...");
-                var p = LoadPlugins(file, configurationManager).ToList();
+                var p = LoadPlugins(file).ToList();
                 _logger.LogDebug($"Loaded {p.Count} plugins from file {file.FullName}.");
                 plugins.AddRange(p);
             }
@@ -27,24 +27,32 @@ public class PluginEngine : IPluginEngine {
                 _logger.LogError(e, $"Unable to load plugins from file {file.FullName}.");
             } 
         }
-        _plugins.AddRange(plugins);
+        foreach (var plugin in plugins) {
+            _plugins[plugin.GetType()] = plugin;
+        }
         return plugins.Count;
     }
 
-    private IEnumerable<IPlugin> LoadPlugins(FileInfo file, IConfigurationManager configurationManager) {
+    public void InitializePlugins(IConfigurationManager configurationManager) {
+        foreach (var plugin in Plugins) {
+            _logger.LogTrace($"Initializing plugin {plugin.Name}...");
+            plugin.Initialize(configurationManager);
+            _logger.LogTrace($"Plugin {plugin.Name} was initialized successfully.");
+        }
+    }
+
+    private IEnumerable<IPlugin> LoadPlugins(FileInfo file) {
         var context = new PluginLoadContext(file);
         var assemblyName = new AssemblyName(Path.GetFileNameWithoutExtension(file.FullName));
         var assembly = context.LoadFromAssemblyName(assemblyName);
         var plugins = new List<IPlugin>();
         foreach (var type in assembly.ExportedTypes) {
             if (type.GetInterface(nameof(IPlugin)) == default) continue;
+            if (_plugins.ContainsKey(type)) continue;
             try {
                 _logger.LogTrace($"Loading plugin {type.FullName} from assembly {assembly.FullName}...");
                 var plugin = (IPlugin)Activator.CreateInstance(type)!;
                 _logger.LogTrace($"Plugin {plugin.Name} was loaded successfully.");
-                _logger.LogTrace($"Initializing plugin {plugin.Name}...");
-                plugin.Initialize(configurationManager);
-                _logger.LogTrace($"Plugin {plugin.Name} was initialized successfully.");
                 plugins.Add(plugin);
             }
             catch (Exception e) {
