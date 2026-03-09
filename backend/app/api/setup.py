@@ -311,6 +311,25 @@ async def create_first_server(
     wireguard_service: WireGuardService = Depends(Provide[Container.wireguard_service]),
 ):
     """Create the first WireGuard server during setup."""
+    # Check if WireGuard is available before attempting to create a server
+    detected = detect_wireguard_binaries()
+    if not detected.get("wg"):
+        # WireGuard is not installed — skip server creation and let the user continue
+        result = await db.execute(select(GlobalSettings))
+        settings = result.scalar_one_or_none()
+        if settings:
+            settings.setup_current_step = "peer"
+            await db.commit()
+        return {
+            "success": False,
+            "wireguard_missing": True,
+            "message": (
+                "WireGuard is not installed on this system. "
+                "The server could not be created. "
+                "You can continue to the dashboard and install WireGuard later."
+            ),
+        }
+
     # Generate keys
     private_key, public_key = wireguard_service.generate_keypair()
 
@@ -363,6 +382,25 @@ async def create_first_peer(
     autofill_service: AutoFillService = Depends(Provide[Container.autofill_service]),
 ):
     """Create the first peer during setup."""
+    # Check if WireGuard is available before attempting to create a peer
+    detected = detect_wireguard_binaries()
+    if not detected.get("wg"):
+        # WireGuard is not installed — skip peer creation and let the user continue
+        result = await db.execute(select(GlobalSettings))
+        settings = result.scalar_one_or_none()
+        if settings:
+            settings.setup_current_step = "complete"
+            await db.commit()
+        return {
+            "success": False,
+            "wireguard_missing": True,
+            "message": (
+                "WireGuard is not installed on this system. "
+                "The peer could not be created. "
+                "You can continue to the dashboard and install WireGuard later."
+            ),
+        }
+
     # Verify server exists
     result = await db.execute(select(Server).where(Server.id == peer_data.server_id))
     server = result.scalar_one_or_none()

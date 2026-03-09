@@ -29,10 +29,16 @@ export default function ServerStep({ onNext, onBack, setupData }: ServerStepProp
   });
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [wireguardMissing, setWireguardMissing] = useState(false);
 
   const createServerMutation = useMutation({
     mutationFn: setupAPI.createServer,
     onSuccess: (data) => {
+      if (data.wireguard_missing) {
+        // WireGuard is not installed — show warning and let user continue
+        setWireguardMissing(true);
+        return;
+      }
       onNext({ serverId: data.server_id, serverName: data.server_name });
     },
     onError: (err: any) => {
@@ -57,6 +63,47 @@ export default function ServerStep({ onNext, onBack, setupData }: ServerStepProp
     e.preventDefault();
     createServerMutation.mutate(formData);
   };
+
+  if (wireguardMissing) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">WireGuard Not Found</h2>
+          <p className="text-gray-600 dark:text-gray-300">The server could not be created because WireGuard is not installed.</p>
+        </div>
+
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+            </svg>
+            <div>
+              <p className="font-medium text-yellow-800 dark:text-yellow-300">WireGuard is not installed</p>
+              <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">
+                You can still complete setup and access the dashboard. The system status will show as unhealthy until WireGuard is installed and servers are configured.
+              </p>
+              <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-2">
+                To install WireGuard, run: <code className="bg-yellow-100 dark:bg-yellow-900/40 px-1 rounded font-mono">apt install wireguard</code> (Debian/Ubuntu) or equivalent for your OS.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-4">
+          <button type="button" onClick={onBack} className="px-6 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50">
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={() => onNext({ wireguardMissing: true })}
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg font-medium"
+          >
+            Continue Anyway
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -166,3 +213,4 @@ export default function ServerStep({ onNext, onBack, setupData }: ServerStepProp
     </div>
   );
 }
+

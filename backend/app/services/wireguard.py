@@ -1,6 +1,5 @@
 import logging
 import os
-import secrets
 import subprocess
 import platform
 
@@ -82,44 +81,45 @@ class WireGuardService:
 
         Returns:
             Tuple of (private_key, public_key)
+
+        Raises:
+            FileNotFoundError: If the wg binary is not installed.
+            subprocess.CalledProcessError: If key generation fails.
         """
-        try:
-            # Generate private key
-            private_key = subprocess.run(
-                [self.wg_binary, "genkey"],
-                capture_output=True,
-                text=True,
-                check=True
-            ).stdout.strip()
+        # Generate private key
+        private_key = subprocess.run(
+            [self.wg_binary, "genkey"],
+            capture_output=True,
+            text=True,
+            check=True
+        ).stdout.strip()
 
-            # Generate public key from private key
-            public_key = subprocess.run(
-                [self.wg_binary, "pubkey"],
-                input=private_key,
-                capture_output=True,
-                text=True,
-                check=True
-            ).stdout.strip()
+        # Generate public key from private key
+        public_key = subprocess.run(
+            [self.wg_binary, "pubkey"],
+            input=private_key,
+            capture_output=True,
+            text=True,
+            check=True
+        ).stdout.strip()
 
-            return private_key, public_key
-        except subprocess.CalledProcessError:
-            # Fallback to generating random keys if wg command fails
-            private_key = secrets.token_urlsafe(32)
-            public_key = secrets.token_urlsafe(32)
-            return private_key, public_key
+        return private_key, public_key
 
     def generate_preshared_key(self) -> str:
-        """Generate WireGuard preshared key."""
-        try:
-            psk = subprocess.run(
-                [self.wg_binary, "genpsk"],
-                capture_output=True,
-                text=True,
-                check=True
-            ).stdout.strip()
-            return psk
-        except subprocess.CalledProcessError:
-            return secrets.token_urlsafe(32)
+        """
+        Generate WireGuard preshared key.
+
+        Raises:
+            FileNotFoundError: If the wg binary is not installed.
+            subprocess.CalledProcessError: If key generation fails.
+        """
+        psk = subprocess.run(
+            [self.wg_binary, "genpsk"],
+            capture_output=True,
+            text=True,
+            check=True
+        ).stdout.strip()
+        return psk
 
     def derive_public_key(self, private_key: str) -> str:
         """
