@@ -271,6 +271,13 @@ export const versionAPI = {
   },
 };
 
+export const systemAPI = {
+  getInfo: async () => {
+    const response = await api.get('/system');
+    return response.data;
+  },
+};
+
 export const setupAPI = {
   getStatus: async () => {
     const response = await api.get('/setup/status');

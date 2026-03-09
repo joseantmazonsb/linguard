@@ -18,7 +18,7 @@ class VersionService:
     def _load_version_file(self) -> dict[str, Any]:
         """Load version.json from project root."""
         version_file = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "version.json"
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "version.json"
         )
 
         try:
@@ -42,6 +42,7 @@ class VersionService:
             "version": VersionService._version_cache["version"],
             "name": VersionService._version_cache["name"],
             "repository": VersionService._version_cache["repository"],
+            "commit": VersionService._version_cache.get("commit", ""),
         }
 
     async def check_for_updates(self) -> dict[str, Any]:

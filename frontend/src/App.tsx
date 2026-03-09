@@ -18,6 +18,7 @@ import Profile from './pages/Profile';
 import Integrations from './pages/Integrations';
 import TrafficTriggers from './pages/TrafficTriggers';
 import Plugins from './pages/Plugins';
+import About from './pages/SystemInfo';
 import SetupWizard from './pages/Setup/SetupWizard';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
@@ -214,6 +215,16 @@ function App() {
             }
           />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route
+            path="/system-info"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <About />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
         </Routes>
         <ToastContainer 
           position="top-right" 

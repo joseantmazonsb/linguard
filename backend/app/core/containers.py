@@ -44,6 +44,7 @@ class Container(containers.DeclarativeContainer):
             "app.api.notifications",
             "app.api.plugins",
             "app.api.traffic_triggers",
+            "app.api.system",
         ],
     )
 

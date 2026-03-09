@@ -42,7 +42,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isActive = (path: string) => location.pathname === path;
 
   const isMoreMenuActive = () => {
-    return ["/settings", "/backup", "/audit", "/logs", "/plugins"].includes(
+    return ["/settings", "/backup", "/audit", "/logs", "/plugins", "/system-info"].includes(
       location.pathname,
     );
   };
@@ -342,6 +342,32 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                               />
                             </svg>
                             Settings
+                          </div>
+                        </Link>
+                        <Link
+                          to="/system-info"
+                          onClick={() => setMoreMenuOpen(false)}
+                          className={`block px-4 py-2 text-sm ${
+                            isActive("/system-info")
+                              ? "bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          } rounded-b-md`}
+                        >
+                          <div className="flex items-center">
+                            <svg
+                              className="w-5 h-5 mr-2"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                            System Info
                           </div>
                         </Link>
                       </div>
@@ -690,6 +716,24 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     />
                   </svg>
                   Settings
+                </div>
+              </Link>
+              <Link to="/system-info" className={mobileNavLinkClass("/system-info")}>
+                <div className="flex items-center">
+                  <svg
+                    className="w-5 h-5 mr-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  System Info
                 </div>
               </Link>
             </div>

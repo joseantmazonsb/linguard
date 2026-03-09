@@ -118,47 +118,5 @@
         "isDefault": false
       }
     },
-    {
-      "label": "Start Dev Compose",
-      "type": "shell",
-      "command": "docker compose -f docker-compose.dev.yaml up -d",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": true,
-        "clear": false
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "Stop Dev Compose",
-      "type": "shell",
-      "command": "docker compose -f docker-compose.dev.yaml down",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": true,
-        "clear": false
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "Check Dev Compose Status",
-      "type": "shell",
-      "command": "docker compose -f docker-compose.dev.yaml ps",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": true,
-        "clear": false
-      },
-      "problemMatcher": []
-    }
   ]
 }

@@ -23,7 +23,7 @@ from .api import (
     ws,
 )
 from .api import settings as settings_api
-from .api import setup, utils, version
+from .api import setup, system, utils, version
 from .core.config import settings
 from .core.containers import Container
 from .core.database import Base, engine
@@ -432,6 +432,9 @@ app.include_router(
     tags=["traffic-triggers"],
 )
 app.include_router(ws.router, tags=["websocket"])
+app.include_router(
+    system.router, prefix=f"{settings.API_V1_PREFIX}/system", tags=["system"]
+)
 
 
 @app.get("/")
