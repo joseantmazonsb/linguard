@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/* Add any custom CSS here if needed */
+
+/* Dark mode support */
+@variant dark (&:where(.dark, .dark *));
+
+/* React Hot Toast - Dark Mode Support */
+.dark [role="status"] {
+  background: #1f2937 !important;
+  border: 1px solid #374151 !important;
+  color: #f9fafb !important;
+}
+
+.dark [role="status"] [data-icon] {
+  color: #f9fafb !important;
+}
+
+.dark [role="status"][data-type="success"] {
+  background: #064e3b !important;
+  border-color: #10b981 !important;
+  color: #d1fae5 !important;
+}
+
+.dark [role="status"][data-type="error"] {
+  background: #7f1d1d !important;
+  border-color: #ef4444 !important;
+  color: #fee2e2 !important;
+}

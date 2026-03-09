@@ -1,0 +1,6 @@
+# SQLite database files
+data/*.db
+data/*.db-*
+plugins/
+data/
+*config.json

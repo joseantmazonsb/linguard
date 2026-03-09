@@ -1,0 +1,164 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Setup: Install All Dependencies",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/setup-dependencies.sh",
+      "windows": {
+        "command": "${workspaceFolder}\\scripts\\setup-dependencies.bat"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "Reset: Clean Environment",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/reset-environment.sh",
+      "windows": {
+        "command": "${workspaceFolder}\\scripts\\reset-environment.bat"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "Lint Backend (Ruff Check)",
+      "type": "shell",
+      "command": "cd backend && source venv/bin/activate && ruff check .",
+      "windows": {
+        "command": "cd backend && .\\venv\\Scripts\\activate && ruff check ."
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": {
+        "owner": "ruff",
+        "fileLocation": ["relative", "${workspaceFolder}/backend"],
+        "pattern": {
+          "regexp": "^(.+):(\\d+):(\\d+):\\s+(\\w+):\\s+(.+)\\s+\\[(.+)\\]$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5,
+          "code": 6
+        }
+      },
+      "group": {
+        "kind": "test",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "Lint Backend (Ruff Fix)",
+      "type": "shell",
+      "command": "cd backend && source venv/bin/activate && ruff check --fix .",
+      "windows": {
+        "command": "cd backend && .\\venv\\Scripts\\activate && ruff check --fix ."
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "test",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "Format Backend (Ruff)",
+      "type": "shell",
+      "command": "cd backend && source venv/bin/activate && ruff format .",
+      "windows": {
+        "command": "cd backend && .\\venv\\Scripts\\activate && ruff format ."
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "test",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "Start Dev Compose",
+      "type": "shell",
+      "command": "docker compose -f docker-compose.dev.yaml up -d",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Stop Dev Compose",
+      "type": "shell",
+      "command": "docker compose -f docker-compose.dev.yaml down",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Check Dev Compose Status",
+      "type": "shell",
+      "command": "docker compose -f docker-compose.dev.yaml ps",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": []
+    }
+  ]
+}

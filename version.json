@@ -1,0 +1,22 @@
+{
+  "version": "2.0.0",
+  "name": "Linguard",
+  "repository": "https://github.com/joseantmazonsb/linguard",
+  "changelog": [
+    {
+      "version": "2.0.0",
+      "date": "2024-02-20",
+      "changes": [
+        "Complete rewrite with FastAPI backend and React frontend",
+        "Added hierarchical DNS configuration system",
+        "Added peer migration between servers",
+        "Added QR code generation for mobile devices",
+        "Added comprehensive audit logging",
+        "Added backup and restore functionality",
+        "Added event-driven architecture",
+        "Added VS Code debugging support with auto docker compose",
+        "Added automated dependency installation scripts"
+      ]
+    }
+  ]
+}
