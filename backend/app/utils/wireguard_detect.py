@@ -24,7 +24,6 @@ def detect_wireguard_binaries() -> Dict[str, Optional[str]]:
     which_result = shutil.which('wg')
     if which_result and os.path.isfile(which_result) and os.access(which_result, os.X_OK):
         result['wg'] = which_result  
-    # return {"wg": None}
     return result
 
 
