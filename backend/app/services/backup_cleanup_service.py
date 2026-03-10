@@ -14,7 +14,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.database import engine
+from ..core import database as _db
 from ..core.events import EventType, event_bus
 from ..models.backup import Backup
 from ..services.settings_service import SettingsService
@@ -89,7 +89,7 @@ class BackupCleanupService:
             
     async def _cleanup_old_backups(self):
         """Remove backups older than the retention period."""
-        async_session = AsyncSession(bind=engine, expire_on_commit=False)
+        async_session = AsyncSession(bind=_db.engine, expire_on_commit=False)
         try:
             # Check if auto cleanup is enabled
             is_enabled = await self.settings_service.is_backup_auto_cleanup_enabled(async_session)

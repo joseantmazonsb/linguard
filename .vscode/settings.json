@@ -1,5 +1,5 @@
 {
-  "python.defaultInterpreterPath": "/Users/jose/dev/repos/linguard-fastapi/backend/venv/bin/python",
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/venv/bin/python",
   "python.terminal.activateEnvironment": true,
   "python.analysis.extraPaths": [
     "${workspaceFolder}/backend"

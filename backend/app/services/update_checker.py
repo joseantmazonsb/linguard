@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .notification_service import NotificationService
 from .version_service import VersionService
-from ..core.database import AsyncSessionLocal
+from ..core import database as _db
 
 
 class UpdateCheckerService:
@@ -71,8 +71,7 @@ class UpdateCheckerService:
                 
                 # Only notify if this is a new version we haven't notified about yet
                 if latest_version and latest_version != self._last_notified_version:
-                    # Create database session
-                    async with AsyncSessionLocal() as db:
+                    async with _db.AsyncSessionLocal() as db:
                         try:
                             # Get the first user (admin) to send notification to
                             # In a multi-user system, you might want to notify all admins

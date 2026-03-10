@@ -12,7 +12,7 @@ from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.database import engine
+from ..core import database as _db
 from ..core.events import EventType, event_bus
 from ..services.backup_service import BackupService
 from ..services.settings_service import SettingsService
@@ -72,8 +72,7 @@ class PeriodicBackupService:
         """Main loop that waits for the scheduled time and creates backups."""
         while self._running:
             try:
-                # Check if periodic backups are enabled
-                async_session = AsyncSession(bind=engine, expire_on_commit=False)
+                async_session = AsyncSession(bind=_db.engine, expire_on_commit=False)
                 try:
                     is_enabled = await self.settings_service.is_backup_periodic_enabled(async_session)
                     
@@ -193,7 +192,7 @@ class PeriodicBackupService:
     
     async def _create_scheduled_backup(self):
         """Create an automatic backup."""
-        async_session = AsyncSession(bind=engine, expire_on_commit=False)
+        async_session = AsyncSession(bind=_db.engine, expire_on_commit=False)
         try:
             # Check again if still enabled (could have been disabled while waiting)
             is_enabled = await self.settings_service.is_backup_periodic_enabled(async_session)

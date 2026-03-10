@@ -8,7 +8,7 @@
       "module": "uvicorn",
       "args": ["app.main:app", "--host", "0.0.0.0", "--port", "8000"],
       "cwd": "${workspaceFolder}/backend",
-      "python": "/Users/jose/dev/repos/linguard-fastapi/backend/venv/bin/python",
+      "python": "venv/bin/python",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/backend",
         "DEBUG_BYPASS_FIREWALL": "true"

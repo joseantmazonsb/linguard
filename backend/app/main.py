@@ -26,7 +26,9 @@ from .api import settings as settings_api
 from .api import setup, system, utils, version
 from .core.config import settings
 from .core.containers import Container
-from .core.database import Base, engine
+from .core.config_loader import config_loader
+from .core import database as _db
+from .core.database import Base, init_engine
 from .core.events import EventType, event_bus
 from .core.exceptions import (
     ValidationError,
@@ -38,6 +40,16 @@ from .core.exceptions import (
 
 # Create logger for startup messages
 logger = logging.getLogger("app.main")
+
+# Module-level health monitor reference so setup.py can start it post-configure-database
+_health_monitor = None
+
+
+async def start_health_monitor():
+    """Start the health monitor. Called from setup.py after the DB engine is ready."""
+    global _health_monitor
+    if _health_monitor is not None and not _health_monitor._running:
+        await _health_monitor.start()
 
 def configure_logging(log_path: str | None = None):
     """Configure logging with optional file output."""
@@ -83,25 +95,37 @@ configure_logging()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Only initialise the engine (and create tables) when the config file already
+    # exists — meaning the user previously completed the database setup step.
+    # On a fresh install the config file won't exist yet; the setup wizard's
+    # configure_database endpoint is responsible for calling reinit_engine() and
+    # running create_all() against the database the user actually chose.
+    if config_loader.exists():
+        init_engine()
+        async with _db.engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    else:
+        logger.info("linguard.config.json not found — skipping DB init (fresh install, awaiting setup)")
 
-    # Configure logging from database settings
-    async_session = AsyncSession(bind=engine, expire_on_commit=False)
-    try:
-        from sqlalchemy import select
-        from .models.settings import GlobalSettings
-        
-        result = await async_session.execute(select(GlobalSettings))
-        global_settings = result.scalar_one_or_none()
-        
-        if global_settings and global_settings.log_path:
-            configure_logging(global_settings.log_path)
-            print(f"[STARTUP] Logging configured from database: {global_settings.log_path}")
-    except Exception as e:
-        print(f"[STARTUP] Warning: Could not configure logging from database: {e}")
-    finally:
-        await async_session.close()
+    # Configure logging from database settings (only possible if DB is ready)
+    if _db.engine is not None:
+        async_session = AsyncSession(bind=_db.engine, expire_on_commit=False)
+        try:
+            from sqlalchemy import select
+            from .models.settings import GlobalSettings
+            
+            result = await async_session.execute(select(GlobalSettings))
+            global_settings = result.scalar_one_or_none()
+            
+            if global_settings and global_settings.log_path:
+                configure_logging(global_settings.log_path)
+                print(f"[STARTUP] Logging configured from database: {global_settings.log_path}")
+        except Exception as e:
+            print(f"[STARTUP] Warning: Could not configure logging from database: {e}")
+        finally:
+            await async_session.close()
+    else:
+        logger.info("Engine not ready — skipping DB-based logging config")
 
     # Connect event bus (in-memory mode)
     await event_bus.connect()
@@ -110,54 +134,59 @@ async def lifespan(app: FastAPI):
     integration_service = app.container.integration_service()
     
     # Ensure default "In-App Notifications" integration exists
-    async_session = AsyncSession(bind=engine, expire_on_commit=False)
-    try:
-        from sqlalchemy import select
-        from .models.integration import Integration
-        from .models.settings import GlobalSettings
-        
-        # Only create if setup is complete
-        result = await async_session.execute(select(GlobalSettings))
-        settings = result.scalar_one_or_none()
-        
-        if settings and settings.setup_completed:
-            # Check if In-App Notifications integration exists
-            result = await async_session.execute(
-                select(Integration).where(Integration.name == "In-App Notifications")
-            )
-            existing_integration = result.scalar_one_or_none()
+    if _db.engine is not None:
+        async_session = AsyncSession(bind=_db.engine, expire_on_commit=False)
+        try:
+            from sqlalchemy import select
+            from .models.integration import Integration
+            from .models.settings import GlobalSettings
             
-            if not existing_integration:
-                logger.info("Creating default In-App Notifications integration...")
-                await integration_service.create_integration(
-                    db=async_session,
-                    name="In-App Notifications",
-                    type="notification",
-                    config={},
-                    events_subscribed=[
-                        EventType.SERVER_RELOADED.value,
-                        EventType.PEER_CONNECTED.value,
-                        EventType.PEER_DISCONNECTED.value,
-                    ],
-                    description="Built-in notification system for important events",
-                    enabled=True
+            # Only create if setup is complete
+            result = await async_session.execute(select(GlobalSettings))
+            settings = result.scalar_one_or_none()
+            
+            if settings and settings.setup_completed:
+                # Check if In-App Notifications integration exists
+                result = await async_session.execute(
+                    select(Integration).where(Integration.name == "In-App Notifications")
                 )
-                logger.info("Default In-App Notifications integration created successfully")
+                existing_integration = result.scalar_one_or_none()
+                
+                if not existing_integration:
+                    logger.info("Creating default In-App Notifications integration...")
+                    await integration_service.create_integration(
+                        db=async_session,
+                        name="In-App Notifications",
+                        type="notification",
+                        config={},
+                        events_subscribed=[
+                            EventType.SERVER_RELOADED.value,
+                            EventType.PEER_CONNECTED.value,
+                            EventType.PEER_DISCONNECTED.value,
+                        ],
+                        description="Built-in notification system for important events",
+                        enabled=True
+                    )
+                    logger.info("Default In-App Notifications integration created successfully")
+                else:
+                    logger.info("In-App Notifications integration already exists")
             else:
-                logger.info("In-App Notifications integration already exists")
-        else:
-            logger.info("Setup not complete - skipping default integration creation")
-    except Exception as e:
-        logger.warning(f"Failed to check/create default integration: {e}")
-    finally:
-        await async_session.close()
+                logger.info("Setup not complete - skipping default integration creation")
+        except Exception as e:
+            logger.warning(f"Failed to check/create default integration: {e}")
+        finally:
+            await async_session.close()
+    else:
+        logger.info("Engine not ready — skipping default integration creation")
 
     # Subscribe to all events and dispatch to integrations
     async def handle_event(event_data: dict):
         """Handle events by dispatching them to integrations."""
         try:
+            if _db.engine is None:
+                return  # DB not ready yet (fresh install mid-setup)
             # Create a new async session with proper binding
-            async_session = AsyncSession(bind=engine, expire_on_commit=False)
+            async_session = AsyncSession(bind=_db.engine, expire_on_commit=False)
             try:
                 event_type = EventType(event_data["event_type"])
                 await integration_service.dispatch_event_to_integrations(
@@ -213,9 +242,11 @@ async def lifespan(app: FastAPI):
     )
     await update_checker.start()
     
-    # Start health monitor
-    health_monitor = app.container.health_monitor_service()
-    await health_monitor.start()
+    # Start health monitor (only if setup is already complete — engine is ready)
+    global _health_monitor
+    _health_monitor = app.container.health_monitor_service()
+    if _db.engine is not None:
+        await _health_monitor.start()
     
     # Start interface monitor
     interface_monitor = app.container.interface_monitor_service()
@@ -235,103 +266,109 @@ async def lifespan(app: FastAPI):
     
     # Initialize plugin system
     plugin_manager = app.container.plugin_manager()
-    async_session = AsyncSession(bind=engine, expire_on_commit=False)
-    try:
-        from sqlalchemy import select
-        from .models.settings import GlobalSettings
-        
-        # Get plugins directory from settings
-        result = await async_session.execute(select(GlobalSettings))
-        global_settings = result.scalar_one_or_none()
-        
-        if global_settings and global_settings.setup_completed:
+    if _db.engine is not None:
+        async_session = AsyncSession(bind=_db.engine, expire_on_commit=False)
+        try:
+            from sqlalchemy import select
+            from .models.settings import GlobalSettings
+            
             # Get plugins directory from settings
-            plugins_dir = global_settings.plugins_directory or "./plugins"
+            result = await async_session.execute(select(GlobalSettings))
+            global_settings = result.scalar_one_or_none()
             
-            # Discover plugins from directory
-            newly_discovered = await plugin_manager.discover_plugins(plugins_dir, async_session)
-            await async_session.commit()
-            
-            if newly_discovered > 0:
-                logger.info(f"Discovered {newly_discovered} new plugin(s)")
-            
-            # Load enabled plugins
-            await plugin_manager.load_enabled_plugins(async_session)
-            loaded_count = plugin_manager.loaded_count()
-            logger.info(f"Plugin system initialized. Loaded {loaded_count} plugin(s)")
-        else:
-            logger.info("Setup not complete - skipping plugin initialization")
-    except Exception as e:
-        logger.warning(f"Failed to initialize plugin system: {e}")
-    finally:
-        await async_session.close()
+            if global_settings and global_settings.setup_completed:
+                # Get plugins directory from settings
+                plugins_dir = global_settings.plugins_directory or "./plugins"
+                
+                # Discover plugins from directory
+                newly_discovered = await plugin_manager.discover_plugins(plugins_dir, async_session)
+                await async_session.commit()
+                
+                if newly_discovered > 0:
+                    logger.info(f"Discovered {newly_discovered} new plugin(s)")
+                
+                # Load enabled plugins
+                await plugin_manager.load_enabled_plugins(async_session)
+                loaded_count = plugin_manager.loaded_count()
+                logger.info(f"Plugin system initialized. Loaded {loaded_count} plugin(s)")
+            else:
+                logger.info("Setup not complete - skipping plugin initialization")
+        except Exception as e:
+            logger.warning(f"Failed to initialize plugin system: {e}")
+        finally:
+            await async_session.close()
+    else:
+        logger.info("Engine not ready — skipping plugin initialization")
 
     # Auto-start servers marked with autostart=True
-    async_session = AsyncSession(bind=engine, expire_on_commit=False)
-    try:
-        from sqlalchemy import select
-        from .models.server import Server
-        from .models.settings import GlobalSettings
-        
-        # Only auto-start if setup is complete
-        result = await async_session.execute(select(GlobalSettings))
-        global_settings = result.scalar_one_or_none()
-        
-        if global_settings and global_settings.setup_completed:
-            # Get all servers with autostart enabled
-            result = await async_session.execute(
-                select(Server).where(Server.autostart == True)
-            )
-            autostart_servers = result.scalars().all()
+    if _db.engine is not None:
+        async_session = AsyncSession(bind=_db.engine, expire_on_commit=False)
+        try:
+            from sqlalchemy import select
+            from .models.server import Server
+            from .models.settings import GlobalSettings
             
-            if autostart_servers:
-                logger.info(f"Auto-starting {len(autostart_servers)} server(s)...")
+            # Only auto-start if setup is complete
+            result = await async_session.execute(select(GlobalSettings))
+            global_settings = result.scalar_one_or_none()
+            
+            if global_settings and global_settings.setup_completed:
+                # Get all servers with autostart enabled
+                result = await async_session.execute(
+                    select(Server).where(Server.autostart == True)
+                )
+                autostart_servers = result.scalars().all()
                 
-                # Get wireguard service from container
-                wireguard_service = app.container.wireguard_service()
-                
-                for server in autostart_servers:
-                    try:
-                        # Skip if already running
-                        if server.status == "running":
-                            logger.info(f"Server '{server.name}' already running - skipping")
-                            continue
-                        
-                        logger.info(f"Auto-starting server: {server.name}")
-                        
-                        # Use a temporary interface name (wg0, wg1, etc.) for starting
-                        temp_interface = f"wg{server.id}"
-                        
-                        # Start interface using wg commands directly
-                        success = await wireguard_service.start_interface(async_session, server.id, temp_interface)
-                        
-                        if not success:
-                            logger.error(f"✗ Failed to start interface for '{server.name}'")
+                if autostart_servers:
+                    logger.info(f"Auto-starting {len(autostart_servers)} server(s)...")
+                    
+                    # Get wireguard service from container
+                    wireguard_service = app.container.wireguard_service()
+                    
+                    for server in autostart_servers:
+                        try:
+                            # Skip if already running
+                            if server.status == "running":
+                                logger.info(f"Server '{server.name}' already running - skipping")
+                                continue
+                            
+                            logger.info(f"Auto-starting server: {server.name}")
+                            
+                            # Use a temporary interface name (wg0, wg1, etc.) for starting
+                            temp_interface = f"wg{server.id}"
+                            
+                            # Start interface using wg commands directly
+                            success = await wireguard_service.start_interface(async_session, server.id, temp_interface)
+                            
+                            if not success:
+                                logger.error(f"✗ Failed to start interface for '{server.name}'")
+                                await async_session.rollback()
+                                continue
+                            
+                            # Update server status
+                            server.status = "running"
+                            await async_session.commit()
+                            await async_session.refresh(server)
+                            
+                            # Find actual interface name for logging
+                            actual_interface = wireguard_service.find_interface_by_public_key(server.public_key)
+                            interface_info = f" on interface '{actual_interface}'" if actual_interface else ""
+                            logger.info(f"✓ Server '{server.name}' started successfully{interface_info}")
+                        except Exception as e:
+                            logger.error(f"✗ Failed to auto-start server '{server.name}': {e}")
                             await async_session.rollback()
-                            continue
-                        
-                        # Update server status
-                        server.status = "running"
-                        await async_session.commit()
-                        await async_session.refresh(server)
-                        
-                        # Find actual interface name for logging
-                        actual_interface = wireguard_service.find_interface_by_public_key(server.public_key)
-                        interface_info = f" on interface '{actual_interface}'" if actual_interface else ""
-                        logger.info(f"✓ Server '{server.name}' started successfully{interface_info}")
-                    except Exception as e:
-                        logger.error(f"✗ Failed to auto-start server '{server.name}': {e}")
-                        await async_session.rollback()
-                
-                logger.info("Auto-start completed")
+                    
+                    logger.info("Auto-start completed")
+                else:
+                    logger.info("No servers configured for auto-start")
             else:
-                logger.info("No servers configured for auto-start")
-        else:
-            logger.info("Setup not complete - skipping server auto-start")
-    except Exception as e:
-        logger.warning(f"Failed to auto-start servers: {e}")
-    finally:
-        await async_session.close()
+                logger.info("Setup not complete - skipping server auto-start")
+        except Exception as e:
+            logger.warning(f"Failed to auto-start servers: {e}")
+        finally:
+            await async_session.close()
+    else:
+        logger.info("Engine not ready — skipping server auto-start")
 
     yield
 
@@ -348,7 +385,7 @@ async def lifespan(app: FastAPI):
     await periodic_backup.stop()
     await backup_cleanup.stop()
     await interface_monitor.stop()
-    await health_monitor.stop()
+    await _health_monitor.stop()
     await update_checker.stop()
     await event_bus.disconnect()
 
@@ -447,11 +484,8 @@ async def health():
     """
     Health check endpoint that tests database, WireGuard, IP forwarding, and firewall accessibility.
     Returns overall status and details about each component.
-    
-    Uses the HealthMonitorService for consistent health checks across HTTP and WebSocket.
     """
-    from .services.health_monitor_service import HealthMonitorService
-    
-    # Create a temporary instance to perform the health check
-    health_monitor = HealthMonitorService()
-    return await health_monitor.check_health()
+    if _health_monitor is None or not _health_monitor._running:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=503, content={"status": "unavailable", "message": "Setup not complete"})
+    return await _health_monitor.check_health()

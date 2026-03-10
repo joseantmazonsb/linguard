@@ -12,8 +12,9 @@ import subprocess
 from datetime import datetime
 from typing import Dict, Optional
 
-from ..core.database import engine
+from ..core import database as _db
 from ..core.config import settings
+from ..utils.wireguard_detect import detect_wireguard_binaries
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +175,7 @@ class HealthMonitorService:
         # Check database connectivity
         try:
             from sqlalchemy import text
-            async with engine.begin() as conn:
+            async with _db.engine.begin() as conn:
                 await conn.execute(text("SELECT 1"))
             health_status["checks"]["database"]["status"] = "healthy"
             health_status["checks"]["database"]["message"] = "Database connection successful"
@@ -189,36 +190,41 @@ class HealthMonitorService:
         env = os.environ.copy()
         env['SUDO_ASKPASS'] = '/bin/false'
         
-        try:
-            result = subprocess.run(
-                ["sudo", "-n", "wg", "show"],
-                stdin=subprocess.DEVNULL,  # Close stdin to prevent hanging
-                capture_output=True,
-                text=True,
-                timeout=5,  # Add timeout to prevent hanging
-                env=env
-            )
-            
-            if result.returncode == 0:
-                health_status["checks"]["wireguard"]["status"] = "healthy"
-                health_status["checks"]["wireguard"]["message"] = "WireGuard is accessible"
-            else:
-                # Check if password is required
-                if "password" in result.stderr.lower():
-                    health_status["checks"]["wireguard"]["status"] = "unhealthy"
-                    health_status["checks"]["wireguard"]["message"] = "WireGuard requires passwordless sudo (configure /etc/sudoers.d/linguard)"
+        wg_paths = detect_wireguard_binaries()
+        if not wg_paths.get("wg"):
+            health_status["checks"]["wireguard"]["status"] = "unhealthy"
+            health_status["checks"]["wireguard"]["message"] = "WireGuard (wg) command not found. Install WireGuard to use Linguard."
+        else:
+            try:
+                result = subprocess.run(
+                    ["sudo", "-n", "wg", "show"],
+                    stdin=subprocess.DEVNULL,  # Close stdin to prevent hanging
+                    capture_output=True,
+                    text=True,
+                    timeout=5,  # Add timeout to prevent hanging
+                    env=env
+                )
+                
+                if result.returncode == 0:
+                    health_status["checks"]["wireguard"]["status"] = "healthy"
+                    health_status["checks"]["wireguard"]["message"] = "WireGuard is accessible"
                 else:
-                    health_status["checks"]["wireguard"]["status"] = "unhealthy"
-                    health_status["checks"]["wireguard"]["message"] = f"WireGuard command failed: {result.stderr.strip()}"
-        except subprocess.TimeoutExpired:
-            health_status["checks"]["wireguard"]["status"] = "unhealthy"
-            health_status["checks"]["wireguard"]["message"] = "WireGuard command timed out (likely waiting for password - configure passwordless sudo)"
-        except FileNotFoundError:
-            health_status["checks"]["wireguard"]["status"] = "unhealthy"
-            health_status["checks"]["wireguard"]["message"] = "WireGuard (wg) command not found in PATH"
-        except Exception as e:
-            health_status["checks"]["wireguard"]["status"] = "unhealthy"
-            health_status["checks"]["wireguard"]["message"] = f"WireGuard check error: {str(e)}"
+                    # Check if password is required
+                    if "password" in result.stderr.lower():
+                        health_status["checks"]["wireguard"]["status"] = "unhealthy"
+                        health_status["checks"]["wireguard"]["message"] = "WireGuard requires passwordless sudo (configure /etc/sudoers.d/linguard)"
+                    else:
+                        health_status["checks"]["wireguard"]["status"] = "unhealthy"
+                        health_status["checks"]["wireguard"]["message"] = f"WireGuard command failed: {result.stderr.strip()}"
+            except subprocess.TimeoutExpired:
+                health_status["checks"]["wireguard"]["status"] = "unhealthy"
+                health_status["checks"]["wireguard"]["message"] = "WireGuard command timed out (likely waiting for password - configure passwordless sudo)"
+            except FileNotFoundError:
+                health_status["checks"]["wireguard"]["status"] = "unhealthy"
+                health_status["checks"]["wireguard"]["message"] = "sudo command not found. Cannot run WireGuard with elevated privileges."
+            except Exception as e:
+                health_status["checks"]["wireguard"]["status"] = "unhealthy"
+                health_status["checks"]["wireguard"]["message"] = f"WireGuard check error: {str(e)}"
         
         # Check IP forwarding status
         try:
@@ -336,16 +342,10 @@ class HealthMonitorService:
         
         # Determine overall status based on all component checks
         # Only unhealthy checks affect overall status, warnings are ignored
-        has_unhealthy = False
-        
-        for component, check in health_status["checks"].items():
-            if check["status"] == "unhealthy":
-                has_unhealthy = True
-                break
-        
-        if has_unhealthy:
-            health_status["status"] = "unhealthy"
-        else:
-            health_status["status"] = "healthy"
+        has_unhealthy = any(
+            check["status"] == "unhealthy"
+            for check in health_status["checks"].values()
+        )
+        health_status["status"] = "unhealthy" if has_unhealthy else "healthy"
         
         return health_status

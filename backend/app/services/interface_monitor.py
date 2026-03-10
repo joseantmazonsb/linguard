@@ -12,7 +12,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.database import engine
+from ..core import database as _db
 from ..core.events import EventType, event_bus
 from ..models.server import Server
 from ..services.wireguard import WireGuardService
@@ -82,7 +82,7 @@ class InterfaceMonitorService:
             
     async def _check_all_servers(self):
         """Check all servers and sync their status with actual WireGuard state."""
-        async_session = AsyncSession(bind=engine, expire_on_commit=False)
+        async_session = AsyncSession(bind=_db.engine, expire_on_commit=False)
         try:
             # Get all servers from database
             result = await async_session.execute(select(Server))

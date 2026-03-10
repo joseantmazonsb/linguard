@@ -13,7 +13,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { serversAPI, peersAPI, metricsAPI } from "../services/api";
+import { serversAPI, peersAPI, metricsAPI, healthAPI } from "../services/api";
 import ServerForm from "../components/ServerForm";
 import ServerCard from "../components/ServerCard";
 import ImportServerDialog from "../components/ImportServerDialog";
@@ -81,6 +81,14 @@ export default function Servers() {
     queryKey: ["servers"],
     queryFn: serversAPI.list,
   });
+
+  // Fetch health status to gate WireGuard-dependent actions
+  const { data: healthData } = useQuery({
+    queryKey: ["health"],
+    queryFn: healthAPI.check,
+    refetchInterval: 30000,
+  });
+  const wgUnavailable = healthData?.checks?.wireguard?.status !== "healthy";
 
   // Fetch servers aggregate metrics
   const { data: serversMetrics, isLoading: metricsLoading } = useQuery({
@@ -819,27 +827,43 @@ export default function Servers() {
             ) : (
               /* Normal Mode - Show Add and Bulk Actions buttons */
               <>
+                <AddMenuButton
+                  onAdd={handleCreate}
+                  onImport={() => setIsImportOpen(true)}
+                  isDisabled={wgUnavailable}
+                  disabledTitle="WireGuard is not installed"
+                  isImportDisabled={wgUnavailable || importMutation.isPending}
+                  importDisabledTitle={wgUnavailable ? "WireGuard is not installed" : undefined}
+                />
                 {servers.length > 0 && (
-                  <>
-                    <AddMenuButton
-                      onAdd={handleCreate}
-                      onImport={() => setIsImportOpen(true)}
-                      isImportDisabled={importMutation.isPending}
-                    />
-                    <BulkActionsButton
-                      onStart={handleBulkStart}
-                      onStop={handleBulkStop}
-                      onDownload={handleBulkDownload}
-                      onDelete={handleBulkDelete}
-                    />
-                  </>
+                  <BulkActionsButton
+                    onStart={handleBulkStart}
+                    onStop={handleBulkStop}
+                    onDownload={handleBulkDownload}
+                    onDelete={handleBulkDelete}
+                  />
                 )}
               </>
             )}
           </div>
 
+          {/* WireGuard unavailable warning banner */}
+          {wgUnavailable && (
+            <div className="mb-6 flex items-start gap-3 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
+              <svg className="mt-0.5 h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <div>
+                <p className="font-semibold">WireGuard unavailable — servers cannot be created or imported</p>
+                {healthData?.checks?.wireguard?.message && (
+                  <p className="mt-0.5 text-sm">{healthData.checks.wireguard.message}</p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Stats Overview - Hidden during selection mode */}
-          {bulkSelectMode === "none" && servers.length > 0 && (
+          {bulkSelectMode === "none" && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3">
@@ -989,12 +1013,24 @@ export default function Servers() {
               <p className="text-gray-500 dark:text-gray-400 mb-4">
                 Get started by creating your first WireGuard server.
               </p>
-              <button
-                onClick={handleCreate}
-                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors"
-              >
-                Create Server
-              </button>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={handleCreate}
+                  disabled={wgUnavailable}
+                  title={wgUnavailable ? "WireGuard is not installed" : undefined}
+                  className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg transition-colors"
+                >
+                  Create
+                </button>
+                <button
+                  onClick={() => setIsImportOpen(true)}
+                  disabled={wgUnavailable || importMutation.isPending}
+                  title={wgUnavailable ? "WireGuard is not installed" : undefined}
+                  className="bg-white hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 px-6 py-2 rounded-lg transition-colors"
+                >
+                  Import
+                </button>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">

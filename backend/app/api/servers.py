@@ -25,6 +25,7 @@ from ..services.bounce_routing import BounceServerService
 from ..services.config_parser import ConfigParser
 from ..services.wireguard import WireGuardService
 from ..utils.ip_validation import check_server_ip_subnet_conflicts
+from ..utils.wireguard_detect import detect_wireguard_binaries
 
 router = APIRouter()
 
@@ -174,6 +175,14 @@ async def create_server(
     audit_service: AuditService = Depends(Provide[Container.audit_service])
 ):
     """Create a new WireGuard server"""
+    # Check WireGuard is available
+    wg_paths = detect_wireguard_binaries()
+    if not wg_paths.get("wg"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="WireGuard is not installed or not found on this system. Install WireGuard before creating servers."
+        )
+
     # Check for duplicate server name
     result = await db.execute(select(Server).where(Server.name == server_data.name))
     existing_server = result.scalar_one_or_none()
@@ -717,6 +726,14 @@ async def import_server_config(
     audit_service: AuditService = Depends(Provide[Container.audit_service])
 ):
     """Import a WireGuard server from a configuration file"""
+    # Check WireGuard is available
+    wg_paths = detect_wireguard_binaries()
+    if not wg_paths.get("wg"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="WireGuard is not installed or not found on this system. Install WireGuard before importing servers."
+        )
+
     try:
         # Read config file
         config_content = await config_file.read()

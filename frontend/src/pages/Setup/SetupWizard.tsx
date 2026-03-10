@@ -15,6 +15,7 @@ import {
   type SetupStep,
 } from "../../utils/setupStorage";
 import { useAuthStore } from "../../store/auth";
+import { setupAPI } from "../../services/api";
 
 export default function SetupWizard() {
   const [currentStep, setCurrentStep] = useState<SetupStep>("welcome");
@@ -56,7 +57,14 @@ export default function SetupWizard() {
     }
   };
 
-  const handleStartFresh = () => {
+  const handleStartFresh = async () => {
+    try {
+      await setupAPI.reset();
+    } catch (e) {
+      // If reset fails (e.g. backend not yet initialised) that's fine —
+      // the backend may have nothing to reset yet.
+      console.warn("Setup reset call failed (may be a fresh install):", e);
+    }
     clearSetupState();
     setShowResumePrompt(false);
     setCurrentStep("welcome");
@@ -64,34 +72,22 @@ export default function SetupWizard() {
   };
 
   const handleNext = (data?: any) => {
-    if (data) {
-      const newData = { ...setupData, ...data };
-      setSetupData(newData);
+    const newData = data ? { ...setupData, ...data } : setupData;
+    if (data) setSetupData(newData);
 
-      // Save state to localStorage
-      const nextIndex = stepIndex + 1;
-      if (nextIndex < steps.length) {
-        const nextStep = steps[nextIndex];
-        saveSetupState({
-          currentStep: nextStep,
-          data: newData,
-          lastUpdated: new Date().toISOString(),
-        });
-        updateCurrentStep(nextStep);
-        setCurrentStep(nextStep);
-      }
-    } else {
-      const nextIndex = stepIndex + 1;
-      if (nextIndex < steps.length) {
-        const nextStep = steps[nextIndex];
-        saveSetupState({
-          currentStep: nextStep,
-          data: setupData,
-          lastUpdated: new Date().toISOString(),
-        });
-        updateCurrentStep(nextStep);
-        setCurrentStep(nextStep);
-      }
+    // If WireGuard is missing at the server step, skip the peer step too
+    const stepsToAdvance = data?.skipPeer ? 2 : 1;
+    const nextIndex = stepIndex + stepsToAdvance;
+
+    if (nextIndex < steps.length) {
+      const nextStep = steps[nextIndex];
+      saveSetupState({
+        currentStep: nextStep,
+        data: newData,
+        lastUpdated: new Date().toISOString(),
+      });
+      updateCurrentStep(nextStep);
+      setCurrentStep(nextStep);
     }
   };
 

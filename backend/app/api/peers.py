@@ -24,6 +24,7 @@ from ..services.config_parser import ConfigParser
 from ..services.migration import MigrationService
 from ..services.wireguard import WireGuardService
 from ..utils.ip_validation import is_ip_in_subnet
+from ..utils.wireguard_detect import detect_wireguard_binaries
 
 router = APIRouter()
 
@@ -119,6 +120,14 @@ async def create_peer(
     audit_service: AuditService = Depends(Provide[Container.audit_service])
 ):
     """Create a new WireGuard peer"""
+    # Check WireGuard is available
+    wg_paths = detect_wireguard_binaries()
+    if not wg_paths.get("wg"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="WireGuard is not installed or not found on this system. Install WireGuard before creating peers."
+        )
+
     # Verify server exists
     result = await db.execute(select(Server).where(Server.id == peer_data.server_id))
     server = result.scalar_one_or_none()
@@ -745,6 +754,14 @@ async def import_peer_config(
     audit_service: AuditService = Depends(Provide[Container.audit_service])
 ):
     """Import a WireGuard peer from a configuration file"""
+    # Check WireGuard is available
+    wg_paths = detect_wireguard_binaries()
+    if not wg_paths.get("wg"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="WireGuard is not installed or not found on this system. Install WireGuard before importing peers."
+        )
+
     # Verify server exists
     result = await db.execute(select(Server).where(Server.id == server_id))
     server = result.scalar_one_or_none()

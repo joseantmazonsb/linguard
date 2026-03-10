@@ -1290,13 +1290,13 @@ export default function Dashboard() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       )}
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900 dark:text-white">Database</h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          {currentHealthData?.checks?.database?.message || 'No message available'}
-                        </p>
-                      </div>
-                    </div>
+                       <div className="flex-1">
+                         <h4 className="font-semibold text-gray-900 dark:text-white">Database</h4>
+                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                           {currentHealthData?.checks?.database?.message}
+                         </p>
+                       </div>
+                     </div>
                   </div>
 
                   {/* WireGuard Check */}

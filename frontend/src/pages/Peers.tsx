@@ -18,7 +18,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { peersAPI, serversAPI, metricsAPI } from "../services/api";
+import { peersAPI, serversAPI, metricsAPI, healthAPI } from "../services/api";
 import PeerForm from "../components/PeerForm";
 import PeerCard from "../components/PeerCard";
 import CustomSelect from "../components/CustomSelect";
@@ -143,6 +143,14 @@ export default function Peers() {
     queryKey: ["peers-aggregate-metrics", timeRange],
     queryFn: () => metricsAPI.getPeersAggregateMetrics(timeRange),
   });
+
+  // Fetch health status to gate WireGuard-dependent actions
+  const { data: healthData } = useQuery({
+    queryKey: ["health"],
+    queryFn: healthAPI.check,
+    refetchInterval: 30000,
+  });
+  const wgUnavailable = healthData?.checks?.wireguard?.status !== "healthy";
 
   // Format bytes helper
   const formatBytes = (bytes: number): string => {
@@ -700,27 +708,40 @@ export default function Peers() {
             ) : (
               /* Normal Mode - Show Add and Bulk Actions buttons */
               <>
+                <AddMenuButton
+                  onAdd={handleCreate}
+                  onImport={() => setIsImportOpen(true)}
+                  isDisabled={servers.length === 0 || wgUnavailable}
+                  disabledTitle={wgUnavailable ? "WireGuard is not installed" : "Create a server first before adding peers"}
+                  isImportDisabled={
+                    servers.length === 0 || wgUnavailable || importMutation.isPending
+                  }
+                  importDisabledTitle={wgUnavailable ? "WireGuard is not installed" : "Create a server first before importing peers"}
+                />
                 {peers.length > 0 && (
-                  <>
-                    <AddMenuButton
-                      onAdd={handleCreate}
-                      onImport={() => setIsImportOpen(true)}
-                      isDisabled={servers.length === 0}
-                      disabledTitle="Create a server first before adding peers"
-                      isImportDisabled={
-                        servers.length === 0 || importMutation.isPending
-                      }
-                      importDisabledTitle="Create a server first before importing peers"
-                    />
-                    <BulkActionsButton
-                      onDownload={handleBulkDownload}
-                      onDelete={handleBulkDelete}
-                    />
-                  </>
+                  <BulkActionsButton
+                    onDownload={handleBulkDownload}
+                    onDelete={handleBulkDelete}
+                  />
                 )}
               </>
             )}
           </div>
+
+          {/* WireGuard unavailable warning banner */}
+          {wgUnavailable && (
+            <div className="mb-6 flex items-start gap-3 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
+              <svg className="mt-0.5 h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <div>
+                <p className="font-semibold">WireGuard unavailable — peers cannot be created or imported</p>
+                {healthData?.checks?.wireguard?.message && (
+                  <p className="mt-0.5 text-sm">{healthData.checks.wireguard.message}</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Stats Overview - Hidden during selection mode */}
           {bulkSelectMode === "none" && (
@@ -935,20 +956,40 @@ export default function Peers() {
                   ? "No peers on this server."
                   : servers.length === 0
                     ? "Create a server first before adding peers."
-                    : "Get started by creating your first WireGuard peer."}
+                    : wgUnavailable
+                      ? "WireGuard is not installed. Install it to create peers."
+                      : "Get started by creating your first WireGuard peer."}
               </p>
-              <button
-                onClick={handleCreate}
-                disabled={servers.length === 0}
-                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg transition-colors"
-                title={
-                  servers.length === 0
-                    ? "Create a server first before adding peers"
-                    : ""
-                }
-              >
-                Create Peer
-              </button>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={handleCreate}
+                  disabled={servers.length === 0 || wgUnavailable}
+                  className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg transition-colors"
+                  title={
+                    wgUnavailable
+                      ? "WireGuard is not installed"
+                      : servers.length === 0
+                        ? "Create a server first before adding peers"
+                        : undefined
+                  }
+                >
+                  Create
+                </button>
+                <button
+                  onClick={() => setIsImportOpen(true)}
+                  disabled={servers.length === 0 || wgUnavailable || importMutation.isPending}
+                  className="bg-white hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 px-6 py-2 rounded-lg transition-colors"
+                  title={
+                    wgUnavailable
+                      ? "WireGuard is not installed"
+                      : servers.length === 0
+                        ? "Create a server first before importing peers"
+                        : undefined
+                  }
+                >
+                  Import
+                </button>
+              </div>
             </div>
           ) : filteredPeers.length === 0 ? (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-12 text-center border dark:border-gray-700">

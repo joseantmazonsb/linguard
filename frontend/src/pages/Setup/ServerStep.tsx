@@ -35,7 +35,6 @@ export default function ServerStep({ onNext, onBack, setupData }: ServerStepProp
     mutationFn: setupAPI.createServer,
     onSuccess: (data) => {
       if (data.wireguard_missing) {
-        // WireGuard is not installed — show warning and let user continue
         setWireguardMissing(true);
         return;
       }
@@ -69,7 +68,9 @@ export default function ServerStep({ onNext, onBack, setupData }: ServerStepProp
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">WireGuard Not Found</h2>
-          <p className="text-gray-600 dark:text-gray-300">The server could not be created because WireGuard is not installed.</p>
+          <p className="text-gray-600 dark:text-gray-300">
+            The server and peer could not be created because WireGuard is not installed on this system.
+          </p>
         </div>
 
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg p-4">
@@ -80,7 +81,7 @@ export default function ServerStep({ onNext, onBack, setupData }: ServerStepProp
             <div>
               <p className="font-medium text-yellow-800 dark:text-yellow-300">WireGuard is not installed</p>
               <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">
-                You can still complete setup and access the dashboard. The system status will show as unhealthy until WireGuard is installed and servers are configured.
+                You can still finish setup and access the dashboard. The system status will show as unhealthy until WireGuard is installed and servers are configured.
               </p>
               <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-2">
                 To install WireGuard, run: <code className="bg-yellow-100 dark:bg-yellow-900/40 px-1 rounded font-mono">apt install wireguard</code> (Debian/Ubuntu) or equivalent for your OS.
@@ -95,7 +96,7 @@ export default function ServerStep({ onNext, onBack, setupData }: ServerStepProp
           </button>
           <button
             type="button"
-            onClick={() => onNext({ wireguardMissing: true })}
+            onClick={() => onNext({ wireguardMissing: true, skipPeer: true })}
             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg font-medium"
           >
             Continue Anyway
@@ -213,4 +214,3 @@ export default function ServerStep({ onNext, onBack, setupData }: ServerStepProp
     </div>
   );
 }
-

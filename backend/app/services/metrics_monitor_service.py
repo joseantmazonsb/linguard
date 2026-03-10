@@ -15,7 +15,7 @@ from typing import Optional
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.database import engine
+from ..core import database as _db
 from ..models.traffic_metric import TrafficMetric
 from ..models.settings import GlobalSettings
 from ..services.metrics_collector import MetricsCollectorService
@@ -85,7 +85,7 @@ class MetricsMonitorService:
         
         while self._running:
             try:
-                async_session = AsyncSession(bind=engine, expire_on_commit=False)
+                async_session = AsyncSession(bind=_db.engine, expire_on_commit=False)
                 try:
                     # Get collection interval from settings
                     interval_minutes = await self._get_collection_interval(async_session)

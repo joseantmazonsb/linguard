@@ -34,35 +34,76 @@ router = APIRouter()
 
 
 @router.get("/status", response_model=SetupStatus)
-async def get_setup_status(db: AsyncSession = Depends(get_db)):
+async def get_setup_status():
     """Check if initial setup has been completed."""
-    # Check if any users exist
-    result = await db.execute(select(User))
-    users = result.scalars().all()
-    has_users = len(users) > 0
+    from ..core import database as _db
 
-    # Check setup_completed flag in global settings
-    result = await db.execute(select(GlobalSettings))
-    settings = result.scalar_one_or_none()
+    # If engine not ready, setup definitely isn't complete
+    if _db.engine is None:
+        return SetupStatus(setup_completed=False, requires_setup=True, current_step=None)
 
-    # If setup_completed flag is set, setup is done
-    if settings and settings.setup_completed:
-        return SetupStatus(
-            setup_completed=True, requires_setup=False, current_step=None
+    try:
+        async with _db.AsyncSessionLocal() as db:
+            # Check setup_completed flag in global settings
+            result = await db.execute(select(GlobalSettings))
+            settings = result.scalar_one_or_none()
+
+            if settings and settings.setup_completed:
+                return SetupStatus(
+                    setup_completed=True, requires_setup=False, current_step=None
+                )
+
+            return SetupStatus(
+                setup_completed=False,
+                requires_setup=True,
+                current_step=settings.setup_current_step if settings else None,
+            )
+    except Exception:
+        return SetupStatus(setup_completed=False, requires_setup=True, current_step=None)
+
+
+@router.post("/reset")
+async def reset_setup():
+    """
+    Reset the application to a clean state so the setup wizard can run again.
+
+    Drops all tables, deletes linguard.config.json, and resets the in-memory
+    engine to None. Safe to call at any point before setup_completed=True.
+    """
+    import os
+    from ..core import database as _db
+    from ..core.database import Base
+
+    try:
+        # Drop all tables if the engine is live
+        if _db.engine is not None:
+            async with _db.engine.begin() as conn:
+                await conn.run_sync(Base.metadata.drop_all)
+            await _db.engine.dispose()
+
+        # Reset module-level globals
+        _db.engine = None
+        _db.AsyncSessionLocal = None
+
+        # Delete the config file so the next startup is a true fresh install
+        if config_loader.exists():
+            os.remove(config_loader.config_path)
+
+        return {"success": True, "message": "Setup reset. Ready to start fresh."}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to reset setup: {str(e)}",
         )
-
-    # Otherwise, setup is required
-    return SetupStatus(
-        setup_completed=False,
-        requires_setup=True,
-        current_step=settings.setup_current_step if settings else None,
-    )
 
 
 @router.post("/configure-database")
 async def configure_database_backend(config_data: ConfigureDatabase):
     """Configure database backend (first step in setup)."""
     import os
+    import traceback as _tb
     
     try:
         print(f"[SETUP] Received database config request")
@@ -75,25 +116,41 @@ async def configure_database_backend(config_data: ConfigureDatabase):
             # If it's a relative path, convert it to absolute
             if not db_url.startswith("sqlite"):
                 print(f"[SETUP] Converting relative path to absolute SQLite URL")
-                # Remove leading './' if present
+                # Strip leading './' or '/' characters
                 path = db_url.lstrip("./")
                 print(f"[SETUP] Cleaned path: {path}")
                 # Get absolute path
                 abs_path = os.path.abspath(os.path.join(os.getcwd(), path))
                 print(f"[SETUP] Absolute path: {abs_path}")
                 # Ensure directory exists
-                os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+                parent_dir = os.path.dirname(abs_path)
+                print(f"[SETUP] Creating directory: {parent_dir}")
+                os.makedirs(parent_dir, exist_ok=True)
                 print(f"[SETUP] Directory created/verified")
                 # Format as SQLite URL with aiosqlite driver
                 db_url = f"sqlite+aiosqlite:///{abs_path}"
                 print(f"[SETUP] Final SQLite URL: {db_url}")
         
         print(f"[SETUP] Saving config to file...")
-        # Save database config to linguard.config.json
         config_loader.set_database(
             db_type=config_data.database_type.value, db_url=db_url
         )
         print(f"[SETUP] Config saved successfully")
+
+        print(f"[SETUP] Calling reinit_engine({db_url!r})...")
+        from ..core.database import reinit_engine, init_db
+        reinit_engine(db_url)
+        print(f"[SETUP] reinit_engine done, calling init_db()...")
+        await init_db()
+        print(f"[SETUP] Database engine ready and tables created")
+
+        # Start the health monitor now that the engine is live
+        try:
+            from ..main import start_health_monitor
+            await start_health_monitor()
+            print(f"[SETUP] Health monitor started")
+        except Exception as e:
+            print(f"[SETUP] Warning: could not start health monitor: {e}")
 
         return {
             "success": True,
@@ -103,12 +160,12 @@ async def configure_database_backend(config_data: ConfigureDatabase):
             "requires_restart": False,
         }
     except Exception as e:
+        full_trace = _tb.format_exc()
         print(f"[SETUP ERROR] {type(e).__name__}: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        print(f"[SETUP ERROR] Full traceback:\n{full_trace}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to configure database: {str(e)}"
+            detail=f"Failed to configure database: {type(e).__name__}: {str(e)}"
         )
 
 

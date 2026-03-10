@@ -283,6 +283,10 @@ export const setupAPI = {
     const response = await api.get('/setup/status');
     return response.data;
   },
+  reset: async () => {
+    const response = await api.post('/setup/reset');
+    return response.data;
+  },
   configureDatabase: async (data: { database_type: string; database_url: string }) => {
     const response = await api.post('/setup/configure-database', data);
     return response.data;

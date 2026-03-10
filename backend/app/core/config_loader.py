@@ -48,10 +48,8 @@ class ConfigLoader:
             raise RuntimeError(f"Failed to save {self.CONFIG_FILENAME}: {e}") from e
 
     def _get_default_config(self) -> dict:
-        """Get default configuration (SQLite)"""
-        # Determine default SQLite path
+        """Get default configuration (SQLite). Does NOT create any directories or files."""
         data_dir = Path(__file__).parent.parent.parent / "data"
-        data_dir.mkdir(parents=True, exist_ok=True)
         db_path = data_dir / "linguard.db"
 
         return {
@@ -60,6 +58,10 @@ class ConfigLoader:
                 "url": f"sqlite+aiosqlite:///{db_path.absolute()}",
             }
         }
+
+    def exists(self) -> bool:
+        """Return True if the config file has been written (i.e. setup has run at least the DB step)."""
+        return self.config_path.exists()
 
     def get_database_url(self) -> str:
         """Get database URL from config"""

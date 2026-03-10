@@ -6,7 +6,7 @@ from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.database import AsyncSessionLocal
+from ..core import database as _db
 from ..models.user import User
 from ..models.settings import GlobalSettings
 
@@ -86,7 +86,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
     if token:
         try:
             # Create database session
-            async with AsyncSessionLocal() as db:
+            async with _db.AsyncSessionLocal() as db:
                 try:
                     # Get settings for JWT validation
                     result = await db.execute(select(GlobalSettings))
@@ -113,7 +113,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                         
                 except JWTError as e:
                     print(f"WebSocket JWT error: {e}")
-                
+                    
         except Exception as e:
             print(f"WebSocket authentication error: {e}")
     else:
