@@ -13,7 +13,17 @@ class GlobalSettingsBase(BaseModel):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     disable_auth: bool = False
-    
+
+    # Authentication Mode & OIDC Settings
+    auth_mode: str = "both"
+    oidc_discovery_url: str | None = None
+    oidc_client_id: str | None = None
+    oidc_client_secret: str | None = None
+    oidc_scopes: str = "openid email profile"
+    oidc_provider_name: str | None = None
+    oidc_auto_provision: bool = True
+    oidc_admin_groups: str = ""
+
     # Logging Settings
     log_level: str = "INFO"
     log_path: str | None = None
@@ -44,6 +54,14 @@ class GlobalSettingsUpdate(BaseModel):
     algorithm: str | None = None
     access_token_expire_minutes: int | None = None
     disable_auth: bool | None = None
+    auth_mode: str | None = None
+    oidc_discovery_url: str | None = None
+    oidc_client_id: str | None = None
+    oidc_client_secret: str | None = None
+    oidc_scopes: str | None = None
+    oidc_provider_name: str | None = None
+    oidc_auto_provision: bool | None = None
+    oidc_admin_groups: str | None = None
     log_level: str | None = None
     log_path: str | None = None
     backup_dir: str | None = None

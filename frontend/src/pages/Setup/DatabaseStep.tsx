@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { setupAPI } from "../../services/api";
+import { setupAPI } from "../../services/apiClient";
 import CustomSelect from "../../components/CustomSelect";
 
 interface DatabaseStepProps {

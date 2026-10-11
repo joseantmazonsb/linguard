@@ -4,6 +4,7 @@ import WelcomeStep from "./WelcomeStep";
 import DatabaseStep from "./DatabaseStep";
 import AccountStep from "./AccountStep";
 import GlobalSettingsStep from "./GlobalSettingsStep";
+import AuthStep from "./AuthStep";
 import ServerStep from "./ServerStep";
 import PeerStep from "./PeerStep";
 import CompleteStep from "./CompleteStep";
@@ -15,7 +16,7 @@ import {
   type SetupStep,
 } from "../../utils/setupStorage";
 import { useAuthStore } from "../../store/auth";
-import { setupAPI } from "../../services/api";
+import { setupAPI } from "../../services/apiClient";
 
 export default function SetupWizard() {
   const [currentStep, setCurrentStep] = useState<SetupStep>("welcome");
@@ -30,6 +31,7 @@ export default function SetupWizard() {
     "database",
     "account",
     "globals",
+    "auth",
     "server",
     "peer",
     "complete",
@@ -177,6 +179,9 @@ export default function SetupWizard() {
           )}
           {currentStep === "globals" && (
             <GlobalSettingsStep onNext={handleNext} onBack={handleBack} setupData={setupData} />
+          )}
+          {currentStep === "auth" && (
+            <AuthStep onNext={handleNext} onBack={handleBack} setupData={setupData} />
           )}
           {currentStep === "server" && (
             <ServerStep

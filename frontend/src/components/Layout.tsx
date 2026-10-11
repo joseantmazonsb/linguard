@@ -1,7 +1,7 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "../store/auth";
 import { useQuery } from "@tanstack/react-query";
-import { versionAPI } from "../services/api";
+import { versionAPI } from "../services/apiClient";
 import { useEffect, useState } from "react";
 import NotificationCenter from "./NotificationCenter";
 import ThemeSwitcher from "./ThemeSwitcher";

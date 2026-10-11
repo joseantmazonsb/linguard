@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { metricsAPI } from '../services/api';
+import { metricsAPI } from '../services/apiClient';
 import type { MetricsData } from '../types';
 
 type TimeRange = 24 | 168 | 720; // 24h, 7d, 30d

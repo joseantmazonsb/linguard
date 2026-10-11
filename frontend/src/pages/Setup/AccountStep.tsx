@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { setupAPI, authAPI } from '../../services/api';
+import { setupAPI, authAPI } from '../../services/apiClient';
 import { useAuthStore } from '../../store/auth';
 import type { FieldErrors } from '../../utils/errorUtils';
 import {
@@ -35,8 +35,8 @@ export default function AccountStep({ onNext, onBack }: AccountStepProps) {
       // Auto-login the user
       try {
         const loginResponse = await authAPI.login(formData.username, formData.password);
-        // Update auth store with token
-        login(loginResponse.access_token);
+        // Update auth store with token and role
+        login(loginResponse.access_token, loginResponse.user?.role);
         // Pass username and password to setupData so GlobalSettingsStep can re-login after secret key change
         onNext({ 
           userId: data.user_id, 

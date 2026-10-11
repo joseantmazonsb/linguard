@@ -13,7 +13,7 @@ import {
 } from '../utils/errorUtils';
 import FieldError from './FieldError';
 import CustomSelect from './CustomSelect';
-import { api } from '../services/api';
+import { api } from '../services/apiClient';
 
 interface MigratePeerDialogProps {
   peer: Peer;

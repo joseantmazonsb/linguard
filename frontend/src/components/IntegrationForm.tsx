@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
-import { integrationsAPI } from "../services/api";
+import { integrationsAPI } from "../services/apiClient";
 import ToggleSwitch from "./ToggleSwitch";
 import type { Integration, IntegrationType } from "../types";
 import type { FieldErrors } from "../utils/errorUtils";

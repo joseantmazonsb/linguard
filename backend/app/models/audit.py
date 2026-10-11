@@ -10,7 +10,7 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Null for anonymous events (failed logins)
 
     # Action Details
     action = Column(String(50), nullable=False, index=True)  # CREATE, UPDATE, DELETE, MIGRATE, etc.

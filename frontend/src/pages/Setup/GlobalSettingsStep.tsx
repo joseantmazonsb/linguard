@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { setupAPI, authAPI } from "../../services/api";
+import { setupAPI, authAPI } from "../../services/apiClient";
 import { useAuthStore } from "../../store/auth";
 import ToggleSwitch from "../../components/ToggleSwitch";
 import type { FieldErrors } from "../../utils/errorUtils";
@@ -74,7 +74,7 @@ export default function GlobalSettingsStep({
             setupData.username,
             setupData.password,
           );
-          login(loginResponse.access_token);
+          login(loginResponse.access_token, loginResponse.user?.role);
           console.log("[GlobalSettingsStep] Re-authentication successful");
         } catch (err) {
           console.error("[GlobalSettingsStep] Re-authentication failed:", err);

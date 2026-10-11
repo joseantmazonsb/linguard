@@ -14,7 +14,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { serversAPI, peersAPI, metricsAPI, healthAPI } from "../services/api";
+import { serversAPI, peersAPI, metricsAPI, healthAPI } from "../services/apiClient";
 import { useWebSocket, type MetricsData, type ServerStatusChangeData, type HealthData } from "../hooks/useWebSocket";
 import type { Server, Peer } from "../types";
 
@@ -38,7 +38,7 @@ export default function Dashboard() {
   // Fetch peers
   const { data: peers = [], isLoading: peersLoading } = useQuery({
     queryKey: ["peers"],
-    queryFn: peersAPI.list,
+    queryFn: () => peersAPI.list(),
   });
 
   // Fetch dashboard metrics (no polling, just initial load)

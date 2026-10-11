@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
-import { pluginsAPI } from "../services/api";
+import { pluginsAPI } from "../services/apiClient";
 import ConfirmDialog from "../components/ConfirmDialog";
 
 interface Plugin {

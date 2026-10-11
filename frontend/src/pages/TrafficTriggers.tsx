@@ -11,7 +11,7 @@ import {
   serversAPI,
   peersAPI,
   integrationsAPI,
-} from "../services/api";
+} from "../services/apiClient";
 import type { TrafficTrigger, Server, Peer, Integration } from "../types";
 import TrafficTriggerForm from "../components/TrafficTriggerForm";
 import ConfirmDialog from "../components/ConfirmDialog";

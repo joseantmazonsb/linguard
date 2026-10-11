@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 import logging
 import os
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,19 +37,67 @@ from .core.exceptions import (
     custom_validation_error_handler,
     custom_multi_field_validation_error_handler,
 )
+from .core.security import get_current_admin
 
 # Create logger for startup messages
 logger = logging.getLogger("app.main")
 
-# Module-level health monitor reference so setup.py can start it post-configure-database
+# Module-level monitor references so shutdown can stop them regardless of
+# whether they were started by the lifespan or by setup's configure-database.
 _health_monitor = None
+_interface_monitor = None
+_backup_cleanup = None
+_periodic_backup = None
+_metrics_monitor = None
 
 
-async def start_health_monitor():
-    """Start the health monitor. Called from setup.py after the DB engine is ready."""
-    global _health_monitor
-    if _health_monitor is not None and not _health_monitor._running:
+async def start_background_monitors():
+    """
+    Start all background monitor services. Idempotent — safe to call from
+    both the lifespan startup and setup's configure-database endpoint.
+    Only starts monitors when the DB engine is live (post-setup).
+    """
+    global _health_monitor, _interface_monitor, _backup_cleanup, _periodic_backup, _metrics_monitor
+    if _db.engine is None:
+        return
+
+    if _health_monitor is None:
+        _health_monitor = app.container.health_monitor_service()
+    if not _health_monitor._running:
         await _health_monitor.start()
+
+    if _interface_monitor is None:
+        _interface_monitor = app.container.interface_monitor_service()
+    if not _interface_monitor._running:
+        await _interface_monitor.start()
+
+    if _backup_cleanup is None:
+        _backup_cleanup = app.container.backup_cleanup_service()
+    if not _backup_cleanup._running:
+        await _backup_cleanup.start()
+
+    if _periodic_backup is None:
+        _periodic_backup = app.container.periodic_backup_service()
+    if not _periodic_backup._running:
+        await _periodic_backup.start()
+
+    if _metrics_monitor is None:
+        _metrics_monitor = app.container.metrics_monitor_service()
+    if not _metrics_monitor._running:
+        await _metrics_monitor.start()
+
+
+async def stop_background_monitors():
+    """Stop all background monitor services. Called on setup reset."""
+    global _health_monitor, _interface_monitor, _backup_cleanup, _periodic_backup, _metrics_monitor
+    for monitor in (_metrics_monitor, _periodic_backup, _backup_cleanup, _interface_monitor, _health_monitor):
+        if monitor is not None:
+            await monitor.stop()
+    _health_monitor = None
+    _interface_monitor = None
+    _backup_cleanup = None
+    _periodic_backup = None
+    _metrics_monitor = None
 
 def configure_logging(log_path: str | None = None):
     """Configure logging with optional file output."""
@@ -242,27 +290,9 @@ async def lifespan(app: FastAPI):
     )
     await update_checker.start()
     
-    # Start health monitor (only if setup is already complete — engine is ready)
-    global _health_monitor
-    _health_monitor = app.container.health_monitor_service()
-    if _db.engine is not None:
-        await _health_monitor.start()
-    
-    # Start interface monitor
-    interface_monitor = app.container.interface_monitor_service()
-    await interface_monitor.start()
-    
-    # Start backup cleanup service
-    backup_cleanup = app.container.backup_cleanup_service()
-    await backup_cleanup.start()
-    
-    # Start periodic backup service
-    periodic_backup = app.container.periodic_backup_service()
-    await periodic_backup.start()
-    
-    # Start metrics monitor service
-    metrics_monitor = app.container.metrics_monitor_service()
-    await metrics_monitor.start()
+    # Start background monitors (only if setup is already complete — engine is ready;
+    # setup.py starts them after configure-database completes)
+    await start_background_monitors()
     
     # Initialize plugin system
     plugin_manager = app.container.plugin_manager()
@@ -381,11 +411,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Error unloading plugins: {e}")
     
-    await metrics_monitor.stop()
-    await periodic_backup.stop()
-    await backup_cleanup.stop()
-    await interface_monitor.stop()
-    await _health_monitor.stop()
+    for monitor in (_metrics_monitor, _periodic_backup, _backup_cleanup, _interface_monitor, _health_monitor):
+        if monitor is not None:
+            await monitor.stop()
     await update_checker.stop()
     await event_bus.disconnect()
 
@@ -416,61 +444,79 @@ app.add_middleware(
 )
 
 # API Routes
+# Admin-gated routers: standard users only get profile/auth access for now.
+admin_deps = [Depends(get_current_admin)]
 app.include_router(auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["auth"])
 app.include_router(
     setup.router, prefix=f"{settings.API_V1_PREFIX}/setup", tags=["setup"]
 )
 app.include_router(
-    servers.router, prefix=f"{settings.API_V1_PREFIX}/servers", tags=["servers"]
+    servers.router, prefix=f"{settings.API_V1_PREFIX}/servers", tags=["servers"],
+    dependencies=admin_deps,
 )
 app.include_router(
-    peers.router, prefix=f"{settings.API_V1_PREFIX}/peers", tags=["peers"]
+    peers.router, prefix=f"{settings.API_V1_PREFIX}/peers", tags=["peers"],
+    dependencies=admin_deps,
 )
 app.include_router(
-    settings_api.router, prefix=f"{settings.API_V1_PREFIX}/settings", tags=["settings"]
+    settings_api.router, prefix=f"{settings.API_V1_PREFIX}/settings", tags=["settings"],
+    dependencies=admin_deps,
 )
 app.include_router(
-    audit.router, prefix=f"{settings.API_V1_PREFIX}/audit", tags=["audit"]
+    audit.router, prefix=f"{settings.API_V1_PREFIX}/audit", tags=["audit"],
+    dependencies=admin_deps,
 )
 app.include_router(
-    backup.router, prefix=f"{settings.API_V1_PREFIX}/backups", tags=["backups"]
+    backup.router, prefix=f"{settings.API_V1_PREFIX}/backups", tags=["backups"],
+    dependencies=admin_deps,
 )
 app.include_router(
-    version.router, prefix=f"{settings.API_V1_PREFIX}/version", tags=["version"]
+    version.router, prefix=f"{settings.API_V1_PREFIX}/version", tags=["version"],
+    dependencies=admin_deps,
 )
 app.include_router(
     integrations.router,
     prefix=f"{settings.API_V1_PREFIX}/integrations",
     tags=["integrations"],
+    dependencies=admin_deps,
 )
 app.include_router(
     notifications.router,
     prefix=f"{settings.API_V1_PREFIX}/notifications",
     tags=["notifications"],
+    dependencies=admin_deps,
 )
 app.include_router(
     plugins.router,
     prefix=f"{settings.API_V1_PREFIX}/plugins",
     tags=["plugins"],
-)
-app.include_router(logs.router, prefix=f"{settings.API_V1_PREFIX}/logs", tags=["logs"])
-app.include_router(
-    import_config.router, prefix=f"{settings.API_V1_PREFIX}/import", tags=["import"]
+    dependencies=admin_deps,
 )
 app.include_router(
-    utils.router, prefix=f"{settings.API_V1_PREFIX}/utils", tags=["utilities"]
+    logs.router, prefix=f"{settings.API_V1_PREFIX}/logs", tags=["logs"]
 )
 app.include_router(
-    metrics.router, prefix=f"{settings.API_V1_PREFIX}/metrics", tags=["metrics"]
+    import_config.router, prefix=f"{settings.API_V1_PREFIX}/import", tags=["import"],
+    dependencies=admin_deps,
+)
+app.include_router(
+    utils.router, prefix=f"{settings.API_V1_PREFIX}/utils", tags=["utilities"],
+    dependencies=admin_deps,
+)
+app.include_router(
+    metrics.router, prefix=f"{settings.API_V1_PREFIX}/metrics", tags=["metrics"],
+    dependencies=admin_deps,
 )
 app.include_router(
     traffic_triggers.router,
     prefix=f"{settings.API_V1_PREFIX}/traffic-triggers",
     tags=["traffic-triggers"],
+    dependencies=admin_deps,
 )
 app.include_router(ws.router, tags=["websocket"])
 app.include_router(
-    system.router, prefix=f"{settings.API_V1_PREFIX}/system", tags=["system"]
+    system.router, prefix=f"{settings.API_V1_PREFIX}/system", tags=["system"],
+    dependencies=admin_deps,
 )
 
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
-import { settingsAPI } from "../services/api";
+import { settingsAPI } from "../services/apiClient";
 import ToggleSwitch from "../components/ToggleSwitch";
 import CustomSelect from "../components/CustomSelect";
 import type { FieldErrors } from "../utils/errorUtils";
@@ -14,6 +14,7 @@ import {
   getGenericError,
 } from "../utils/errorUtils";
 import FieldError from "../components/FieldError";
+import { oidcAPI } from "../services/apiClient";
 
 interface GlobalSettings {
   id: number;
@@ -27,6 +28,15 @@ interface GlobalSettings {
   secret_key?: string;
   algorithm?: string;
   access_token_expire_minutes?: number;
+  // Authentication Settings
+  auth_mode?: string;
+  oidc_discovery_url?: string | null;
+  oidc_client_id?: string | null;
+  oidc_client_secret?: string | null;
+  oidc_scopes?: string;
+  oidc_provider_name?: string | null;
+  oidc_auto_provision?: boolean;
+  oidc_admin_groups?: string;
   // Logging Settings
   log_level?: string;
   log_path?: string;
@@ -53,6 +63,8 @@ export default function Settings() {
   const [showConnectionString, setShowConnectionString] = useState(false);
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [oidcTestResult, setOidcTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [oidcTesting, setOidcTesting] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch global settings
@@ -121,6 +133,34 @@ export default function Settings() {
     setFormData((prev) => (prev ? { ...prev, secret_key: key } : null));
   };
 
+  const handleOidcTest = async () => {
+    if (!displayData?.oidc_discovery_url || !displayData?.oidc_client_id) {
+      setOidcTestResult({
+        success: false,
+        message: "Discovery URL and Client ID are required before testing.",
+      });
+      return;
+    }
+    setOidcTesting(true);
+    setOidcTestResult(null);
+    try {
+      const result = await oidcAPI.test({
+        discovery_url: displayData.oidc_discovery_url,
+        client_id: displayData.oidc_client_id,
+        client_secret: displayData.oidc_client_secret || "",
+        scopes: displayData.oidc_scopes || "openid email profile",
+      });
+      setOidcTestResult({ success: result.success, message: result.message });
+    } catch (err: any) {
+      setOidcTestResult({
+        success: false,
+        message: err.response?.data?.detail || "Test failed",
+      });
+    } finally {
+      setOidcTesting(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData) {
@@ -136,6 +176,23 @@ export default function Settings() {
       if (formData.access_token_expire_minutes !== undefined)
         submitData.access_token_expire_minutes =
           formData.access_token_expire_minutes;
+
+      // Authentication Settings
+      if (formData.auth_mode !== undefined) submitData.auth_mode = formData.auth_mode;
+      if (formData.oidc_discovery_url !== undefined)
+        submitData.oidc_discovery_url = formData.oidc_discovery_url || null;
+      if (formData.oidc_client_id !== undefined)
+        submitData.oidc_client_id = formData.oidc_client_id || null;
+      if (formData.oidc_client_secret !== undefined)
+        submitData.oidc_client_secret = formData.oidc_client_secret || null;
+      if (formData.oidc_scopes !== undefined)
+        submitData.oidc_scopes = formData.oidc_scopes;
+      if (formData.oidc_provider_name !== undefined)
+        submitData.oidc_provider_name = formData.oidc_provider_name || null;
+      if (formData.oidc_auto_provision !== undefined)
+        submitData.oidc_auto_provision = formData.oidc_auto_provision;
+      if (formData.oidc_admin_groups !== undefined)
+        submitData.oidc_admin_groups = formData.oidc_admin_groups;
 
       // Logging Settings
       if (formData.log_level) submitData.log_level = formData.log_level;
@@ -1004,6 +1061,249 @@ export default function Settings() {
                     {displayData?.access_token_expire_minutes || 30} minutes
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* Authentication Settings */}
+          <div className="p-6 border-t border-gray-200 dark:border-gray-700">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              Authentication
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Configure how users sign in to Linguard. Single Sign-On works with
+              any OpenID Connect provider (Authentik, Keycloak, etc.).
+            </p>
+
+            <div className="space-y-4">
+              {/* Auth Mode */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Authentication Mode
+                </label>
+                {isEditing ? (
+                  <select
+                    name="auth_mode"
+                    value={displayData?.auth_mode || "both"}
+                    onChange={handleChange}
+                    className={`w-full px-3 py-2 border ${
+                      getFieldError(fieldErrors, "auth_mode")
+                        ? "border-red-500"
+                        : "border-gray-300 dark:border-gray-600"
+                    } dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                  >
+                    <option value="both">Local + OIDC (both)</option>
+                    <option value="local_only">Local Authentication Only</option>
+                    <option value="oidc_only">OIDC Only</option>
+                  </select>
+                ) : (
+                  <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-gray-300">
+                    {({ both: "Local + OIDC (both)", local_only: "Local Authentication Only", oidc_only: "OIDC Only" } as Record<string, string>)[displayData?.auth_mode || "both"]}
+                  </div>
+                )}
+                <FieldError error={getFieldError(fieldErrors, "auth_mode")} />
+              </div>
+
+              {/* OIDC Discovery URL */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  OIDC Discovery URL
+                </label>
+                {isEditing ? (
+                  <>
+                    <input
+                      type="text"
+                      name="oidc_discovery_url"
+                      value={displayData?.oidc_discovery_url || ""}
+                      onChange={handleChange}
+                      disabled={displayData?.auth_mode === "local_only"}
+                      className={`w-full px-3 py-2 border ${
+                        getFieldError(fieldErrors, "oidc_discovery_url")
+                          ? "border-red-500"
+                          : "border-gray-300 dark:border-gray-600"
+                      } dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm disabled:opacity-50`}
+                      placeholder="https://idp.example.com/application/o/linguard/.well-known/openid-configuration"
+                    />
+                    <FieldError error={getFieldError(fieldErrors, "oidc_discovery_url")} />
+                  </>
+                ) : (
+                  <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-gray-300 font-mono text-sm break-all">
+                    {displayData?.oidc_discovery_url || "Not configured"}
+                  </div>
+                )}
+              </div>
+
+              {/* Client ID */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Client ID
+                </label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    name="oidc_client_id"
+                    value={displayData?.oidc_client_id || ""}
+                    onChange={handleChange}
+                    disabled={displayData?.auth_mode === "local_only"}
+                    className={`w-full px-3 py-2 border ${
+                      getFieldError(fieldErrors, "oidc_client_id")
+                        ? "border-red-500"
+                        : "border-gray-300 dark:border-gray-600"
+                    } dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm disabled:opacity-50`}
+                    placeholder="linguard"
+                  />
+                ) : (
+                  <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-gray-300 font-mono text-sm">
+                    {displayData?.oidc_client_id || "Not configured"}
+                  </div>
+                )}
+                <FieldError error={getFieldError(fieldErrors, "oidc_client_id")} />
+              </div>
+
+              {/* Client Secret */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Client Secret
+                </label>
+                {isEditing ? (
+                  <input
+                    type="password"
+                    name="oidc_client_secret"
+                    value={displayData?.oidc_client_secret || ""}
+                    onChange={handleChange}
+                    disabled={displayData?.auth_mode === "local_only"}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm disabled:opacity-50"
+                    placeholder="Client secret from your identity provider"
+                  />
+                ) : (
+                  <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-gray-300 font-mono text-sm">
+                    {displayData?.oidc_client_secret ? "•".repeat(16) : "Not configured"}
+                  </div>
+                )}
+              </div>
+
+              {/* Scopes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Scopes
+                </label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    name="oidc_scopes"
+                    value={displayData?.oidc_scopes || "openid email profile"}
+                    onChange={handleChange}
+                    disabled={displayData?.auth_mode === "local_only"}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm disabled:opacity-50"
+                    placeholder="openid email profile"
+                  />
+                ) : (
+                  <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-gray-300 font-mono text-sm">
+                    {displayData?.oidc_scopes || "openid email profile"}
+                  </div>
+                )}
+              </div>
+
+              {/* Provider Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Provider Display Name (optional)
+                </label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    name="oidc_provider_name"
+                    value={displayData?.oidc_provider_name || ""}
+                    onChange={handleChange}
+                    disabled={displayData?.auth_mode === "local_only"}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+                    placeholder="Authentik"
+                  />
+                ) : (
+                  <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-gray-300">
+                    {displayData?.oidc_provider_name || "Auto-detected from discovery URL"}
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Shown on the login button: "Sign in with {displayData?.oidc_provider_name || "…"}"
+                </p>
+              </div>
+
+              {/* Auto Provision */}
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  name="oidc_auto_provision"
+                  checked={displayData?.oidc_auto_provision ?? true}
+                  onChange={handleChange}
+                  disabled={!isEditing || displayData?.auth_mode === "local_only"}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
+                />
+                <label className="text-sm text-gray-700 dark:text-gray-300">
+                  Automatically create users on first sign-in
+                </label>
+              </div>
+
+              {/* Admin Groups */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Admin Groups
+                </label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    name="oidc_admin_groups"
+                    value={displayData?.oidc_admin_groups || ""}
+                    onChange={handleChange}
+                    disabled={displayData?.auth_mode === "local_only"}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm disabled:opacity-50"
+                    placeholder="linguard-admins, wireguard-admins"
+                  />
+                ) : (
+                  <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-gray-300 font-mono text-sm">
+                    {displayData?.oidc_admin_groups || "None"}
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Comma-separated list of group names. Users whose identity provider
+                  groups claim contains any of these get administrator privileges.
+                </p>
+              </div>
+
+              {/* Test Connection */}
+              <div>
+                <button
+                  type="button"
+                  onClick={handleOidcTest}
+                  disabled={oidcTesting || displayData?.auth_mode === "local_only"}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg flex items-center gap-2 transition-colors text-sm font-medium"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
+                  </svg>
+                  {oidcTesting ? "Testing..." : "Test Connection"}
+                </button>
+                {oidcTestResult && (
+                  <div
+                    className={`mt-2 text-sm px-3 py-2 rounded-lg border ${
+                      oidcTestResult.success
+                        ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300"
+                        : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300"
+                    }`}
+                  >
+                    {oidcTestResult.message}
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {isEditing
+                    ? "Test uses the values currently in the form. Save settings to apply them."
+                    : "Test uses the saved configuration."}
+                </p>
               </div>
             </div>
           </div>

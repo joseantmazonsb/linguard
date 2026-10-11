@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
-import { logsAPI } from '../services/api';
+import { logsAPI } from '../services/apiClient';
+import { useAuthStore } from '../store/auth';
 import CustomSelect from '../components/CustomSelect';
 import ToggleSwitch from '../components/ToggleSwitch';
 
@@ -55,8 +56,9 @@ export default function Logs() {
     setLogs([]); // Clear existing logs
     setIsTailing(true);
 
+    const token = useAuthStore.getState().token;
     const eventSource = new EventSource(
-      `http://localhost:8000/api/v1/logs/stream?lines=${initialLines}`
+      `${location.origin}/api/v1/logs/stream?lines=${initialLines}&token=${encodeURIComponent(token ?? '')}`
     );
 
     eventSource.onmessage = (event) => {
@@ -86,7 +88,11 @@ export default function Logs() {
   };
 
   const handleDownload = () => {
-    window.open('http://localhost:8000/api/v1/logs/download', '_blank');
+    const token = useAuthStore.getState().token;
+    window.open(
+      `${location.origin}/api/v1/logs/download?token=${encodeURIComponent(token ?? '')}`,
+      '_blank'
+    );
   };
 
   const handleCopyPath = () => {

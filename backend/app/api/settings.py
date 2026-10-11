@@ -143,6 +143,22 @@ async def update_global_settings(
                     detail="Backup schedule minute must be between 0 and 59."
                 )
 
+    # Validate auth_mode if provided
+    if "auth_mode" in update_data and update_data["auth_mode"] not in ("both", "local_only", "oidc_only"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Authentication mode must be 'both', 'local_only', or 'oidc_only'."
+        )
+
+    # Validate OIDC discovery URL if provided
+    if "oidc_discovery_url" in update_data and update_data["oidc_discovery_url"]:
+        url = update_data["oidc_discovery_url"]
+        if not (url.startswith("http://") or url.startswith("https://")):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="OIDC discovery URL must start with http:// or https://."
+            )
+
     # Store old values for audit
     old_values = {
         "dns_primary": settings.dns_primary,

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { systemAPI, versionAPI } from '../services/api';
+import { systemAPI, versionAPI } from '../services/apiClient';
 
 interface SystemInfo {
   app: {

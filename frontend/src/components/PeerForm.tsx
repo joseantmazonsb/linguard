@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { Peer, Server } from "../types";
 import type { FieldErrors } from "../utils/errorUtils";
 import { getFieldError } from "../utils/errorUtils";
-import { peersAPI, utilsAPI } from "../services/api";
+import { peersAPI, utilsAPI } from "../services/apiClient";
 import CustomSelect from "./CustomSelect";
 import FieldError from "./FieldError";
 import ToggleSwitch from "./ToggleSwitch";

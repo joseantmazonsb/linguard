@@ -10,6 +10,9 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False)
-    hashed_password = Column(String(255), nullable=False)
+    hashed_password = Column(String(255), nullable=True)  # Null for OIDC-only users
+    role = Column(String(20), default="admin", nullable=False)  # admin, standard
+    auth_provider = Column(String(20), default="local", nullable=False)  # local, oidc
+    oidc_sub = Column(String(255), nullable=True, index=True)  # IdP subject claim
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

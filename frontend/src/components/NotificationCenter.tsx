@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback } from 'react';
-import { notificationsAPI } from '../services/api';
+import { notificationsAPI } from '../services/apiClient';
 import { useWebSocket, type NotificationData } from '../hooks/useWebSocket';
 import type { Notification } from '../types';
 import { toast } from 'react-toastify';

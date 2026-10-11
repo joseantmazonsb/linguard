@@ -3,7 +3,7 @@
  * Manages setup wizard state persistence in localStorage
  */
 
-export type SetupStep = 'welcome' | 'database' | 'account' | 'globals' | 'server' | 'peer' | 'complete';
+export type SetupStep = 'welcome' | 'database' | 'account' | 'globals' | 'auth' | 'server' | 'peer' | 'complete';
 
 export interface SetupState {
   currentStep: SetupStep;
@@ -20,6 +20,16 @@ export interface SetupState {
       dns_secondary?: string;
       default_ipv4_pool?: string;
       default_ipv6_pool?: string;
+    };
+    auth?: {
+      skipped?: boolean;
+      auth_mode?: string;
+      oidc_discovery_url?: string;
+      oidc_client_id?: string;
+      oidc_client_secret?: string;
+      oidc_scopes?: string;
+      oidc_auto_provision?: boolean;
+      oidc_admin_groups?: string;
     };
     server?: {
       server_id?: number;

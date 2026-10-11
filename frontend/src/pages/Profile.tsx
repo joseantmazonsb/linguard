@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authAPI } from '../services/api';
+import { authAPI } from '../services/apiClient';
 import type { FieldErrors } from '../utils/errorUtils';
 import {
   parseValidationErrors,
@@ -11,12 +11,6 @@ import {
   getGenericError,
 } from '../utils/errorUtils';
 import FieldError from '../components/FieldError';
-
-interface UserProfile {
-  id: number;
-  username: string;
-  email: string;
-}
 
 export default function Profile() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -139,6 +133,8 @@ export default function Profile() {
     );
   }
 
+  const isOidcUser = profile?.auth_provider === 'oidc';
+
   return (
     <div className="p-6">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">User Profile</h1>
@@ -209,6 +205,28 @@ export default function Profile() {
                   </div>
                 )}
               </div>
+
+              {/* Role & Auth Provider */}
+              <div className="flex items-center gap-3">
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    profile?.role === 'admin'
+                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300'
+                      : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  {profile?.role === 'admin' ? 'Administrator' : 'Standard User'}
+                </span>
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    isOidcUser
+                      ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300'
+                      : 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
+                  }`}
+                >
+                  {isOidcUser ? 'Single Sign-On' : 'Local Account'}
+                </span>
+              </div>
             </div>
 
             {/* Action Buttons */}
@@ -234,7 +252,8 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Change Password */}
+      {/* Change Password (local accounts only) */}
+      {!isOidcUser && (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:border dark:border-gray-700">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
@@ -341,6 +360,7 @@ export default function Profile() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

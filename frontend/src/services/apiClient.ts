@@ -1,6 +1,13 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Empty base URL = same origin (works behind reverse proxies like nginx).
+// Set VITE_API_URL to override (e.g. direct backend access during development).
+const API_URL = import.meta.env.VITE_API_URL || '';
+
+// DEBUG: report what this executing bundle actually uses
+console.log(
+  `[Linguard] API_URL=${JSON.stringify(API_URL)} origin=${location.origin} page=${location.href}`
+);
 
 export const api = axios.create({
   baseURL: `${API_URL}/api/v1`,
@@ -22,6 +29,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
+      localStorage.removeItem('role');
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -38,10 +46,6 @@ export const authAPI = {
     });
     return response.data;
   },
-  register: async (username: string, email: string, password: string) => {
-    const response = await api.post('/auth/register', { username, email, password });
-    return response.data;
-  },
   getProfile: async () => {
     const response = await api.get('/auth/profile');
     return response.data;
@@ -53,6 +57,33 @@ export const authAPI = {
   changePassword: async (data: { current_password: string; new_password: string }) => {
     const response = await api.post('/auth/change-password', data);
     return response.data;
+  },
+  listUsers: async () => {
+    const response = await api.get('/auth/users');
+    return response.data;
+  },
+  updateUserRole: async (userId: number, role: 'admin' | 'standard') => {
+    const response = await api.put(`/auth/users/${userId}`, { role });
+    return response.data;
+  },
+};
+
+export const oidcAPI = {
+  getConfig: async () => {
+    const response = await api.get('/auth/oidc/config');
+    return response.data as { oidc_enabled: boolean; auth_mode: string; provider_name: string | null };
+  },
+  getLogin: async () => {
+    const response = await api.get('/auth/oidc/login');
+    return response.data as { authorization_url: string };
+  },
+  callback: async (code: string, state: string) => {
+    const response = await api.post('/auth/oidc/callback', { code, state });
+    return response.data;
+  },
+  test: async (data: { discovery_url: string; client_id: string; client_secret: string; scopes: string }) => {
+    const response = await api.post('/auth/oidc/test', data);
+    return response.data as { success: boolean; provider_name: string | null; message: string };
   },
 };
 
@@ -317,6 +348,19 @@ export const setupAPI = {
     backup_schedule_minute?: number;
   }) => {
     const response = await api.post('/setup/configure-globals', data);
+    return response.data;
+  },
+  configureAuth: async (data: {
+    skip: boolean;
+    auth_mode?: string;
+    oidc_discovery_url?: string;
+    oidc_client_id?: string;
+    oidc_client_secret?: string;
+    oidc_scopes?: string;
+    oidc_auto_provision?: boolean;
+    oidc_admin_groups?: string;
+  }) => {
+    const response = await api.post('/setup/configure-auth', data);
     return response.data;
   },
   createServer: async (data: any) => {

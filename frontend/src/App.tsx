@@ -7,6 +7,8 @@ import { useTheme } from './contexts/ThemeContext';
 import { useMetricsCollection } from './hooks/useMetricsCollection';
 import { useAuthStore } from './store/auth';
 import Login from './pages/Login';
+import AuthCallback from './pages/AuthCallback';
+import Forbidden from './pages/Forbidden';
 import Dashboard from './pages/Dashboard';
 import Servers from './pages/Servers';
 import Peers from './pages/Peers';
@@ -22,9 +24,18 @@ import About from './pages/SystemInfo';
 import SetupWizard from './pages/Setup/SetupWizard';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
-import { setupAPI } from './services/api';
+import { setupAPI } from './services/apiClient';
 
 const queryClient = new QueryClient();
+
+/** Admin-only page wrapper: ProtectedRoute with role check + Layout. */
+function AdminPage({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute requireAdmin>
+      <Layout>{children}</Layout>
+    </ProtectedRoute>
+  );
+}
 
 function App() {
   const { theme } = useTheme();
@@ -103,65 +114,55 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/oidc-callback" element={<AuthCallback />} />
+          <Route path="/forbidden" element={<Forbidden />} />
           <Route path="/setup" element={<Navigate to="/dashboard" replace />} />
           <Route
             path="/dashboard"
             element={
-              <ProtectedRoute>
-                <Layout>
-                  <Dashboard />
-                </Layout>
-              </ProtectedRoute>
+              <AdminPage>
+                <Dashboard />
+              </AdminPage>
             }
           />
           <Route
             path="/servers"
             element={
-              <ProtectedRoute>
-                <Layout>
-                  <Servers />
-                </Layout>
-              </ProtectedRoute>
+              <AdminPage>
+                <Servers />
+              </AdminPage>
             }
           />
           <Route
             path="/peers"
             element={
-              <ProtectedRoute>
-                <Layout>
-                  <Peers />
-                </Layout>
-              </ProtectedRoute>
+              <AdminPage>
+                <Peers />
+              </AdminPage>
             }
           />
           <Route
             path="/settings"
             element={
-              <ProtectedRoute>
-                <Layout>
-                  <Settings />
-                </Layout>
-              </ProtectedRoute>
+              <AdminPage>
+                <Settings />
+              </AdminPage>
             }
           />
           <Route
             path="/audit"
             element={
-              <ProtectedRoute>
-                <Layout>
-                  <AuditLog />
-                </Layout>
-              </ProtectedRoute>
+              <AdminPage>
+                <AuditLog />
+              </AdminPage>
             }
           />
           <Route
             path="/backup"
             element={
-              <ProtectedRoute>
-                <Layout>
-                  <Backup />
-                </Layout>
-              </ProtectedRoute>
+              <AdminPage>
+                <Backup />
+              </AdminPage>
             }
           />
           <Route
@@ -177,52 +178,42 @@ function App() {
           <Route
             path="/integrations"
             element={
-              <ProtectedRoute>
-                <Layout>
-                  <Integrations />
-                </Layout>
-              </ProtectedRoute>
+              <AdminPage>
+                <Integrations />
+              </AdminPage>
             }
           />
           <Route
             path="/traffic-triggers"
             element={
-              <ProtectedRoute>
-                <Layout>
-                  <TrafficTriggers />
-                </Layout>
-              </ProtectedRoute>
+              <AdminPage>
+                <TrafficTriggers />
+              </AdminPage>
             }
           />
           <Route
             path="/logs"
             element={
-              <ProtectedRoute>
-                <Layout>
-                  <Logs />
-                </Layout>
-              </ProtectedRoute>
+              <AdminPage>
+                <Logs />
+              </AdminPage>
             }
           />
           <Route
             path="/plugins"
             element={
-              <ProtectedRoute>
-                <Layout>
-                  <Plugins />
-                </Layout>
-              </ProtectedRoute>
+              <AdminPage>
+                <Plugins />
+              </AdminPage>
             }
           />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route
             path="/system-info"
             element={
-              <ProtectedRoute>
-                <Layout>
-                  <About />
-                </Layout>
-              </ProtectedRoute>
+              <AdminPage>
+                <About />
+              </AdminPage>
             }
           />
         </Routes>

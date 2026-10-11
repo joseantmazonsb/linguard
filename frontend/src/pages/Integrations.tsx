@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
-import { integrationsAPI, pluginsAPI } from "../services/api";
+import { integrationsAPI, pluginsAPI } from "../services/apiClient";
 import type { Integration, IntegrationType } from "../types";
 import IntegrationForm from "../components/IntegrationForm";
 import ConfirmDialog from "../components/ConfirmDialog";

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Server } from "../types";
 import CustomSelect from "./CustomSelect";
-import { utilsAPI } from "../services/api";
+import { utilsAPI } from "../services/apiClient";
 
 interface ImportServerDialogProps {
   servers: Server[];

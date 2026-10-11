@@ -13,7 +13,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { serversAPI, peersAPI, metricsAPI, healthAPI } from "../services/api";
+import { serversAPI, peersAPI, metricsAPI, healthAPI } from "../services/apiClient";
 import ServerForm from "../components/ServerForm";
 import ServerCard from "../components/ServerCard";
 import ImportServerDialog from "../components/ImportServerDialog";

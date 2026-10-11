@@ -1,6 +1,8 @@
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, field_validator
 
-from ..utils.validation import validate_username, validate_password
+from ..utils.validation import validate_password
 
 
 class Token(BaseModel):
@@ -8,29 +10,19 @@ class Token(BaseModel):
     token_type: str
 
 
-class UserCreate(BaseModel):
-    username: str
-    email: EmailStr
-    password: str
-
-    @field_validator('username')
-    @classmethod
-    def validate_username_field(cls, v):
-        return validate_username(v, field_name="Username")
-
-    @field_validator('password')
-    @classmethod
-    def validate_password_field(cls, v):
-        return validate_password(v, field_name="Password")
-
-
 class UserResponse(BaseModel):
     id: int
     username: str
     email: str
+    role: str = "admin"
+    auth_provider: str = "local"
 
     class Config:
         from_attributes = True
+
+
+class LoginResponse(Token):
+    user: UserResponse
 
 
 class UserProfileUpdate(BaseModel):
@@ -50,3 +42,33 @@ class PasswordChange(BaseModel):
     @classmethod
     def validate_new_password_field(cls, v):
         return validate_password(v, field_name="New password")
+
+
+class UserAdminUpdate(BaseModel):
+    """Fields an admin can change on another user."""
+    role: Literal["admin", "standard"]
+
+
+class OIDCConfigResponse(BaseModel):
+    """Public info the login page needs to render SSO options."""
+    oidc_enabled: bool
+    auth_mode: str
+    provider_name: str | None = None
+
+
+class OIDCCallbackRequest(BaseModel):
+    code: str
+    state: str
+
+
+class OIDCTestRequest(BaseModel):
+    discovery_url: str
+    client_id: str
+    client_secret: str
+    scopes: str = "openid email profile"
+
+
+class OIDCTestResponse(BaseModel):
+    success: bool
+    provider_name: str | None = None
+    message: str

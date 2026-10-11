@@ -18,7 +18,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { peersAPI, serversAPI, metricsAPI, healthAPI } from "../services/api";
+import { peersAPI, serversAPI, metricsAPI, healthAPI } from "../services/apiClient";
 import PeerForm from "../components/PeerForm";
 import PeerCard from "../components/PeerCard";
 import CustomSelect from "../components/CustomSelect";

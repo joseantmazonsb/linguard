@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { metricsAPI } from '../services/api';
+import { metricsAPI } from '../services/apiClient';
 
 const COLLECTION_INTERVAL = 5 * 60 * 1000; // 5 minutes
 

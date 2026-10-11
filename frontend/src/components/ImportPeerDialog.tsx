@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { Server } from "../types";
 import CustomSelect from "./CustomSelect";
 import ToggleSwitch from "./ToggleSwitch";
-import { utilsAPI, peersAPI } from "../services/api";
+import { utilsAPI, peersAPI } from "../services/apiClient";
 
 interface ImportPeerDialogProps {
   servers: Server[];

@@ -42,6 +42,7 @@ class EventType(str, Enum):
     USER_LOGIN = "user.login"
     USER_LOGOUT = "user.logout"
     USER_UPDATED = "user.updated"
+    USER_OIDC_LOGIN = "user.oidc_login"
 
 
 class EventBus:

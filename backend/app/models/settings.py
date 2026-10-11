@@ -31,6 +31,20 @@ class GlobalSettings(Base):
         Boolean, default=False, nullable=False
     )  # Disable auth for testing
 
+    # Authentication Mode & OIDC Settings
+    auth_mode = Column(
+        String(20), default="both", nullable=False
+    )  # both, local_only, oidc_only
+    oidc_discovery_url = Column(String(500), nullable=True)  # .well-known/openid-configuration URL
+    oidc_client_id = Column(String(255), nullable=True)
+    oidc_client_secret = Column(String(500), nullable=True)
+    oidc_scopes = Column(String(255), default="openid email profile", nullable=False)
+    oidc_provider_name = Column(String(100), nullable=True)  # Friendly display name for the SSO button
+    oidc_auto_provision = Column(Boolean, default=True, nullable=False)
+    oidc_admin_groups = Column(
+        String(500), default="", nullable=False
+    )  # Comma-separated group names granted admin role
+
     # Logging Settings
     log_level = Column(
         String(20), default="INFO", nullable=False

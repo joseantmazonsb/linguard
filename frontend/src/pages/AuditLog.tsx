@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
-import { auditAPI } from "../services/api";
+import { auditAPI } from "../services/apiClient";
 import CustomSelect from "../components/CustomSelect";
 
 interface AuditLog {

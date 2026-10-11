@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
-import { trafficTriggersAPI } from "../services/api";
+import { trafficTriggersAPI } from "../services/apiClient";
 import ToggleSwitch from "./ToggleSwitch";
 import CustomSelect from "./CustomSelect";
 import type {

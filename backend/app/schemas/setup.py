@@ -91,6 +91,34 @@ class ConfigureGlobals(BaseModel):
         return validate_backup_retention_days(v, field_name="Backup retention days")
 
 
+class ConfigureAuth(BaseModel):
+    """Configure authentication during setup (OIDC or skip)."""
+    skip: bool = False  # True = continue with local auth, configure OIDC later
+
+    # OIDC Settings (ignored when skip=True)
+    auth_mode: str = "both"  # both, local_only, oidc_only
+    oidc_discovery_url: str | None = None
+    oidc_client_id: str | None = None
+    oidc_client_secret: str | None = None
+    oidc_scopes: str = "openid email profile"
+    oidc_auto_provision: bool = True
+    oidc_admin_groups: str = ""
+
+    @field_validator('auth_mode')
+    @classmethod
+    def validate_auth_mode_field(cls, v):
+        if v not in ("both", "local_only", "oidc_only"):
+            raise ValueError("Authentication mode must be 'both', 'local_only', or 'oidc_only'")
+        return v
+
+    @field_validator('oidc_discovery_url')
+    @classmethod
+    def validate_discovery_url_field(cls, v):
+        if v and not (v.startswith("http://") or v.startswith("https://")):
+            raise ValueError("OIDC discovery URL must start with http:// or https://")
+        return v
+
+
 class CreateServer(BaseModel):
     """Create first server during setup."""
     name: str

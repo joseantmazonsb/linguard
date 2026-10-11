@@ -13,6 +13,7 @@ from ..models.server import Server
 from ..models.settings import GlobalSettings
 from ..models.user import User
 from ..schemas.setup import (
+    ConfigureAuth,
     ConfigureDatabase,
     ConfigureGlobals,
     CreatePeer,
@@ -75,6 +76,13 @@ async def reset_setup():
     from ..core.database import Base
 
     try:
+        # Stop background monitors first — they hold a reference to the engine
+        try:
+            from ..main import stop_background_monitors
+            await stop_background_monitors()
+        except Exception as e:
+            print(f"[SETUP] Warning: could not stop background monitors: {e}")
+
         # Drop all tables if the engine is live
         if _db.engine is not None:
             async with _db.engine.begin() as conn:
@@ -144,13 +152,13 @@ async def configure_database_backend(config_data: ConfigureDatabase):
         await init_db()
         print(f"[SETUP] Database engine ready and tables created")
 
-        # Start the health monitor now that the engine is live
+        # Start the background monitors now that the engine is live
         try:
-            from ..main import start_health_monitor
-            await start_health_monitor()
-            print(f"[SETUP] Health monitor started")
+            from ..main import start_background_monitors
+            await start_background_monitors()
+            print(f"[SETUP] Background monitors started")
         except Exception as e:
-            print(f"[SETUP] Warning: could not start health monitor: {e}")
+            print(f"[SETUP] Warning: could not start background monitors: {e}")
 
         return {
             "success": True,
@@ -312,7 +320,7 @@ async def configure_global_settings(
             database_type=config_loader.get_database_type(),
             # Setup state
             setup_completed=False,
-            setup_current_step="server",  # Next step
+            setup_current_step="auth",  # Next step
         )
         db.add(settings)
     else:
@@ -333,12 +341,46 @@ async def configure_global_settings(
         settings.backup_schedule_hour = config_data.backup_schedule_hour
         settings.backup_schedule_minute = config_data.backup_schedule_minute
         settings.database_type = config_loader.get_database_type()
-        settings.setup_current_step = "server"
+        settings.setup_current_step = "auth"
 
     await db.commit()
     await db.refresh(settings)
 
     return {"success": True, "settings_id": settings.id}
+
+
+@router.post("/configure-auth")
+async def configure_auth(config_data: ConfigureAuth, db: AsyncSession = Depends(get_db)):
+    """Configure authentication (OIDC) during setup, or skip to continue with local auth."""
+    result = await db.execute(select(GlobalSettings))
+    settings = result.scalar_one_or_none()
+
+    if not settings:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Setup has not been initialized yet. Complete the previous steps first."
+        )
+
+    if not config_data.skip:
+        if not config_data.oidc_discovery_url or not config_data.oidc_client_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="OIDC discovery URL and client ID are required when configuring Single Sign-On."
+            )
+
+        settings.auth_mode = config_data.auth_mode
+        settings.oidc_discovery_url = config_data.oidc_discovery_url
+        settings.oidc_client_id = config_data.oidc_client_id
+        settings.oidc_client_secret = config_data.oidc_client_secret
+        settings.oidc_scopes = config_data.oidc_scopes
+        settings.oidc_auto_provision = config_data.oidc_auto_provision
+        settings.oidc_admin_groups = config_data.oidc_admin_groups
+
+    settings.setup_current_step = "server"  # Next step
+    await db.commit()
+    await db.refresh(settings)
+
+    return {"success": True, "skipped": config_data.skip}
 
 
 @router.post("/update-progress")
