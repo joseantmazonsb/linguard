@@ -40,3 +40,8 @@ dependency-injector>=4.48.0
 
 # Development Tools
 ruff==0.1.14
+
+# CLI Tool
+click==8.1.7
+httpx==0.26.0
+python-dotenv==1.0.0
