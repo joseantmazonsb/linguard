@@ -33,6 +33,7 @@ pydantic-settings==2.1.0
 httpx==0.26.0
 packaging==23.2
 aiosmtplib==3.0.1
+psutil==5.9.0  # System monitoring (CPU, memory usage)
 
 # Dependency Injection
 dependency-injector>=4.48.0

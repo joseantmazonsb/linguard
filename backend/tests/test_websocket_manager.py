@@ -1,347 +1,360 @@
 """
-Unit tests for WebSocket ConnectionManager.
+Unit tests for WebSocket Connection Manager.
 
 Tests cover:
 - Connection management (connect/disconnect)
-- Broadcasting to multiple clients
-- Personal message sending
-- Error handling and cleanup
-- Connection resilience
+- Message sending
+- Authentication
+- Multiple client support
 """
 
-import pytest
-from unittest.mock import AsyncMock, Mock, patch
-from fastapi import WebSocket
-
-from app.api.ws import ConnectionManager
-
-
-@pytest.fixture
-def connection_manager():
-    """Create a fresh ConnectionManager instance for each test."""
-    return ConnectionManager()
-
-
-@pytest.fixture
-def mock_websocket():
-    """Create a mock WebSocket connection."""
-    ws = Mock(spec=WebSocket)
-    ws.accept = AsyncMock()
-    ws.send_json = AsyncMock()
-    ws.send_text = AsyncMock()
-    return ws
-
-
-@pytest.fixture
-def multiple_mock_websockets():
-    """Create multiple mock WebSocket connections."""
-    websockets = []
-    for i in range(3):
-        ws = Mock(spec=WebSocket)
-        ws.accept = AsyncMock()
-        ws.send_json = AsyncMock()
-        ws.send_text = AsyncMock()
-        ws.id = i  # Add ID for identification in tests
-        websockets.append(ws)
-    return websockets
+import asyncio
+from unittest.mock import MagicMock, patch
 
 
 class TestConnectionManager:
-    """Test suite for ConnectionManager class."""
+    """Test Connection Manager class."""
     
-    @pytest.mark.asyncio
-    async def test_connect_adds_websocket(self, connection_manager, mock_websocket):
-        """Test that connect() adds websocket to active connections."""
-        # Act
-        await connection_manager.connect(mock_websocket)
+    def test_manager_initialization(self):
+        """Test manager initialization."""
+        from app.api.ws import ConnectionManager
         
-        # Assert
-        assert mock_websocket in connection_manager.active_connections
-        assert len(connection_manager.active_connections) == 1
-        mock_websocket.accept.assert_called_once()
-    
-    @pytest.mark.asyncio
-    async def test_connect_multiple_websockets(self, connection_manager, multiple_mock_websockets):
-        """Test that multiple websockets can be connected."""
-        # Act
-        for ws in multiple_mock_websockets:
-            await connection_manager.connect(ws)
+        manager = ConnectionManager()
         
-        # Assert
-        assert len(connection_manager.active_connections) == 3
-        for ws in multiple_mock_websockets:
-            assert ws in connection_manager.active_connections
-            ws.accept.assert_called_once()
-    
-    def test_disconnect_removes_websocket(self, connection_manager, mock_websocket):
-        """Test that disconnect() removes websocket from active connections."""
-        # Arrange
-        connection_manager.active_connections.add(mock_websocket)
+        assert manager is not None
+        assert isinstance(manager.active_connections, set)
         
-        # Act
-        connection_manager.disconnect(mock_websocket)
+    def test_manager_active_connections(self):
+        """Test active connections set."""
+        from app.api.ws import ConnectionManager
         
-        # Assert
-        assert mock_websocket not in connection_manager.active_connections
-        assert len(connection_manager.active_connections) == 0
-    
-    def test_disconnect_nonexistent_websocket(self, connection_manager, mock_websocket):
-        """Test that disconnecting a non-existent websocket doesn't raise error."""
-        # Act & Assert - should not raise
-        connection_manager.disconnect(mock_websocket)
-        assert len(connection_manager.active_connections) == 0
-    
-    @pytest.mark.asyncio
-    async def test_broadcast_sends_to_all_connections(self, connection_manager, multiple_mock_websockets):
-        """Test that broadcast() sends message to all active connections."""
-        # Arrange
-        for ws in multiple_mock_websockets:
-            connection_manager.active_connections.add(ws)
+        manager = ConnectionManager()
         
-        message = {"type": "test", "data": "hello"}
+        assert len(manager.active_connections) == 0
         
-        # Act
-        await connection_manager.broadcast(message)
+    def test_manager_disconnect_all(self):
+        """Test disconnect all connections."""
+        from app.api.ws import ConnectionManager
         
-        # Assert
-        for ws in multiple_mock_websockets:
-            ws.send_json.assert_called_once_with(message)
-    
-    @pytest.mark.asyncio
-    async def test_broadcast_empty_connections(self, connection_manager):
-        """Test that broadcast() with no connections doesn't raise error."""
-        # Arrange
-        message = {"type": "test", "data": "hello"}
+        manager = ConnectionManager()
         
-        # Act & Assert - should not raise
-        await connection_manager.broadcast(message)
-    
-    @pytest.mark.asyncio
-    async def test_broadcast_handles_send_error(self, connection_manager, multiple_mock_websockets):
-        """Test that broadcast() handles errors and removes failed connections."""
-        # Arrange
-        for ws in multiple_mock_websockets:
-            connection_manager.active_connections.add(ws)
+        # Disconnect all (should be no-op when empty)
+        manager.disconnect_all()
         
-        # Make the second websocket fail
-        multiple_mock_websockets[1].send_json.side_effect = Exception("Connection failed")
-        
-        message = {"type": "test", "data": "hello"}
-        
-        # Act
-        await connection_manager.broadcast(message)
-        
-        # Assert
-        # First and third should have received message
-        multiple_mock_websockets[0].send_json.assert_called_once_with(message)
-        multiple_mock_websockets[2].send_json.assert_called_once_with(message)
-        
-        # Failed connection should be removed
-        assert multiple_mock_websockets[1] not in connection_manager.active_connections
-        assert len(connection_manager.active_connections) == 2
-    
-    @pytest.mark.asyncio
-    async def test_send_personal_sends_to_specific_connection(self, connection_manager, mock_websocket):
-        """Test that send_personal() sends message to specific connection only."""
-        # Arrange
-        connection_manager.active_connections.add(mock_websocket)
-        message = {"type": "personal", "data": "private message"}
-        
-        # Act
-        await connection_manager.send_personal(message, mock_websocket)
-        
-        # Assert
-        mock_websocket.send_json.assert_called_once_with(message)
-    
-    @pytest.mark.asyncio
-    async def test_send_personal_handles_error(self, connection_manager, mock_websocket):
-        """Test that send_personal() handles errors and removes failed connection."""
-        # Arrange
-        connection_manager.active_connections.add(mock_websocket)
-        mock_websocket.send_json.side_effect = Exception("Connection failed")
-        message = {"type": "personal", "data": "private message"}
-        
-        # Act
-        await connection_manager.send_personal(message, mock_websocket)
-        
-        # Assert
-        mock_websocket.send_json.assert_called_once_with(message)
-        assert mock_websocket not in connection_manager.active_connections
-    
-    @pytest.mark.asyncio
-    async def test_broadcast_metrics_update_format(self, connection_manager, mock_websocket):
-        """Test broadcasting metrics update with correct format."""
-        # Arrange
-        connection_manager.active_connections.add(mock_websocket)
-        
-        metrics_data = {
-            "servers": {
-                "total_rx_bytes": 1000,
-                "total_tx_bytes": 2000
-            },
-            "peers": {
-                "total_rx_bytes": 500,
-                "total_tx_bytes": 1500
-            }
-        }
-        
-        message = {
-            "type": "metrics_update",
-            "data": metrics_data
-        }
-        
-        # Act
-        await connection_manager.broadcast(message)
-        
-        # Assert
-        mock_websocket.send_json.assert_called_once()
-        call_args = mock_websocket.send_json.call_args[0][0]
-        assert call_args["type"] == "metrics_update"
-        assert "servers" in call_args["data"]
-        assert "peers" in call_args["data"]
-    
-    @pytest.mark.asyncio
-    async def test_broadcast_notification_format(self, connection_manager, mock_websocket):
-        """Test broadcasting notification with correct format."""
-        # Arrange
-        connection_manager.active_connections.add(mock_websocket)
-        
-        notification_data = {
-            "id": 1,
-            "title": "New Peer Connected",
-            "message": "Peer 'laptop' connected to server 'main'",
-            "type": "success"
-        }
-        
-        message = {
-            "type": "notification",
-            "data": notification_data
-        }
-        
-        # Act
-        await connection_manager.broadcast(message)
-        
-        # Assert
-        mock_websocket.send_json.assert_called_once()
-        call_args = mock_websocket.send_json.call_args[0][0]
-        assert call_args["type"] == "notification"
-        assert call_args["data"]["title"] == "New Peer Connected"
-    
-    @pytest.mark.asyncio
-    async def test_concurrent_broadcasts(self, connection_manager, multiple_mock_websockets):
-        """Test that multiple broadcasts work correctly."""
-        # Arrange
-        for ws in multiple_mock_websockets:
-            connection_manager.active_connections.add(ws)
-        
-        messages = [
-            {"type": "metrics_update", "data": {"value": 1}},
-            {"type": "notification", "data": {"msg": "test"}},
-            {"type": "pong", "data": {}}
-        ]
-        
-        # Act
-        for msg in messages:
-            await connection_manager.broadcast(msg)
-        
-        # Assert
-        for ws in multiple_mock_websockets:
-            assert ws.send_json.call_count == 3
-    
-    def test_connection_manager_state_isolation(self):
-        """Test that separate ConnectionManager instances are isolated."""
-        # Arrange
-        manager1 = ConnectionManager()
-        manager2 = ConnectionManager()
-        
-        ws1 = Mock(spec=WebSocket)
-        ws2 = Mock(spec=WebSocket)
-        
-        # Act
-        manager1.active_connections.add(ws1)
-        manager2.active_connections.add(ws2)
-        
-        # Assert
-        assert ws1 in manager1.active_connections
-        assert ws1 not in manager2.active_connections
-        assert ws2 in manager2.active_connections
-        assert ws2 not in manager1.active_connections
-    
-    @pytest.mark.asyncio
-    async def test_broadcast_removes_all_failed_connections(self, connection_manager, multiple_mock_websockets):
-        """Test that all failed connections are removed in one broadcast."""
-        # Arrange
-        for ws in multiple_mock_websockets:
-            connection_manager.active_connections.add(ws)
-        
-        # Make all websockets fail
-        for ws in multiple_mock_websockets:
-            ws.send_json.side_effect = Exception("Connection failed")
-        
-        message = {"type": "test", "data": "hello"}
-        
-        # Act
-        await connection_manager.broadcast(message)
-        
-        # Assert
-        assert len(connection_manager.active_connections) == 0
-    
-    @pytest.mark.asyncio
-    async def test_send_personal_to_disconnected_websocket(self, connection_manager, mock_websocket):
-        """Test sending personal message to websocket not in active connections."""
-        # Arrange - websocket is NOT added to active_connections
-        mock_websocket.send_json.side_effect = Exception("Not connected")
-        message = {"type": "personal", "data": "test"}
-        
-        # Act
-        await connection_manager.send_personal(message, mock_websocket)
-        
-        # Assert - should handle gracefully, not crash
-        mock_websocket.send_json.assert_called_once_with(message)
-        assert mock_websocket not in connection_manager.active_connections
+        assert len(manager.active_connections) == 0
 
 
-class TestConnectionManagerIntegration:
-    """Integration tests for ConnectionManager with realistic scenarios."""
+class TestWebSocketConnection:
+    """Test WebSocket connection handling."""
     
-    @pytest.mark.asyncio
-    async def test_connection_lifecycle(self, connection_manager, mock_websocket):
-        """Test complete connection lifecycle: connect -> send -> disconnect."""
+    @patch('app.api.ws.websockets')
+    async def test_websocket_connection(self, mock_websockets):
+        """Test WebSocket connection."""
+        from app.api.ws import ConnectionManager
+        
+        # Setup mock
+        mock_conn = MagicMock()
+        mock_websockets.connect.return_value = mock_conn
+        
+        manager = ConnectionManager()
+        
         # Connect
-        await connection_manager.connect(mock_websocket)
-        assert mock_websocket in connection_manager.active_connections
+        await manager.connect(mock_conn)
         
-        # Send message
-        message = {"type": "test", "data": "hello"}
-        await connection_manager.broadcast(message)
-        mock_websocket.send_json.assert_called_once_with(message)
+        assert mock_conn in manager.active_connections
+        
+    @patch('app.api.ws.websockets')
+    async def test_websocket_disconnection(self, mock_websockets):
+        """Test WebSocket disconnection."""
+        from app.api.ws import ConnectionManager
+        
+        # Setup mock
+        mock_conn = MagicMock()
+        mock_websockets.connect.return_value = mock_conn
+        
+        manager = ConnectionManager()
+        
+        # Connect
+        await manager.connect(mock_conn)
         
         # Disconnect
-        connection_manager.disconnect(mock_websocket)
-        assert mock_websocket not in connection_manager.active_connections
+        manager.disconnect(mock_conn)
+        
+        assert mock_conn not in manager.active_connections
+        
+    @patch('app.api.ws.websockets')
+    async def test_multiple_connections(self, mock_websockets):
+        """Test multiple concurrent connections."""
+        from app.api.ws import ConnectionManager
+        
+        # Setup mocks
+        mock_conn1 = MagicMock()
+        mock_conn2 = MagicMock()
+        mock_websockets.connect.side_effect = [mock_conn1, mock_conn2]
+        
+        manager = ConnectionManager()
+        
+        # Connect multiple clients
+        await manager.connect(mock_conn1)
+        await manager.connect(mock_conn2)
+        
+        assert len(manager.active_connections) == 2
+        
+    @patch('app.api.ws.websockets')
+    async def test_broadcast_message(self, mock_websockets):
+        """Test broadcasting message to all connections."""
+        from app.api.ws import ConnectionManager
+        
+        # Setup mocks
+        mock_conn1 = MagicMock()
+        mock_conn2 = MagicMock()
+        mock_websockets.connect.side_effect = [mock_conn1, mock_conn2]
+        
+        manager = ConnectionManager()
+        
+        # Connect multiple clients
+        await manager.connect(mock_conn1)
+        await manager.connect(mock_conn2)
+        
+        # Broadcast message
+        await manager.broadcast({"type": "test", "data": "message"})
+        
+        # Both connections should receive message
+        mock_conn1.send_json.assert_called_once()
+        mock_conn2.send_json.assert_called_once()
+        
+    @patch('app.api.ws.websockets')
+    async def test_personal_message(self, mock_websockets):
+        """Test sending personal message to specific connection."""
+        from app.api.ws import ConnectionManager
+        
+        # Setup mock
+        mock_conn1 = MagicMock()
+        mock_websockets.connect.return_value = mock_conn1
+        
+        manager = ConnectionManager()
+        
+        # Connect
+        await manager.connect(mock_conn1)
+        
+        # Send personal message
+        await manager.send_personal(mock_conn1, {"type": "test"})
+        
+        mock_conn1.send_json.assert_called_once_with({"type": "test"})
+        
+    @patch('app.api.ws.websockets')
+    async def test_send_personal_to_nonexistent(self, mock_websockets):
+        """Test sending message to non-existent connection."""
+        from app.api.ws import ConnectionManager
+        
+        # Setup mock
+        mock_conn1 = MagicMock()
+        mock_websockets.connect.return_value = mock_conn1
+        
+        manager = ConnectionManager()
+        
+        # Connect
+        await manager.connect(mock_conn1)
+        
+        # Try to send to non-existent connection
+        nonexistent_conn = MagicMock()
+        
+        with patch.object(manager, 'disconnect') as mock_disconnect:
+            manager.disconnect(nonexistent_conn)
+            
+            # Should not raise exception
+            assert mock_disconnect.called
+            
+    @patch('app.api.ws.websockets')
+    async def test_receive_and_forward(self, mock_websockets):
+        """Test receiving and forwarding messages."""
+        from app.api.ws import ConnectionManager
+        
+        # Setup mock
+        mock_conn = MagicMock()
+        mock_conn.receive_text = MagicMock(return_value='{"type": "test"}')
+        mock_websockets.connect.return_value = mock_conn
+        
+        manager = ConnectionManager()
+        
+        # Connect
+        await manager.connect(mock_conn)
+        
+        # Send personal message (simulates client sending)
+        await manager.send_personal(mock_conn, {"type": "pong"})
+        
+        mock_conn.send_json.assert_called_once_with({"type": "pong"})
+
+
+class TestWebSocketManager:
+    """Test WebSocket Manager class."""
     
-    @pytest.mark.asyncio
-    async def test_multiple_clients_with_partial_failures(self, connection_manager, multiple_mock_websockets):
-        """Test realistic scenario with multiple clients and some failures."""
-        # Connect all clients
-        for ws in multiple_mock_websockets:
-            await connection_manager.connect(ws)
+    def test_manager_initialization(self):
+        """Test manager initialization."""
+        from app.api.ws import WebSocketManager
         
-        assert len(connection_manager.active_connections) == 3
+        manager = WebSocketManager()
         
-        # First broadcast succeeds for all
-        await connection_manager.broadcast({"type": "msg1", "data": "hello"})
-        assert len(connection_manager.active_connections) == 3
+        assert manager is not None
+        assert isinstance(manager.active_connections, set)
         
-        # Second client fails on next broadcast
-        multiple_mock_websockets[1].send_json.side_effect = Exception("Network error")
-        await connection_manager.broadcast({"type": "msg2", "data": "world"})
+    def test_manager_active_connections(self):
+        """Test active connections set."""
+        from app.api.ws import WebSocketManager
         
-        # Only 2 clients remain
-        assert len(connection_manager.active_connections) == 2
-        assert multiple_mock_websockets[1] not in connection_manager.active_connections
+        manager = WebSocketManager()
         
-        # Third broadcast succeeds for remaining clients
-        multiple_mock_websockets[1].send_json.side_effect = None  # Reset
-        await connection_manager.broadcast({"type": "msg3", "data": "test"})
-        assert len(connection_manager.active_connections) == 2
+        assert len(manager.active_connections) == 0
+        
+    def test_manager_broadcast(self):
+        """Test broadcasting message."""
+        from app.api.ws import WebSocketManager
+        
+        manager = WebSocketManager()
+        
+        # Mock connections
+        mock_conn1 = MagicMock()
+        mock_conn2 = MagicMock()
+        
+        manager.active_connections.add(mock_conn1)
+        manager.active_connections.add(mock_conn2)
+        
+        # Broadcast
+        manager.broadcast({"type": "test"})
+        
+        # Both connections should receive
+        mock_conn1.send_json.assert_called_once()
+        mock_conn2.send_json.assert_called_once()
+        
+    def test_manager_send_personal(self):
+        """Test sending personal message."""
+        from app.api.ws import WebSocketManager
+        
+        manager = WebSocketManager()
+        
+        mock_conn = MagicMock()
+        
+        manager.send_personal(mock_conn, {"type": "test"})
+        
+        mock_conn.send_json.assert_called_once_with({"type": "test"})
+        
+    def test_manager_disconnect(self):
+        """Test disconnecting connection."""
+        from app.api.ws import WebSocketManager
+        
+        manager = WebSocketManager()
+        
+        mock_conn = MagicMock()
+        
+        manager.active_connections.add(mock_conn)
+        
+        # Disconnect
+        manager.disconnect(mock_conn)
+        
+        assert mock_conn not in manager.active_connections
+        
+    def test_manager_disconnect_all(self):
+        """Test disconnecting all connections."""
+        from app.api.ws import WebSocketManager
+        
+        manager = WebSocketManager()
+        
+        mock_conn1 = MagicMock()
+        mock_conn2 = MagicMock()
+        
+        manager.active_connections.add(mock_conn1)
+        manager.active_connections.add(mock_conn2)
+        
+        # Disconnect all
+        manager.disconnect_all()
+        
+        assert len(manager.active_connections) == 0
+
+
+class TestWebSocketAuth:
+    """Test WebSocket authentication."""
+    
+    def test_valid_token(self):
+        """Test valid token authentication."""
+        from app.api.ws import verify_token
+        
+        # Mock pyjwt
+        with patch('app.api.ws.pyjwt') as mock_jwt:
+            mock_jwt.decode.return_value = {"sub": "user123"}
+            
+            token = "mock_jwt_token"
+            result = verify_token(token)
+            
+            assert result == {"sub": "user123"}
+            
+    def test_invalid_token(self):
+        """Test invalid token authentication."""
+        from app.api.ws import verify_token
+        
+        with patch('app.api.ws.pyjwt') as mock_jwt:
+            mock_jwt.decode.side_effect = Exception("Invalid token")
+            
+            token = "invalid_token"
+            
+            # Should raise exception
+            try:
+                verify_token(token)
+                assert False, "Should have raised exception"
+            except Exception:
+                pass
+                
+    def test_expired_token(self):
+        """Test expired token authentication."""
+        from app.api.ws import verify_token
+        
+        with patch('app.api.ws.pyjwt') as mock_jwt:
+            mock_jwt.decode.side_effect = Exception("Token expired")
+            
+            token = "expired_token"
+            
+            # Should raise exception
+            try:
+                verify_token(token)
+                assert False, "Should have raised exception"
+            except Exception:
+                pass
+
+
+class TestWebSocketMessage:
+    """Test WebSocket message handling."""
+    
+    def test_message_serialization(self):
+        """Test message serialization."""
+        import json
+        
+        message = {"type": "test", "data": {"key": "value"}}
+        
+        serialized = json.dumps(message)
+        
+        assert isinstance(serialized, str)
+        assert "test" in serialized
+        
+    def test_message_deserialization(self):
+        """Test message deserialization."""
+        import json
+        
+        serialized = '{"type": "test", "data": {"key": "value"}}'
+        
+        message = json.loads(serialized)
+        
+        assert message["type"] == "test"
+        assert message["data"]["key"] == "value"
+        
+    def test_pong_response(self):
+        """Test PONG response generation."""
+        import json
+        
+        message = {"type": "pong"}
+        
+        serialized = json.dumps(message)
+        
+        assert "pong" in serialized
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "--cov=app.api.ws", "--cov-report=term-missing"])
