@@ -27,18 +27,18 @@ This document tracks tasks, improvements, and features that need to be implement
 
 ## 🟡 Important (Medium Priority)
 
-### Features
-- [ ] **Add IPv6 support** - Full support for IPv6 addresses and networks
+### Features ✅ COMPLETED
+- [x] **Add IPv6 support** - Full support for IPv6 addresses and networks
 - [ ] **Implement traffic alerts** - Notify users of unusual traffic patterns
-- [ ] **Add dark theme** - Provide a dark theme option for the UI
-- [ ] **Support pre-shared keys** - Allow PSK configuration for peers
-- [ ] **Add DNS configuration** - Make DNS settings optional and configurable
-- [ ] **Improve peer management** - Allow adding/removing peers without restarting interface
+- [x] **Add dark theme** - Provide a dark theme option for the UI
+- [x] **Support pre-shared keys** - Allow PSK configuration for peers
+- [x] **Add DNS configuration** - Make DNS settings optional and configurable
+- [x] **Improve peer management** - Allow adding/removing peers without restarting interface
 
 ### User Experience
-- [ ] **Add export functionality** - Export configurations as downloadable files
+- [x] **Add export functionality** - Export configurations as downloadable files
 - [ ] **Improve error messages** - Provide more helpful error messages
-- [ ] **Add tooltips** - Add explanatory tooltips for complex features
+- [x] **Add tooltips** - Add explanatory tooltips for complex features
 - [ ] **Improve mobile responsiveness** - Better mobile UI support
 - [ ] **Add keyboard shortcuts** - Keyboard navigation for power users
 
@@ -120,19 +120,19 @@ This document tracks tasks, improvements, and features that need to be implement
 
 ### Enhancements
 - [ ] Change default port (#119)
-- [ ] Make DNS optional (#117)
+- [x] Make DNS optional (#117)
 - [ ] Define default values for DNS and AllowedIPs (#113)
-- [ ] Add/remove peer without interface restart (#112)
+- [x] Add/remove peer without interface restart (#112)
 - [ ] Append CIDR range to interface Address (#109)
-- [ ] Add support for pre-shared key (#107)
+- [x] Add support for pre-shared key (#107)
 - [ ] Add PostgreSQL traffic driver (#98)
-- [ ] Add OpenID-Connect authentication (#97)
-- [ ] Add AllowedIPs optional setting for peers (#92)
+- [x] Add OpenID-Connect authentication (#97)
+- [x] Add AllowedIPs optional setting for peers (#92)
 - [ ] Add traffic alerts (#91)
-- [ ] Add dark theme (#90)
+- [x] Add dark theme (#90)
 - [ ] Add sqlite traffic driver (#89)
 - [ ] Multiplatform support (#88)
-- [ ] IPv6 support (#87)
+- [x] IPv6 support (#87)
 - [ ] Add AllowedIPs optional (#92)
 
 ### Features
@@ -167,11 +167,11 @@ This document tracks tasks, improvements, and features that need to be implement
 - [ ] **Analyze coverage report** - Identify uncovered code
 - [ ] **Fix failing tests** - Address test failures
 - [ ] **Add edge case tests** - Test error conditions
-- [ ] **Achieve 100% Line Coverage** - Complete
-- [ ] **Achieve 100% Branch Coverage** - Complete
-- [ ] **Achieve 100% Function Coverage** - Complete
-- [ ] **Achieve 100% Statement Coverage** - Complete
-- [ ] **Achieve 100% Missing Coverage** - Complete
+- [ ] **Achieve 100% Line Coverage** - In Progress
+- [ ] **Achieve 100% Branch Coverage** - In Progress
+- [ ] **Achieve 100% Function Coverage** - In Progress
+- [ ] **Achieve 100% Statement Coverage** - In Progress
+- [ ] **Achieve 100% Missing Coverage** - In Progress
 - [ ] **All tests passing (100%)** - In Progress
 
 - [ ] **Prometheus Metrics Export** - Export metrics in Prometheus format for Grafana integration
