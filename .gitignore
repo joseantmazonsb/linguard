@@ -35,4 +35,5 @@ backups/
 *.log
 *cache/
 *.conf
-backend/plugins/
+backend/plugins/.coverage
+.coverage
