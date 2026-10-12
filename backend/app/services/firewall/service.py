@@ -59,17 +59,18 @@ class FirewallService:
             self.driver = iptables
             logger.info(f"✓ Firewall driver: {iptables.name()}")
         else:
-            logger.error("=" * 80)
-            logger.error("❌ FIREWALL ERROR: iptables not available")
-            logger.error("")
-            logger.error("   Required:")
-            logger.error("   - Install iptables: sudo apt install iptables")
-            logger.error("   - Configure passwordless sudo (see documentation)")
-            logger.error("")
-            logger.error("   Sudoers configuration (/etc/sudoers.d/linguard):")
-            logger.error("   yourusername ALL=(ALL) NOPASSWD: /sbin/iptables, /sbin/ip6tables")
-            logger.error("=" * 80)
-            sys.exit(1)
+            logger.warning("=" * 80)
+            logger.warning("⚠️  FIREWALL WARNING: iptables not available or no sudo access")
+            logger.warning("")
+            logger.warning("   This is OK for development/testing. For production:")
+            logger.warning("   - Install iptables: sudo apt install iptables")
+            logger.warning("   - Configure passwordless sudo (see documentation)")
+            logger.warning("")
+            logger.warning("   Sudoers configuration (/etc/sudoers.d/linguard):")
+            logger.warning("   yourusername ALL=(ALL) NOPASSWD: /sbin/iptables, /sbin/ip6tables")
+            logger.warning("=" * 80)
+            # Don't exit in development - just skip firewall operations
+            self.driver = None
     
     def is_available(self) -> bool:
         """Check if a firewall driver is available."""

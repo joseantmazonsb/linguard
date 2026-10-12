@@ -96,6 +96,7 @@ async def login(
     result = await db.execute(select(User).where(User.username == form_data.username))
     user = result.scalar_one_or_none()
 
+
     settings = await _get_auth_settings(db)
     if settings and settings.auth_mode == "oidc_only":
         raise HTTPException(

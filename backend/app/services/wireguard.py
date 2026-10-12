@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import subprocess
 import platform
 
@@ -231,11 +232,15 @@ class WireGuardService:
                 )
             else:
                 # On Linux, use ip link to create the interface
-                self._run_sudo_command(
+                result = self._run_sudo_command(
                     ["sudo", "ip", "link", "add", "dev", interface, "type", "wireguard"],
                     timeout=10
                 )
-            
+                if result.returncode != 0:
+                    error_msg = (result.stderr or result.stdout or "").strip()
+                    logger.error(f"Failed to create interface '{interface}': {error_msg}")
+                    return False, interface
+
             logger.info(f"Created WireGuard interface '{interface}'")
             return True, interface
         except subprocess.CalledProcessError as e:
@@ -257,18 +262,26 @@ class WireGuardService:
         """
         try:
             # Set private key
-            self._run_sudo_command(
+            result = self._run_sudo_command(
                 ["sudo", self.wg_binary, "set", interface, "private-key", "/dev/stdin"],
                 input_data=private_key,
                 timeout=10
             )
-            
+            if result.returncode != 0:
+                error_msg = (result.stderr or result.stdout or "").strip()
+                logger.error(f"Failed to set private key on '{interface}': {error_msg}")
+                return False
+
             # Set listen port
-            self._run_sudo_command(
+            result = self._run_sudo_command(
                 ["sudo", self.wg_binary, "set", interface, "listen-port", str(listen_port)],
                 timeout=10
             )
-            
+            if result.returncode != 0:
+                error_msg = (result.stderr or result.stdout or "").strip()
+                logger.error(f"Failed to set listen-port on '{interface}': {error_msg}")
+                return False
+
             logger.debug(f"Configured interface '{interface}' with private key and port {listen_port}")
             return True
         except subprocess.CalledProcessError as e:
@@ -310,16 +323,24 @@ class WireGuardService:
             else:
                 # On Linux, use ip addr
                 if ipv4_address:
-                    self._run_sudo_command(
+                    result = self._run_sudo_command(
                         ["sudo", "ip", "addr", "add", ipv4_address, "dev", interface],
                         timeout=10
                     )
-                
+                    if result.returncode != 0:
+                        error_msg = (result.stderr or result.stdout or "").strip()
+                        logger.error(f"Failed to set IPv4 address on '{interface}': {error_msg}")
+                        return False
+
                 if ipv6_address:
-                    self._run_sudo_command(
+                    result = self._run_sudo_command(
                         ["sudo", "ip", "addr", "add", ipv6_address, "dev", interface],
                         timeout=10
                     )
+                    if result.returncode != 0:
+                        error_msg = (result.stderr or result.stdout or "").strip()
+                        logger.error(f"Failed to set IPv6 address on '{interface}': {error_msg}")
+                        return False
             
             logger.debug(f"Set addresses on interface '{interface}': IPv4={ipv4_address}, IPv6={ipv6_address}")
             return True
@@ -348,10 +369,14 @@ class WireGuardService:
                     timeout=10
                 )
             else:
-                self._run_sudo_command(
+                result = self._run_sudo_command(
                     ["sudo", "ip", "link", "set", interface, "up"],
                     timeout=10
                 )
+                if result.returncode != 0:
+                    error_msg = (result.stderr or result.stdout or "").strip()
+                    logger.error(f"Failed to bring up interface '{interface}': {error_msg}")
+                    return False
             
             logger.debug(f"Brought interface '{interface}' up")
             return True
@@ -704,30 +729,54 @@ class WireGuardService:
 
     def _is_interface_up(self, interface: str) -> bool:
         """
-        Check if an interface is actually UP using ifconfig.
-        
+        Check if an interface is actually UP.
+
+        Uses `ip link` on Linux and `ifconfig` on macOS (ifconfig is not
+        available on modern Linux distros, which ship iproute2 instead).
+
         Args:
             interface: Interface name
-            
+
         Returns:
             True if interface is UP, False otherwise
         """
         try:
+            if self.is_macos:
+                result = subprocess.run(
+                    ["ifconfig", interface],
+                    capture_output=True,
+                    text=True,
+                    check=False
+                )
+
+                if result.returncode != 0:
+                    return False
+
+                # Check if the flags line contains "UP"
+                for line in result.stdout.splitlines():
+                    if "flags=" in line and "UP" in line:
+                        return True
+
+                return False
+
+            # Linux: use iproute2
             result = subprocess.run(
-                ["ifconfig", interface],
+                ["ip", "link", "show", interface],
                 capture_output=True,
                 text=True,
                 check=False
             )
-            
+
             if result.returncode != 0:
                 return False
-            
-            # Check if the flags line contains "UP"
-            for line in result.stdout.splitlines():
-                if "flags=" in line and "UP" in line:
-                    return True
-            
+
+            # WireGuard links report operstate UNKNOWN, so check the flags
+            # instead: an up interface shows UP among them
+            # (e.g. "<POINTOPOINT,NOARP,UP,LOWER_UP>")
+            flags_match = re.search(r"<([^>]+)>", result.stdout)
+            if flags_match and "UP" in flags_match.group(1).split(","):
+                return True
+
             return False
         except Exception as e:
             logger.error(f"Error checking if interface {interface} is up: {e}")
