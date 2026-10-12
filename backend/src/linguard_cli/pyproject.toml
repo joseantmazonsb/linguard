@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "linguard-cli"
+version = "0.1.0"
+description = "Command line interface for Linguard VPN Manager"
+authors = [
+    {name = "Linguard Team", email = "linguard@example.com"},
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "click==8.1.7",
+    "httpx==0.26.0",
+    "python-dotenv==1.0.0",
+]
+
+[project.scripts]
+linguard = "linguard_cli.main:cli"
+
+[tool.setuptools]
+package-dir = {"" = ".."}
+packages = ["linguard_cli"]

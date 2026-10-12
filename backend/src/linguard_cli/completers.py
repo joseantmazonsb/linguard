@@ -117,23 +117,6 @@ class IPCompleter:
         return suggestions
     
     @classmethod
-    def _generate_sequential_ips(cls, base: str) -> List[str]:
-        """Generate sequential IP suggestions from base."""
-        suggestions = []
-        try:
-            parts = base.split(".")
-            if len(parts) == 3:
-                # Generate with common subnets
-                for subnet in cls.COMMON_SUBNETS[:5]:  # Limit to most common
-                    ip_str = f"{base}/{subnet}"
-                    if cls._is_valid_ip(ip_str):
-                        suggestions.append(ip_str)
-        except ValueError:
-            pass
-        
-        return suggestions
-    
-    @classmethod
     def _generate_ipv4(cls, prefix: str) -> List[str]:
         """Generate IPv4 addresses from prefix."""
         suggestions = []
@@ -159,16 +142,20 @@ class IPCompleter:
         """Generate sequential IP suggestions."""
         suggestions = []
         try:
-            # Try to parse as IP
-            base_ip = ipaddress.IPv4Address(prefix)
-            
+            # Accept partial prefixes ("10.0.0") as well as full IPs
+            parts = prefix.split(".")
+            if len(parts) < 4:
+                base_ip = ipaddress.IPv4Address(".".join(parts) + ".1")
+            else:
+                base_ip = ipaddress.IPv4Address(prefix)
+
             # Generate next few IPs
             for i in range(1, 6):
                 next_ip = base_ip + i
                 suggestions.append(str(next_ip))
         except ValueError:
             pass
-        
+
         return suggestions
     
     @classmethod
@@ -186,6 +173,97 @@ class IPCompleter:
                     break
         
         return suggestions
+
+    @classmethod
+    def suggest_all_dns(cls) -> List[Tuple[str, List[str]]]:
+        """Suggest all DNS providers."""
+        return [
+            ("Cloudflare", ["1.1.1.1", "1.0.0.1", "2606:4700:4700::1111", "2606:4700:4700::1001"]),
+            ("Google", ["8.8.8.8", "8.8.4.4", "2001:4860:4860::8888", "2001:4860:4860::8844"]),
+            ("Quad9", ["9.9.9.9", "149.112.112.112", "2606:4700:4700::1001"]),
+        ]
+
+    @classmethod
+    def suggest_dns(cls, provider: str) -> List[str]:
+        """Suggest DNS servers for a specific provider."""
+        dns_servers = {
+            "cloudflare": ["1.1.1.1", "1.0.0.1", "2606:4700:4700::1111", "2606:4700:4700::1001"],
+            "google": ["8.8.8.8", "8.8.4.4", "2001:4860:4860::8888", "2001:4860:4860::8844"],
+            "quad9": ["9.9.9.9", "149.112.112.112", "2606:4700:4700::1001"],
+        }
+        return dns_servers.get(provider.lower(), dns_servers["cloudflare"])
+
+    @classmethod
+    def suggest_ports(cls) -> List[int]:
+        """Suggest common WireGuard ports."""
+        return [51820, 51821, 51822, 443, 8443, 8080]
+
+    @classmethod
+    def suggest_peer_names(cls) -> List[str]:
+        """Suggest peer names."""
+        return [
+            "Office Network",
+            "Home Device",
+            "Mobile Hotspot",
+            "Backup Server",
+            "Development Machine",
+            "Production Server",
+            "IoT Device",
+            "Remote Worker",
+        ]
+
+    @classmethod
+    def suggest_class_a(cls) -> List[Tuple[str, str]]:
+        """Suggest Class A subnets."""
+        return [
+            ("10.0.0.0/8", "Private Class A - 16M hosts"),
+            ("172.16.0.0/12", "Private Class B - 1M hosts"),
+            ("192.0.0.0/24", "Documentation NET-1"),
+            ("198.18.0.0/15", "Documentation NET-2"),
+        ]
+
+    @classmethod
+    def suggest_class_b(cls) -> List[Tuple[str, str]]:
+        """Suggest Class B subnets."""
+        return [
+            ("172.16.0.0/12", "Private Class B - 1M hosts"),
+            ("172.16.0.0/16", "Private Class B - 65K hosts"),
+            ("172.16.0.0/24", "Private Class B - 254 hosts"),
+            ("198.51.100.0/24", "Documentation TEST-NET-2"),
+        ]
+
+    @classmethod
+    def suggest_class_c(cls) -> List[Tuple[str, str]]:
+        """Suggest Class C subnets."""
+        return [
+            ("192.168.0.0/16", "Private Class C - 65K hosts"),
+            ("192.168.1.0/24", "Private Class C - 254 hosts"),
+            ("192.168.1.0/24", "Common home network"),
+            ("198.51.100.0/24", "Documentation TEST-NET-2"),
+        ]
+
+    @classmethod
+    def suggest_common_subnets(cls) -> List[Tuple[str, str]]:
+        """Suggest common subnet ranges."""
+        return [
+            ("192.168.1.0/24", "Class C - 254 hosts"),
+            ("192.168.0.0/16", "Class C - 65534 hosts"),
+            ("10.0.0.0/8", "Class A - 16M hosts"),
+            ("172.16.0.0/12", "Class B - 1M hosts"),
+            ("10.0.0.0/24", "Class A - 254 hosts"),
+            ("172.16.0.0/24", "Class B - 254 hosts"),
+            ("192.168.100.0/24", "Class C - 254 hosts"),
+        ]
+
+    @classmethod
+    def _get_subnet_description(cls, subnet: str) -> str:
+        """Get human-readable description for a subnet."""
+        try:
+            network = ipaddress.IPv4Network(subnet, strict=False)
+            hosts = network.num_addresses - 2  # Subtract network and broadcast
+            return f"{hosts:,} hosts"
+        except ValueError:
+            return "Unknown"
 
 
 @click.command(name="ip")

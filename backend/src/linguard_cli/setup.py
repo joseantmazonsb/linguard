@@ -28,7 +28,8 @@ setup(
     author="Linguard Team",
     author_email="linguard@example.com",
     url="https://github.com/joseantmazonsb/linguard",
-    packages=find_packages(),
+    package_dir={"": ".."},
+    packages=["linguard_cli"],
     python_requires=">=3.8",
     install_requires=requirements,
     entry_points={

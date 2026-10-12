@@ -5,9 +5,11 @@ Run this to see suggested IPs, DNS servers, ports, etc.
 """
 
 import sys
-sys.path.insert(0, '.')
+from pathlib import Path
 
-from completers import IPCompleter
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from linguard_cli.completers import IPCompleter
 
 def test_ip_suggestions():
     """Test IP address suggestions."""

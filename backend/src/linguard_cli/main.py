@@ -30,7 +30,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # Try to import necessary modules
 try:
     import httpx
-    import requests
+    # requests is deprecated in favor of httpx
+    try:
+        import requests
+    except ImportError:
+        requests = None
+    
     from dotenv import load_dotenv
     
     # Load environment variables
@@ -47,6 +52,29 @@ API_VERSION = "/api/v1"
 AUTH_TOKEN = os.getenv("LINGUARD_API_TOKEN")
 
 
+def api_request(method: str, url: str, **kwargs):
+    """Perform an HTTP request against the Linguard API, following redirects.
+
+    httpx does not follow redirects by default, which breaks commands when the
+    API answers with a 307 (e.g. trailing-slash normalization).
+    """
+    kwargs.setdefault("timeout", 10.0)
+    return httpx.request(method, url, follow_redirects=True, **kwargs)
+
+
+def extract_items(data):
+    """Normalize collection responses.
+
+    Most collection endpoints return a plain JSON list; some return a
+    paginated object with an ``items`` key. Accept both shapes.
+    """
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        return data.get("items", [])
+    return []
+
+
 def get_headers() -> dict:
     """Get authentication headers."""
     if AUTH_TOKEN:
@@ -60,7 +88,7 @@ def get_headers() -> dict:
 def check_api_health() -> bool:
     """Check if the API is available."""
     try:
-        response = httpx.get(f"{BASE_URL}/health", timeout=10.0)
+        response = api_request("GET", f"{BASE_URL}/health", timeout=10.0)
         return response.status_code == 200
     except Exception as e:
         click.echo(f"Error: Cannot connect to API at {BASE_URL} - {e}", err=True)
@@ -68,24 +96,27 @@ def check_api_health() -> bool:
 
 
 @click.group()
-@click.option("--base-url", default=BASE_URL, help=f"API base URL (default: {BASE_URL})")
-@click.option("--token", default=None, help="API authentication token")
+@click.option("--base-url", default=None, help="API base URL (env: LINGUARD_API_URL, default: http://localhost:8000)")
+@click.option("--token", default=None, help="API authentication token (env: LINGUARD_API_TOKEN)")
 @click.option("--env-file", type=Path, default=None, help="Path to .env file")
 @click.version_option(version="0.1.0")
 def cli(base_url: str, token: Optional[str], env_file: Optional[Path]):
     """
     Linguard CLI - Manage WireGuard VPN servers from the command line.
-    
+
     This CLI provides a command-line interface to interact with the Linguard
     FastAPI backend for managing WireGuard servers, peers, and configurations.
     """
     global BASE_URL, AUTH_TOKEN
-    
-    BASE_URL = base_url
-    AUTH_TOKEN = token
-    
+
+    # Load the env file first so its values can be picked up below
     if env_file and env_file.exists():
         load_dotenv(env_file)
+
+    # Only override the module defaults when the option was explicitly passed;
+    # otherwise fall back to the environment (env var or .env file).
+    BASE_URL = base_url if base_url is not None else os.getenv("LINGUARD_API_URL", BASE_URL)
+    AUTH_TOKEN = token if token is not None else os.getenv("LINGUARD_API_TOKEN", AUTH_TOKEN)
     
     if not HTTPX_AVAILABLE:
         click.echo("Error: httpx is required. Install with: pip install httpx")
@@ -108,18 +139,34 @@ def login(ctx):
     Requires username and password (or OIDC credentials if configured).
     Store the token in LINGUARD_API_TOKEN environment variable.
     """
-    click.echo("Logging in to Linguard API...")
+    # Get credentials from stdin (for piped input) or prompt (for interactive)
+    import sys
     
-    # Get credentials from user
-    username = click.prompt("Username", hide_input=True)
-    password = click.prompt("Password", hide_input=True)
+    if not sys.stdin.isatty():
+        # Non-interactive: read from stdin
+        lines = sys.stdin.readlines()
+        if len(lines) >= 2:
+            username = lines[0].strip()
+            password = lines[1].strip()
+            click.echo("Logging in to Linguard API...")
+        else:
+            click.echo("Error: Not enough input data", err=True)
+            sys.exit(1)
+    else:
+        # Interactive: use click prompts
+        click.echo("Logging in to Linguard API...")
+        username = click.prompt("Username", hide_input=True)
+        password = click.prompt("Password", hide_input=True)
     
-    # Try basic auth first
+    # Try basic auth first - use form-encoded data for OAuth2 compatibility
     try:
-        response = httpx.post(
-            f"{BASE_URL}{API_VERSION}/auth/login",
-            json={"username": username, "password": password},
-            headers=get_headers(),
+        # Send form data as a dict so httpx sets the correct
+        # Content-Type (application/x-www-form-urlencoded)
+        headers = {k: v for k, v in get_headers().items() if k != "Content-Type"}
+        response = api_request("POST",
+            f"{BASE_URL}{API_VERSION}/auth/token",
+            data={"username": username, "password": password},
+            headers=headers,
             timeout=30.0
         )
         
@@ -134,13 +181,19 @@ def login(ctx):
                 click.echo("\nSet this as your LINGUARD_API_TOKEN environment variable:")
                 click.echo(f"  export LINGUARD_API_TOKEN='{token}'")
                 
-                # Offer to save to .env file
-                save_to_env = click.confirm("Save token to .env file?")
-                if save_to_env:
-                    env_path = Path(".env")
-                    with open(env_path, "w") as f:
-                        f.write(f"LINGUARD_API_TOKEN={token}\n")
-                    click.echo(f"✓ Token saved to {env_path}")
+                # Offer to save to .env file (only when interactive)
+                if sys.stdin.isatty():
+                    save_to_env = click.confirm("Save token to .env file?")
+                    if save_to_env:
+                        env_path = Path(".env")
+                        existing = env_path.read_text() if env_path.exists() else ""
+                        # Keep every other line, replace any previous token
+                        kept = [l for l in existing.splitlines() if not l.startswith("LINGUARD_API_TOKEN=")]
+                        with open(env_path, "w") as f:
+                            if kept:
+                                f.write("\n".join(kept) + "\n")
+                            f.write(f"LINGUARD_API_TOKEN={token}\n")
+                        click.echo(f"✓ Token saved to {env_path}")
                 
                 click.echo("\nYou can now use the CLI without re-authenticating.")
                 sys.exit(0)
@@ -168,12 +221,12 @@ def status(ctx):
         sys.exit(1)
     
     try:
-        response = httpx.get(
-            f"{BASE_URL}{API_VERSION}/auth/me",
+        response = api_request("GET",
+            f"{BASE_URL}{API_VERSION}/auth/profile",
             headers=get_headers(),
             timeout=10.0
         )
-        
+
         if response.status_code == 200:
             data = response.json()
             click.echo("✓ Authentication successful!")
@@ -181,7 +234,7 @@ def status(ctx):
             click.echo(f"  Email: {data.get('email')}")
             click.echo(f"  Role: {data.get('role')}")
         else:
-            click.echo("✗ Authentication failed or expired", err=True)
+            click.echo(f"✗ Authentication failed (HTTP {response.status_code})", err=True)
             sys.exit(1)
             
     except Exception as e:
@@ -192,6 +245,7 @@ def status(ctx):
 @auth.command()
 def logout():
     """Clear authentication token."""
+    global AUTH_TOKEN
     click.echo("Clearing authentication token...")
     AUTH_TOKEN = None
     click.echo("✓ Token cleared. You will need to login again.")
@@ -207,13 +261,13 @@ def servers(ctx):
 @servers.command("start")
 @click.argument("server_id")
 @click.pass_context
-def start_server(server_id: int):
+def start_server(ctx, server_id: int):
     """Start a WireGuard server."""
     if not check_api_health():
         sys.exit(1)
     
     try:
-        response = httpx.post(
+        response = api_request("POST", 
             f"{BASE_URL}{API_VERSION}/servers/{server_id}/start",
             headers=get_headers(),
             timeout=30.0
@@ -236,13 +290,13 @@ def start_server(server_id: int):
 @servers.command("stop")
 @click.argument("server_id")
 @click.pass_context
-def stop_server(server_id: int):
+def stop_server(ctx, server_id: int):
     """Stop a WireGuard server."""
     if not check_api_health():
         sys.exit(1)
     
     try:
-        response = httpx.post(
+        response = api_request("POST", 
             f"{BASE_URL}{API_VERSION}/servers/{server_id}/stop",
             headers=get_headers(),
             timeout=30.0
@@ -265,13 +319,13 @@ def stop_server(server_id: int):
 @servers.command("reload")
 @click.argument("server_id")
 @click.pass_context
-def reload_server(server_id: int):
+def reload_server(ctx, server_id: int):
     """Reload a WireGuard server configuration."""
     if not check_api_health():
         sys.exit(1)
     
     try:
-        response = httpx.post(
+        response = api_request("POST", 
             f"{BASE_URL}{API_VERSION}/servers/{server_id}/reload",
             headers=get_headers(),
             timeout=30.0
@@ -300,7 +354,7 @@ def list_servers(ctx, json: bool):
         sys.exit(1)
     
     try:
-        response = httpx.get(
+        response = api_request("GET", 
             f"{BASE_URL}{API_VERSION}/servers",
             headers=get_headers(),
             timeout=10.0
@@ -312,7 +366,7 @@ def list_servers(ctx, json: bool):
             if json:
                 click.echo(json.dumps(data, indent=2))
             else:
-                servers = data.get('items', [])
+                servers = extract_items(data)
                 if servers:
                     click.echo(f"Found {len(servers)} server(s):\n")
                     # Create table
@@ -339,9 +393,9 @@ def list_servers(ctx, json: bool):
 
 @servers.command("create")
 @click.pass_context
-@click.option("--name", required=True, help="Server name")
-@click.option("--port", required=True, type=int, help="Listen port (1-65535)")
-@click.option("--endpoint", required=True, help="Server endpoint (hostname or IP)")
+@click.option("--name", default=None, help="Server name")
+@click.option("--port", default=None, type=int, help="Listen port (1-65535)")
+@click.option("--endpoint", default=None, help="Server endpoint (hostname or IP)")
 @click.option("--ipv4", default=None, help="IPv4 address (e.g., 10.0.0.1/24)")
 @click.option("--ipv6", default=None, help="IPv6 address (e.g., fd00::1/64)")
 @click.option("--dns-primary", default=None, help="Primary DNS server")
@@ -352,6 +406,7 @@ def list_servers(ctx, json: bool):
 @click.option("--suggest-dns", "-d", is_flag=True, help="Suggest DNS servers")
 @click.option("--suggest-port", "-p", is_flag=True, help="Suggest ports")
 def create_server(
+    ctx,
     name: str,
     port: int,
     endpoint: str,
@@ -371,20 +426,31 @@ def create_server(
     
     # Handle suggestions
     if suggest_ip or suggest_dns or suggest_port:
-        from . import ip_command, dns_command, port_command
-        
+        from linguard_cli.completers import IPCompleter
         if suggest_ip:
-            ip_command()
+            click.echo("Suggested IP addresses:")
+            for i, ip in enumerate(IPCompleter.suggest_ips("10.0.0", min_length=1)[:10], 1):
+                click.echo(f"  {i}. {ip}")
         if suggest_dns:
-            dns_command()
+            click.echo("Suggested DNS servers:")
+            for provider, servers in IPCompleter.suggest_all_dns():
+                click.echo(f"  {provider}: {', '.join(servers[:2])}")
         if suggest_port:
-            port_command()
+            click.echo("Suggested ports: " + ", ".join(str(p) for p in IPCompleter.suggest_ports()))
         return
-    
+
+    # Required options are validated here (not via required=True) so the
+    # suggestion flags (-s/-d/-p) can run without them
+    if not name or not port or not endpoint:
+        raise click.UsageError(
+            "Missing options: --name, --port and --endpoint are required "
+            "(unless using the -s/-d/-p suggestion flags)."
+        )
+
     # Generate keypair
     try:
         click.echo("Generating WireGuard keypair...")
-        gen_keypair_response = httpx.get(
+        gen_keypair_response = api_request("GET", 
             f"{BASE_URL}{API_VERSION}/utils/generate-keypair",
             headers=get_headers(),
             timeout=10.0
@@ -425,7 +491,7 @@ def create_server(
     
     try:
         click.echo(f"Creating server '{name}'...")
-        response = httpx.post(
+        response = api_request("POST", 
             f"{BASE_URL}{API_VERSION}/servers",
             json=server_data,
             headers=get_headers(),
@@ -443,7 +509,7 @@ def create_server(
             # Start server if requested
             if autostart:
                 click.echo("\nStarting server...")
-                start_response = httpx.post(
+                start_response = api_request("POST", 
                     f"{BASE_URL}{API_VERSION}/servers/{data['id']}/start",
                     headers=get_headers(),
                     timeout=30.0
@@ -465,19 +531,18 @@ def create_server(
 @servers.command("delete")
 @click.argument("server_id")
 @click.pass_context
-def delete_server(server_id: int):
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
+def delete_server(ctx, server_id: int, yes: bool):
     """Delete a WireGuard server."""
     if not check_api_health():
         sys.exit(1)
-    
-    confirmation = click.confirm(f"Are you sure you want to delete server {server_id}? This action cannot be undone.")
-    
-    if not confirmation:
+
+    if not yes and not click.confirm(f"Are you sure you want to delete server {server_id}? This action cannot be undone."):
         click.echo("Delete cancelled.")
         return
     
     try:
-        response = httpx.delete(
+        response = api_request("DELETE", 
             f"{BASE_URL}{API_VERSION}/servers/{server_id}",
             headers=get_headers(),
             timeout=10.0
@@ -510,7 +575,7 @@ def list_peers(ctx, json: bool):
         sys.exit(1)
     
     try:
-        response = httpx.get(
+        response = api_request("GET", 
             f"{BASE_URL}{API_VERSION}/peers",
             headers=get_headers(),
             timeout=10.0
@@ -522,19 +587,21 @@ def list_peers(ctx, json: bool):
             if json:
                 click.echo(json.dumps(data, indent=2))
             else:
-                peers = data.get('items', [])
+                peers = extract_items(data)
                 if peers:
                     click.echo(f"Found {len(peers)} peer(s):\n")
                     # Create table
-                    headers = ["Name", "Server", "Endpoint", "Enabled", "Status"]
+                    headers = ["Name", "Server", "IPv4", "Allowed IPs", "Enabled", "RX", "TX"]
                     rows = []
                     for peer in peers:
                         rows.append([
                             peer.get('name', 'Unknown'),
-                            peer.get('server_name', 'N/A'),
-                            peer.get('endpoint', 'N/A'),
+                            str(peer.get('server_id', 'N/A')),
+                            peer.get('ipv4_address', 'N/A'),
+                            peer.get('allowed_ips', 'N/A'),
                             "✓" if peer.get('enabled') else "✗",
-                            peer.get('status', 'unknown'),
+                            format_bytes(peer.get('rx_bytes', 0)),
+                            format_bytes(peer.get('tx_bytes', 0)),
                         ])
                     print_table(headers, rows)
                 else:
@@ -551,9 +618,10 @@ def list_peers(ctx, json: bool):
 @peers.command("create")
 @click.pass_context
 @click.argument("server_id")
-@click.option("--name", required=True, help="Peer name")
-@click.option("--endpoint", required=True, help="Peer endpoint (public IP/hostname)")
+@click.option("--name", default=None, help="Peer name")
+@click.option("--endpoint", default=None, help="Peer endpoint (public IP/hostname)")
 @click.option("--allowed-ips", default=None, help="Allowed IPs (e.g., 10.0.0.0/24)")
+@click.option("--ipv4", default=None, help="Peer IPv4 address (e.g., 10.11.0.2/32)")
 @click.option("--ipv6", default=None, help="IPv6 address")
 @click.option("--port", default=51820, help="Peer port")
 @click.option("--dns-primary", default=None, help="Primary DNS")
@@ -562,11 +630,12 @@ def list_peers(ctx, json: bool):
 @click.option("--persistent-keepalive", default=60, type=int, help="Persistent keepalive (seconds)")
 @click.option("--suggest-ip", "-s", is_flag=True, help="Suggest IP addresses")
 @click.option("--suggest-range", "-r", is_flag=True, help="Suggest IP ranges")
-def create_peer(
+def create_peer(ctx,
     server_id: int,
     name: str,
     endpoint: str,
     allowed_ips: Optional[str],
+    ipv4: Optional[str],
     ipv6: Optional[str],
     port: int,
     dns_primary: Optional[str],
@@ -582,52 +651,87 @@ def create_peer(
     
     # Handle IP suggestions
     if suggest_ip or suggest_range:
-        from . import ip_command, subnet_command
-        ip_command()
+        from linguard_cli.completers import IPCompleter
+        if suggest_ip:
+            click.echo("Suggested IP addresses:")
+            for i, ip in enumerate(IPCompleter.suggest_ips("10.0.0", min_length=1)[:10], 1):
+                click.echo(f"  {i}. {ip}")
+        if suggest_range:
+            click.echo("Common subnet ranges:")
+            for subnet, desc in IPCompleter.suggest_common_subnets()[:6]:
+                click.echo(f"  {subnet:<20} - {desc}")
         return
-    
+
+    # Required options are validated here (not via required=True) so the
+    # suggestion flags (-s/-r) can run without them
+    if not name or not endpoint:
+        raise click.UsageError(
+            "Missing options: --name and --endpoint are required "
+            "(unless using the -s/-r suggestion flags)."
+        )
+
     try:
-        # Get server config to generate suggested IP
+        # Validate the server exists
         click.echo(f"Getting server {server_id} configuration...")
-        server_response = httpx.get(
+        server_response = api_request("GET",
             f"{BASE_URL}{API_VERSION}/servers/{server_id}",
             headers=get_headers(),
             timeout=10.0
         )
-        
+
         if server_response.status_code != 200:
             click.echo("Error: Server not found", err=True)
             sys.exit(1)
-        
-        server_data = server_response.json()
-        ipv4_suggested = server_data.get('ipv4_suggested')
-        ipv6_suggested = server_data.get('ipv6_suggested')
-        
+
+        # Fetch auto-filled defaults (next available IP, fresh keypair, DNS...)
+        defaults_response = api_request("GET",
+            f"{BASE_URL}{API_VERSION}/peers/defaults/{server_id}",
+            headers=get_headers(),
+            timeout=10.0
+        )
+        defaults = defaults_response.json() if defaults_response.status_code == 200 else {}
+
         peer_data = {
+            "server_id": server_id,
             "name": name,
             "endpoint": endpoint,
             "port": port,
             "persistent_keepalive": persistent_keepalive,
+            "public_key": defaults.get('public_key'),
+            "private_key": defaults.get('private_key'),
         }
-        
-        if ipv4_suggested and not ipv6:
-            peer_data["ipv4_address"] = ipv4_suggested
-        elif ipv6_suggested and not ipv6:
-            peer_data["ipv6_address"] = ipv6_suggested
-        elif ipv6:
+
+        # Peer address: explicit option wins, otherwise the suggested one
+        if ipv4:
+            peer_data["ipv4_address"] = ipv4
+        elif defaults.get('ipv4_address'):
+            peer_data["ipv4_address"] = defaults['ipv4_address']
+        if ipv6:
             peer_data["ipv6_address"] = ipv6
-        elif allowed_ips:
+        elif defaults.get('ipv6_address'):
+            peer_data["ipv6_address"] = defaults['ipv6_address']
+
+        # allowed_ips: only when explicitly provided (the backend applies
+        # its own defaults — full-tunnel — when omitted)
+        if allowed_ips:
             peer_data["allowed_ips"] = allowed_ips
-            
+
         if dns_primary:
             peer_data["dns_primary"] = dns_primary
+        elif defaults.get('dns_primary'):
+            peer_data["dns_primary"] = defaults['dns_primary']
         if dns_secondary:
             peer_data["dns_secondary"] = dns_secondary
+        elif defaults.get('dns_secondary'):
+            peer_data["dns_secondary"] = defaults['dns_secondary']
+
         if preshared_key:
             peer_data["preshared_key"] = preshared_key
+        elif defaults.get('preshared_key'):
+            peer_data["preshared_key"] = defaults['preshared_key']
         
         click.echo(f"Creating peer '{name}' on server {server_id}...")
-        response = httpx.post(
+        response = api_request("POST", 
             f"{BASE_URL}{API_VERSION}/peers",
             json=peer_data,
             headers=get_headers(),
@@ -638,8 +742,9 @@ def create_peer(
             data = response.json()
             click.echo(f"✓ Peer created successfully!")
             click.echo(f"  Name: {data.get('name')}")
-            click.echo(f"  Endpoint: {data.get('endpoint')}")
-            click.echo(f"  Status: {data.get('status')}")
+            click.echo(f"  IPv4: {data.get('ipv4_address') or 'N/A'}")
+            click.echo(f"  Allowed IPs: {data.get('allowed_ips') or 'N/A'}")
+            click.echo(f"  Public key: {data.get('public_key')}")
         else:
             click.echo(f"Error: {response.status_code} - {response.text}", err=True)
             sys.exit(1)
@@ -652,19 +757,18 @@ def create_peer(
 @peers.command("delete")
 @click.argument("peer_id")
 @click.pass_context
-def delete_peer(peer_id: int):
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
+def delete_peer(ctx, peer_id: int, yes: bool):
     """Delete a peer."""
     if not check_api_health():
         sys.exit(1)
-    
-    confirmation = click.confirm(f"Are you sure you want to delete peer {peer_id}?")
-    
-    if not confirmation:
+
+    if not yes and not click.confirm(f"Are you sure you want to delete peer {peer_id}?"):
         click.echo("Delete cancelled.")
         return
     
     try:
-        response = httpx.delete(
+        response = api_request("DELETE", 
             f"{BASE_URL}{API_VERSION}/peers/{peer_id}",
             headers=get_headers(),
             timeout=10.0
@@ -696,7 +800,7 @@ def list_backups(ctx):
         sys.exit(1)
     
     try:
-        response = httpx.get(
+        response = api_request("GET", 
             f"{BASE_URL}{API_VERSION}/backups",
             headers=get_headers(),
             timeout=10.0
@@ -704,7 +808,7 @@ def list_backups(ctx):
         
         if response.status_code == 200:
             data = response.json()
-            backups = data.get('items', [])
+            backups = extract_items(data)
             if backups:
                 click.echo(f"Found {len(backups)} backup(s):\n")
                 # Create table
@@ -712,9 +816,9 @@ def list_backups(ctx):
                 rows = []
                 for backup in backups:
                     rows.append([
-                        backup.get('name', 'N/A'),
+                        backup.get('filename', 'N/A'),
                         backup.get('created_at', 'N/A'),
-                        backup.get('size', 'N/A'),
+                        f"{backup.get('file_size', 0) / 1024:.1f} KB",
                     ])
                 print_table(headers, rows)
             else:
@@ -742,7 +846,7 @@ def create_backup(ctx, name: Optional[str]):
     
     try:
         click.echo("Creating backup...")
-        response = httpx.post(
+        response = api_request("POST", 
             f"{BASE_URL}{API_VERSION}/backups",
             json=backup_data,
             headers=get_headers(),
@@ -752,7 +856,7 @@ def create_backup(ctx, name: Optional[str]):
         if response.status_code == 201:
             data = response.json()
             click.echo("✓ Backup created successfully!")
-            click.echo(f"  Name: {data.get('name')}")
+            click.echo(f"  Filename: {data.get('filename') or 'N/A'}")
             click.echo(f"  ID: {data.get('id')}")
         else:
             click.echo(f"Error: {response.status_code} - {response.text}", err=True)
@@ -779,7 +883,7 @@ def list_triggers(ctx, json: bool):
         sys.exit(1)
     
     try:
-        response = httpx.get(
+        response = api_request("GET", 
             f"{BASE_URL}{API_VERSION}/traffic-triggers",
             headers=get_headers(),
             timeout=10.0
@@ -791,13 +895,13 @@ def list_triggers(ctx, json: bool):
             if json:
                 click.echo(json.dumps(data, indent=2))
             else:
-                click.echo(f"Found {len(data.get('items', []))} trigger(s):\n")
-                for trigger in data.get('items', []):
+                click.echo(f"Found {len(extract_items(data))} trigger(s):\n")
+                for trigger in extract_items(data):
                     name = trigger.get('name', 'Unknown')
                     enabled = "✓" if trigger.get('enabled') else "✗"
                     scope = trigger.get('scope', 'Unknown')
                     click.echo(f"  {enabled} {name}")
-                    click.echo(f"     Scope: {scope} | Status: {trigger.get('status')}")
+                    click.echo(f"     Scope: {scope} | {trigger.get('direction', '?')} > {format_bytes(trigger.get('threshold_bytes', 0))} / {trigger.get('window', '?')}")
         else:
             click.echo(f"Error: {response.status_code} - {response.text}", err=True)
             sys.exit(1)
@@ -818,7 +922,7 @@ def list_triggers(ctx, json: bool):
 @click.option("--window", required=True, type=click.Choice(['last_hour', 'last_24_hours', 'last_7_days', 'last_30_days']), help="Time window")
 @click.option("--cooldown-minutes", default=5, type=int, help="Cooldown in minutes")
 @click.option("--integration-ids", default=None, help="Comma-separated integration IDs")
-def create_trigger(
+def create_trigger(ctx,
     name: str,
     scope: str,
     peer_id: Optional[int],
@@ -853,7 +957,7 @@ def create_trigger(
             trigger_data["integration_ids"] = [int(x.strip()) for x in integration_ids.split(",")]
         
         click.echo(f"Creating traffic trigger '{name}'...")
-        response = httpx.post(
+        response = api_request("POST", 
             f"{BASE_URL}{API_VERSION}/traffic-triggers",
             json=trigger_data,
             headers=get_headers(),
@@ -864,8 +968,8 @@ def create_trigger(
             data = response.json()
             click.echo("✓ Traffic trigger created successfully!")
             click.echo(f"  Name: {data.get('name')}")
-            click.echo(f"  Scope: {data.get('scope')}")
-            click.echo(f"  Status: {data.get('status')}")
+            click.echo(f"  Scope: {data.get('scope')} | Direction: {data.get('direction')}")
+            click.echo(f"  Enabled: {'yes' if data.get('enabled') else 'no'}")
         else:
             click.echo(f"Error: {response.status_code} - {response.text}", err=True)
             sys.exit(1)
@@ -878,19 +982,18 @@ def create_trigger(
 @traffic_triggers.command("delete")
 @click.argument("trigger_id")
 @click.pass_context
-def delete_trigger(trigger_id: int):
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
+def delete_trigger(ctx, trigger_id: int, yes: bool):
     """Delete a traffic trigger."""
     if not check_api_health():
         sys.exit(1)
-    
-    confirmation = click.confirm(f"Are you sure you want to delete trigger {trigger_id}?")
-    
-    if not confirmation:
+
+    if not yes and not click.confirm(f"Are you sure you want to delete trigger {trigger_id}?"):
         click.echo("Delete cancelled.")
         return
     
     try:
-        response = httpx.delete(
+        response = api_request("DELETE", 
             f"{BASE_URL}{API_VERSION}/traffic-triggers/{trigger_id}",
             headers=get_headers(),
             timeout=10.0
@@ -910,14 +1013,14 @@ def delete_trigger(trigger_id: int):
 @traffic_triggers.command("test")
 @click.argument("trigger_id")
 @click.pass_context
-def test_trigger(trigger_id: int):
+def test_trigger(ctx, trigger_id: int):
     """Test a traffic trigger."""
     if not check_api_health():
         sys.exit(1)
     
     try:
         click.echo(f"Testing trigger {trigger_id}...")
-        response = httpx.post(
+        response = api_request("POST", 
             f"{BASE_URL}{API_VERSION}/traffic-triggers/{trigger_id}/test",
             headers=get_headers(),
             timeout=30.0
@@ -926,8 +1029,11 @@ def test_trigger(trigger_id: int):
         if response.status_code == 200:
             data = response.json()
             click.echo("✓ Trigger test completed!")
-            click.echo(f"  Result: {data.get('result', 'N/A')}")
-            click.echo(f"  Triggered: {data.get('triggered', False)}")
+            click.echo(f"  Would trigger: {'yes' if data.get('would_trigger') else 'no'}")
+            click.echo(f"  Current traffic: {format_bytes(data.get('current_bytes', 0))} / threshold {format_bytes(data.get('threshold_bytes', 0))}")
+            reason = data.get('reason')
+            if reason:
+                click.echo(f"  Reason: {reason}")
         else:
             click.echo(f"Error: {response.status_code} - {response.text}", err=True)
             sys.exit(1)
@@ -953,7 +1059,7 @@ def list_integrations(ctx, json: bool):
         sys.exit(1)
     
     try:
-        response = httpx.get(
+        response = api_request("GET", 
             f"{BASE_URL}{API_VERSION}/integrations",
             headers=get_headers(),
             timeout=10.0
@@ -965,8 +1071,8 @@ def list_integrations(ctx, json: bool):
             if json:
                 click.echo(json.dumps(data, indent=2))
             else:
-                click.echo(f"Found {len(data.get('items', []))} integration(s):\n")
-                for integration in data.get('items', []):
+                click.echo(f"Found {len(extract_items(data))} integration(s):\n")
+                for integration in extract_items(data):
                     name = integration.get('name', 'Unknown')
                     type_ = integration.get('type', 'Unknown')
                     enabled = "✓" if integration.get('enabled') else "✗"
@@ -984,10 +1090,10 @@ def list_integrations(ctx, json: bool):
 @integrations.command("create")
 @click.pass_context
 @click.option("--name", required=True, help="Integration name")
-@click.option("--type", required=True, type=click.Choice(['webhook', 'notification', 'email']), help="Integration type")
+@click.option("--type", "type_", required=True, type=click.Choice(['webhook', 'notification', 'email']), help="Integration type")
 @click.option("--url", default=None, help="Webhook URL")
 @click.option("--events", default=None, help="Comma-separated event types")
-def create_integration(name: str, type_: str, url: Optional[str], events: Optional[str]):
+def create_integration(ctx, name: str, type_: str, url: Optional[str], events: Optional[str]):
     """Create a new integration."""
     if not check_api_health():
         sys.exit(1)
@@ -1007,7 +1113,7 @@ def create_integration(name: str, type_: str, url: Optional[str], events: Option
             integration_data["events_subscribed"] = [e.strip() for e in events.split(",")]
         
         click.echo(f"Creating integration '{name}'...")
-        response = httpx.post(
+        response = api_request("POST", 
             f"{BASE_URL}{API_VERSION}/integrations",
             json=integration_data,
             headers=get_headers(),
@@ -1031,19 +1137,18 @@ def create_integration(name: str, type_: str, url: Optional[str], events: Option
 @integrations.command("delete")
 @click.argument("integration_id")
 @click.pass_context
-def delete_integration(integration_id: int):
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
+def delete_integration(ctx, integration_id: int, yes: bool):
     """Delete an integration."""
     if not check_api_health():
         sys.exit(1)
-    
-    confirmation = click.confirm(f"Are you sure you want to delete integration {integration_id}?")
-    
-    if not confirmation:
+
+    if not yes and not click.confirm(f"Are you sure you want to delete integration {integration_id}?"):
         click.echo("Delete cancelled.")
         return
     
     try:
-        response = httpx.delete(
+        response = api_request("DELETE", 
             f"{BASE_URL}{API_VERSION}/integrations/{integration_id}",
             headers=get_headers(),
             timeout=10.0
@@ -1076,7 +1181,7 @@ def list_notifications(ctx, json: bool):
         sys.exit(1)
     
     try:
-        response = httpx.get(
+        response = api_request("GET", 
             f"{BASE_URL}{API_VERSION}/notifications",
             headers=get_headers(),
             timeout=10.0
@@ -1088,9 +1193,9 @@ def list_notifications(ctx, json: bool):
             if json:
                 click.echo(json.dumps(data, indent=2))
             else:
-                unread = len([n for n in data.get('items', []) if not n.get('read')])
-                click.echo(f"Found {len(data.get('items', []))} notification(s) ({unread} unread)\n")
-                for notif in data.get('items', []):
+                unread = len([n for n in extract_items(data) if not n.get('read')])
+                click.echo(f"Found {len(extract_items(data))} notification(s) ({unread} unread)\n")
+                for notif in extract_items(data):
                     date = notif.get('created_at', 'Unknown')
                     read_status = "✓" if notif.get('read') else "✗"
                     click.echo(f"  {read_status} [{date}] {notif.get('title', 'No title')}")
@@ -1111,7 +1216,7 @@ def mark_all_read(ctx):
         sys.exit(1)
     
     try:
-        response = httpx.put(
+        response = api_request("PUT", 
             f"{BASE_URL}{API_VERSION}/notifications/read/all",
             headers=get_headers(),
             timeout=10.0
@@ -1130,19 +1235,18 @@ def mark_all_read(ctx):
 
 @notifications.command("clear-all")
 @click.pass_context
-def clear_all(ctx):
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
+def clear_all(ctx, yes: bool):
     """Clear all notifications."""
     if not check_api_health():
         sys.exit(1)
-    
-    confirmation = click.confirm("Are you sure you want to clear all notifications?")
-    
-    if not confirmation:
+
+    if not yes and not click.confirm("Are you sure you want to clear all notifications?"):
         click.echo("Clear cancelled.")
         return
     
     try:
-        response = httpx.delete(
+        response = api_request("DELETE", 
             f"{BASE_URL}{API_VERSION}/notifications/all",
             headers=get_headers(),
             timeout=10.0
@@ -1176,49 +1280,77 @@ def get_traffic_metrics(ctx, scope: str, server_id: Optional[int], peer_id: Opti
     """Get traffic metrics."""
     if not check_api_health():
         sys.exit(1)
-    
-    metrics_data = {
-        "scope": scope,
-        "server_id": server_id,
-        "peer_id": peer_id,
-    }
-    
+
     try:
-        response = httpx.get(
-            f"{BASE_URL}{API_VERSION}/metrics/traffic",
-            params=metrics_data,
+        # Map the scope to the real backend endpoints
+        if scope == 'global':
+            url = f"{BASE_URL}{API_VERSION}/metrics/dashboard"
+        elif scope == 'server':
+            if server_id:
+                url = f"{BASE_URL}{API_VERSION}/metrics/server/{server_id}"
+            else:
+                url = f"{BASE_URL}{API_VERSION}/metrics/servers/aggregate"
+        else:  # peer
+            if peer_id:
+                url = f"{BASE_URL}{API_VERSION}/metrics/peer/{peer_id}"
+            else:
+                url = f"{BASE_URL}{API_VERSION}/metrics/peers/aggregate"
+
+        response = api_request("GET",
+            url,
             headers=get_headers(),
             timeout=10.0
         )
-        
+
         if response.status_code == 200:
             data = response.json()
-            
+
             if json:
                 click.echo(json.dumps(data, indent=2))
-            else:
-                click.echo("Traffic Metrics:")
-                click.echo(f"  Scope: {scope}")
-                
-                if scope == 'global':
-                    total_rx = data.get('total_rx_bytes', 0)
-                    total_tx = data.get('total_tx_bytes', 0)
-                    click.echo(f"  Total RX: {format_bytes(total_rx)}")
-                    click.echo(f"  Total TX: {format_bytes(total_tx)}")
-                elif scope == 'server' and 'top_servers' in data:
-                    click.echo(f"  Top Servers:")
-                    for server in data['top_servers'][:5]:
-                        click.echo(f"    - {server.get('name', 'Unknown')}")
-                        click.echo(f"      RX: {format_bytes(server.get('rx_bytes', 0))} | TX: {format_bytes(server.get('tx_bytes', 0))}")
-                elif scope == 'peer' and 'top_peers' in data:
-                    click.echo(f"  Top Peers:")
-                    for peer in data['top_peers'][:5]:
-                        click.echo(f"    - {peer.get('name', 'Unknown')}")
-                        click.echo(f"      RX: {format_bytes(peer.get('rx_bytes', 0))} | TX: {format_bytes(peer.get('tx_bytes', 0))}")
+                return
+
+            click.echo("Traffic Metrics:")
+            click.echo(f"  Scope: {scope}")
+
+            if scope == 'global':
+                servers_totals = data.get('servers', {}).get('current_totals', {})
+                peers_totals = data.get('peers', {}).get('current_totals', {})
+                total_rx = servers_totals.get('total_rx_bytes', 0) + peers_totals.get('total_rx_bytes', 0)
+                total_tx = servers_totals.get('total_tx_bytes', 0) + peers_totals.get('total_tx_bytes', 0)
+                click.echo(f"  Total RX: {format_bytes(total_rx)}")
+                click.echo(f"  Total TX: {format_bytes(total_tx)}")
+                for server in data.get('servers', {}).get('top_servers', [])[:5]:
+                    click.echo(f"  Top Server: {server.get('name', 'Unknown')}")
+                    click.echo(f"    RX: {format_bytes(server.get('rx_bytes', 0))} | TX: {format_bytes(server.get('tx_bytes', 0))}")
+                for peer in data.get('peers', {}).get('top_peers', [])[:5]:
+                    click.echo(f"  Top Peer: {peer.get('name', 'Unknown')}")
+                    click.echo(f"    RX: {format_bytes(peer.get('rx_bytes', 0))} | TX: {format_bytes(peer.get('tx_bytes', 0))}")
+            elif scope == 'server':
+                if server_id:
+                    server = data.get('server', {})
+                    click.echo(f"  Server: {server.get('name', 'Unknown')}")
+                    click.echo(f"    RX: {format_bytes(server.get('current_rx_bytes', 0))} | TX: {format_bytes(server.get('current_tx_bytes', 0))}")
+                else:
+                    totals = data.get('current_totals', {})
+                    click.echo(f"  Total RX: {format_bytes(totals.get('total_rx_bytes', 0))}")
+                    click.echo(f"  Total TX: {format_bytes(totals.get('total_tx_bytes', 0))}")
+                    for server in data.get('servers', []):
+                        click.echo(f"    - {server.get('name', 'Unknown')}: RX {format_bytes(server.get('rx_bytes', 0))} | TX {format_bytes(server.get('tx_bytes', 0))}")
+            else:  # peer
+                if peer_id:
+                    peer = data.get('peer', {})
+                    click.echo(f"  Peer: {peer.get('name', 'Unknown')}")
+                    click.echo(f"    RX: {format_bytes(peer.get('current_rx_bytes', 0))} | TX: {format_bytes(peer.get('current_tx_bytes', 0))}")
+                else:
+                    totals = data.get('current_totals', {})
+                    click.echo(f"  Total RX: {format_bytes(totals.get('total_rx_bytes', 0))}")
+                    click.echo(f"  Total TX: {format_bytes(totals.get('total_tx_bytes', 0))}")
+                    for peer in data.get('peers', []):
+                        click.echo(f"    - {peer.get('name', 'Unknown')}: RX {format_bytes(peer.get('rx_bytes', 0))} | TX {format_bytes(peer.get('tx_bytes', 0))}")
         else:
             click.echo(f"Error: {response.status_code} - {response.text}", err=True)
             sys.exit(1)
-            
+
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
@@ -1260,11 +1392,14 @@ def print_table(headers: list, rows: list):
     click.echo()
 
 
-if __name__ == "__main__":
-    cli()
+@cli.group("status")
+@click.pass_context
+def status_command(ctx):
+    """Status and health commands."""
+    pass
 
 
-@status.command("system")
+@status_command.command("system")
 @click.pass_context
 def system_status(ctx):
     """Show system information."""
@@ -1272,7 +1407,7 @@ def system_status(ctx):
         sys.exit(1)
     
     try:
-        response = httpx.get(
+        response = api_request("GET", 
             f"{BASE_URL}{API_VERSION}/system",
             headers=get_headers(),
             timeout=10.0
@@ -1280,15 +1415,24 @@ def system_status(ctx):
         
         if response.status_code == 200:
             data = response.json()
-            # Create table
-            headers = ["Component", "Status"]
+            app_info = data.get('app', {})
+            host = data.get('host', {})
+            uptime_seconds = app_info.get('uptime_seconds', 0)
+            hours, rem = divmod(uptime_seconds, 3600)
+            minutes = rem // 60
+            uptime_str = f"{hours}h {minutes}m" if hours else f"{minutes}m"
             rows = [
-                ["WireGuard", "Installed" if data.get('wireguard_installed') else "Not installed"],
-                ["IP Forwarding", "Enabled" if data.get('ip_forwarding_enabled') else "Disabled"],
-                ["Firewall", "Configured" if data.get('firewall_configured') else "Not configured"],
-                ["Default Interface", data.get('default_interface', 'N/A')],
+                ["App", app_info.get('name', 'N/A')],
+                ["Version", app_info.get('version', 'N/A')],
+                ["Uptime", uptime_str],
+                ["Python", (app_info.get('python_version', '') or 'N/A').split()[0]],
+                ["Hostname", host.get('hostname', 'N/A')],
+                ["OS", f"{host.get('os', 'N/A')} {host.get('os_release', '')}".strip()],
+                ["CPU cores", str(host.get('cpu_count', 'N/A'))],
+                ["CPU usage", f"{host.get('cpu_percent', 0)}%"],
+                ["RAM", f"{format_bytes(host.get('ram_used_bytes', 0))} / {format_bytes(host.get('ram_total_bytes', 0))} ({host.get('ram_percent', 0)}%)"],
             ]
-            print_table(headers, rows)
+            print_table(["Component", "Value"], rows)
         else:
             click.echo(f"Error: {response.status_code} - {response.text}", err=True)
             sys.exit(1)
@@ -1298,7 +1442,7 @@ def system_status(ctx):
         sys.exit(1)
 
 
-@status.command("health")
+@status_command.command("health")
 @click.pass_context
 def health_check(ctx):
     """Run health check on the system."""
@@ -1306,7 +1450,7 @@ def health_check(ctx):
         sys.exit(1)
     
     try:
-        response = httpx.get(
+        response = api_request("GET", 
             f"{BASE_URL}/health",
             headers=get_headers(),
             timeout=30.0
@@ -1322,21 +1466,16 @@ def health_check(ctx):
             click.echo(f"\n{click.style(emoji, fg=color)} System Health Check")
             click.echo(f"  Overall Status: {click.style(status, fg='green' if status == 'healthy' else 'red')}")
             
-            if 'details' in data:
-                click.echo("\nComponent Status:")
-                headers = ["Component", "Status"]
-                rows = []
-                for component, health in data['details'].items():
-                    status_str = "Healthy" if health else "Unhealthy"
-                    status_color = "green" if health else "red"
-                    rows.append([
-                        component,
-                        click.style(status_str, fg=status_color)
-                    ])
-                print_table(headers, rows)
-            else:
-                click.echo("\nNo detailed information available.")
-            
+            # Print detailed checks
+            checks = data.get('checks', {})
+            click.echo("\nDetailed Checks:")
+            for check_name, check_data in checks.items():
+                check_status = check_data.get('status', 'unknown')
+                check_emoji = "✓" if check_status == 'healthy' else "✗"
+                click.echo(f"  {check_emoji} {check_name}: {check_status}")
+                
+                if 'message' in check_data:
+                    click.echo(f"     - {check_data['message']}")
         else:
             click.echo(f"Error: {response.status_code} - {response.text}", err=True)
             sys.exit(1)
@@ -1344,6 +1483,97 @@ def health_check(ctx):
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
+
+
+@cli.group("completers")
+@click.pass_context
+def completers(ctx):
+    """Intelligent autocomplete suggestions."""
+    pass
+
+
+@completers.command("ip")
+@click.option("--count", "--min-length", "min_length", default=10, help="Number of suggestions")
+@click.option("--prefix", default=None, help="IP prefix to match")
+def suggest_ip(min_length: int, prefix: Optional[str]):
+    """Suggest IP addresses."""
+    from linguard_cli.completers import IPCompleter
+    
+    ips = IPCompleter.suggest_ips(prefix=prefix, min_length=min_length)
+    
+    click.echo("📍 IP Address Suggestions:")
+    click.echo("-" * 60)
+    for i, ip in enumerate(ips, 1):
+        click.echo(f"   {i}. {ip}")
+
+
+@completers.command("subnet")
+@click.option("--class", "cls", type=click.Choice(['A', 'B', 'C', 'All']), default='All', help="Subnet class")
+def suggest_subnet(cls: str):
+    """Suggest common subnet ranges."""
+    from linguard_cli.completers import IPCompleter
+    
+    if cls == 'A':
+        subnets = IPCompleter.suggest_class_a()
+    elif cls == 'B':
+        subnets = IPCompleter.suggest_class_b()
+    elif cls == 'C':
+        subnets = IPCompleter.suggest_class_c()
+    else:
+        subnets = IPCompleter.suggest_common_subnets()
+    
+    click.echo("📟 Common Subnet Ranges:")
+    click.echo("-" * 60)
+    for subnet, hosts in subnets:
+        desc = IPCompleter._get_subnet_description(subnet)
+        click.echo(f"   {subnet:30} - {desc}")
+
+
+@completers.command("dns")
+@click.option("--provider", "provider", type=click.Choice(['cloudflare', 'google', 'quad9']), help="DNS provider")
+def suggest_dns(provider: Optional[str]):
+    """Suggest public DNS servers."""
+    from linguard_cli.completers import IPCompleter
+    
+    if provider:
+        dns_servers = IPCompleter.suggest_dns(provider=provider)
+    else:
+        dns_servers = IPCompleter.suggest_all_dns()
+    
+    click.echo("🌐 DNS Server Suggestions:")
+    click.echo("-" * 60)
+    for provider_name, servers in dns_servers:
+        click.echo(f"\n   {provider_name.capitalize()} DNS:")
+        for dns in servers:
+            click.echo(f"      {dns}")
+
+
+@completers.command("port")
+@click.option("--range", "port_range", default=None, help="Port range (e.g., 51820-65535)")
+def suggest_port(port_range: Optional[str]):
+    """Suggest common WireGuard ports."""
+    from linguard_cli.completers import IPCompleter
+    
+    ports = IPCompleter.suggest_ports()
+    
+    click.echo("🔌 Common WireGuard Ports:")
+    click.echo("-" * 60)
+    for port in ports:
+        click.echo(f"   {port}")
+
+
+@completers.command("peer")
+@click.option("--server-port", default=51820, help="Server port for peer suggestions")
+def suggest_peer(server_port: int):
+    """Suggest peer names."""
+    from linguard_cli.completers import IPCompleter
+    
+    peer_names = IPCompleter.suggest_peer_names()
+    
+    click.echo("👥 Suggested Peer Names:")
+    click.echo("-" * 60)
+    for i, name in enumerate(peer_names, 1):
+        click.echo(f"   {i}. {name}")
 
 
 if __name__ == "__main__":
