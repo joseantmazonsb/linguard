@@ -332,8 +332,29 @@ class NotificationService:
             ),
             "peer.traffic_threshold_exceeded": (
                 "Traffic Alert", 
-                f"Peer '{name}' has exceeded its traffic threshold.", 
+                f"Peer '{name}' has exceeded its traffic threshold.",
                 f"/peers"
+            ),
+            
+            # Server traffic threshold triggers
+            "server.traffic_threshold_exceeded": (
+                "Traffic Alert", 
+                f"Server '{name}' has exceeded its traffic threshold.", 
+                f"/servers"
+            ),
+            
+            # Global traffic threshold triggers
+            "global.traffic_threshold_exceeded": (
+                "Traffic Alert", 
+                f"Global traffic threshold has been exceeded. Current: {payload.get('current_bytes', 0)} bytes.", 
+                f"/traffic-triggers"
+            ),
+            
+            # Traffic threshold events (fallback for any scope)
+            "traffic.threshold_exceeded": (
+                "Traffic Alert", 
+                f"Traffic threshold exceeded: {name}. Current: {payload.get('current_bytes', 0)} bytes, exceeded by {payload.get('exceeded_by_percent', 0)}%.", 
+                f"/traffic-triggers?trigger={payload.get('trigger_id')}"
             ),
             
             # Backup events

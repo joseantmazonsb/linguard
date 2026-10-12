@@ -41,6 +41,7 @@ This document tracks tasks, improvements, and features that need to be implement
 - [x] **Add tooltips** - Add explanatory tooltips for complex features
 - [ ] **Improve mobile responsiveness** - Better mobile UI support
 - [ ] **Add keyboard shortcuts** - Keyboard navigation for power users
+- [x] **Traffic alerts with in-app notifications** - Users can configure traffic triggers with notifications (via integrations)
 
 ### Documentation
 - [ ] **Add API reference** - Complete API documentation
