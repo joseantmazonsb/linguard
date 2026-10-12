@@ -2,9 +2,11 @@ from contextlib import asynccontextmanager
 import logging
 import os
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .api import (
@@ -520,11 +522,6 @@ app.include_router(
 )
 
 
-@app.get("/")
-async def root():
-    return {"message": "Linguard API", "version": settings.APP_VERSION}
-
-
 @app.get("/health")
 async def health():
     """
@@ -535,3 +532,55 @@ async def health():
         from fastapi.responses import JSONResponse
         return JSONResponse(status_code=503, content={"status": "unavailable", "message": "Setup not complete"})
     return await _health_monitor.check_health()
+
+
+# ---------------------------------------------------------------------------
+# Frontend static serving (single-container deployment)
+# Registered last so it never shadows API, websocket, docs or health routes.
+# ---------------------------------------------------------------------------
+_FRONTEND_DIR = os.environ.get("LINGUARD_FRONTEND_DIR", "/app/frontend-build")
+
+if os.path.isdir(_FRONTEND_DIR):
+    _assets_dir = os.path.join(_FRONTEND_DIR, "assets")
+    if os.path.isdir(_assets_dir):
+        app.mount(
+            "/assets",
+            StaticFiles(directory=_assets_dir),
+            name="frontend_assets",
+        )
+
+    from starlette.convertors import Convertor, register_url_convertor
+
+    class _NonReservedPath(Convertor):
+        """Path converter that never matches reserved (non-SPA) prefixes.
+
+        Keeps GET /api/v1/... requests away from the SPA fallback so
+        Starlette's redirect_slashes can redirect to trailing-slash API
+        routes (e.g. /api/v1/servers -> /api/v1/servers/) instead of the
+        catch-all answering 404 first.
+        """
+        regex = (
+            r"(?!api(?:/|$)|docs(?:/|$)|redoc(?:/|$)|openapi\.json(?:/|$)"
+            r"|health(?:/|$)|ws(?:/|$)).*"
+        )
+
+        def convert(self, value: str) -> str:
+            return value
+
+        def to_string(self, value: str) -> str:
+            return str(value)
+
+    register_url_convertor("non_reserved_path", _NonReservedPath())
+
+    @app.get("/", include_in_schema=False)
+    async def serve_frontend_index():
+        return FileResponse(os.path.join(_FRONTEND_DIR, "index.html"))
+
+    @app.get("/{full_path:non_reserved_path}", include_in_schema=False)
+    async def serve_frontend_spa(full_path: str):
+        # Serve real files (favicon, etc.) with traversal protection
+        candidate = os.path.normpath(os.path.join(_FRONTEND_DIR, full_path))
+        if candidate.startswith(_FRONTEND_DIR) and os.path.isfile(candidate):
+            return FileResponse(candidate)
+        # SPA fallback: let the React router handle the rest
+        return FileResponse(os.path.join(_FRONTEND_DIR, "index.html"))

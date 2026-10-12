@@ -1,7 +1,7 @@
 export interface ToggleSwitchProps {
   id?: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
+  enabled: boolean;
+  onChange: (enabled: boolean) => void;
   disabled?: boolean;
   label?: string;
   className?: string;
@@ -9,7 +9,7 @@ export interface ToggleSwitchProps {
 
 export default function ToggleSwitch({
   id,
-  checked,
+  enabled,
   onChange,
   disabled = false,
   label,
@@ -17,7 +17,7 @@ export default function ToggleSwitch({
 }: ToggleSwitchProps) {
   const handleToggle = () => {
     if (!disabled) {
-      onChange(!checked);
+      onChange(!enabled);
     }
   };
 
@@ -26,7 +26,7 @@ export default function ToggleSwitch({
       <button
         type="button"
         role="switch"
-        aria-checked={checked}
+        aria-checked={enabled}
         aria-labelledby={id ? `${id}-label` : undefined}
         disabled={disabled}
         onClick={handleToggle}
@@ -36,7 +36,7 @@ export default function ToggleSwitch({
           focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 
           focus:ring-offset-2 dark:focus:ring-offset-gray-800
           ${
-            checked
+            enabled
               ? "bg-blue-600 dark:bg-blue-500"
               : "bg-gray-300 dark:bg-gray-600"
           }
@@ -47,7 +47,7 @@ export default function ToggleSwitch({
           className={`
             inline-block h-5 w-5 transform rounded-full bg-white 
             shadow-sm transition-transform duration-200 ease-in-out
-            ${checked ? "translate-x-5" : "translate-x-0.5"}
+            ${enabled ? "translate-x-5" : "translate-x-0.5"}
           `}
         />
       </button>

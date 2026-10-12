@@ -53,7 +53,7 @@ export default function Servers() {
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
-    message: string;
+    message: React.ReactNode;
     onConfirm: () => void;
   }>({
     isOpen: false,

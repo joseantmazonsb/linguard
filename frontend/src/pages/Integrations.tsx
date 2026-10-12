@@ -479,7 +479,7 @@ export default function Integrations() {
                       </div>
                     ) : (
                       <ToggleSwitch
-                        checked={integration.enabled}
+                        enabled={integration.enabled}
                         onChange={(enabled) =>
                           toggleEnabledMutation.mutate({
                             id: integration.id,

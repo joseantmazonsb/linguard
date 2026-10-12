@@ -480,13 +480,13 @@ export default function Settings() {
               <div className="md:col-span-2">
                 <ToggleSwitch
                   id="backup_auto_cleanup_enabled"
-                  checked={displayData?.backup_auto_cleanup_enabled ?? true}
-                  onChange={(checked) =>
+                  enabled={displayData?.backup_auto_cleanup_enabled ?? true}
+                  onChange={(enabled) =>
                     handleChange({
                       target: {
                         name: "backup_auto_cleanup_enabled",
                         type: "checkbox",
-                        checked,
+                        checked: enabled,
                       },
                     } as any)
                   }
@@ -544,13 +544,13 @@ export default function Settings() {
               <div className="md:col-span-2">
                 <ToggleSwitch
                   id="backup_periodic_enabled"
-                  checked={displayData?.backup_periodic_enabled ?? false}
-                  onChange={(checked) =>
+                  enabled={displayData?.backup_periodic_enabled ?? false}
+                  onChange={(enabled) =>
                     handleChange({
                       target: {
                         name: "backup_periodic_enabled",
                         type: "checkbox",
-                        checked,
+                        checked: enabled,
                       },
                     } as any)
                   }

@@ -3,12 +3,14 @@ import { useEffect } from 'react';
 interface ConfirmDialogProps {
   isOpen: boolean;
   title: string;
-  message: string | React.ReactNode;
+  message: React.ReactNode;
   confirmLabel?: string;
+  confirmText?: string;
   cancelLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
   type?: 'danger' | 'warning' | 'info';
+  confirmStyle?: string;
 }
 
 export default function ConfirmDialog({
@@ -16,10 +18,12 @@ export default function ConfirmDialog({
   title,
   message,
   confirmLabel = 'Confirm',
+  confirmText,
   cancelLabel = 'Cancel',
   onConfirm,
   onCancel,
   type = 'danger',
+  confirmStyle,
 }: ConfirmDialogProps) {
   // Close on Escape key
   useEffect(() => {
@@ -33,6 +37,8 @@ export default function ConfirmDialog({
   }, [isOpen, onCancel]);
 
   if (!isOpen) return null;
+
+  const confirmButtonClass = confirmStyle ? `bg-${confirmStyle}-600 hover:bg-${confirmStyle}-700` : 'bg-blue-600 hover:bg-blue-700';
 
   const typeStyles = {
     danger: {
@@ -96,9 +102,11 @@ export default function ConfirmDialog({
           </button>
           <button
             onClick={onConfirm}
-            className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${styles.button}`}
+            className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${
+              confirmText ? 'bg-red-600 hover:bg-red-700' : confirmButtonClass
+            }`}
           >
-            {confirmLabel}
+            {confirmText || confirmLabel}
           </button>
         </div>
       </div>

@@ -50,6 +50,7 @@ export default function ImportPeerDialog({
     public_key: "",
     ipv4_address: "",
     ipv6_address: "",
+    allowed_ips: "0.0.0.0/0",
     dns_primary: "",
     dns_secondary: "",
     preshared_key: "",
@@ -732,8 +733,8 @@ export default function ImportPeerDialog({
 
                 <ToggleSwitch
                   id="enabled"
-                  checked={formData.enabled}
-                  onChange={(checked) => setFormData({ ...formData, enabled: checked })}
+                  enabled={formData.enabled}
+                  onChange={(enabled) => setFormData({ ...formData, enabled: enabled })}
                   label="Enable this peer"
                 />
               </div>

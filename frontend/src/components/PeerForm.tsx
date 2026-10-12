@@ -331,8 +331,8 @@ export default function PeerForm({
 
               <ToggleSwitch
                 id="enabled"
-                checked={formData.enabled}
-                onChange={(checked) => setFormData({ ...formData, enabled: checked })}
+                enabled={formData.enabled}
+                onChange={(enabled) => setFormData({ ...formData, enabled: enabled })}
                 label="Enable this peer"
               />
             </div>

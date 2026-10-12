@@ -220,13 +220,13 @@ export default function GlobalSettingsStep({
             <div>
               <ToggleSwitch
                 id="backup_auto_cleanup_enabled"
-                checked={formData.backup_auto_cleanup_enabled}
-                onChange={(checked) =>
+                enabled={formData.backup_auto_cleanup_enabled}
+                onChange={(enabled) =>
                   handleChange({
                     target: {
                       name: "backup_auto_cleanup_enabled",
                       type: "checkbox",
-                      checked,
+                      checked: enabled,
                     },
                   } as any)
                 }
@@ -271,13 +271,13 @@ export default function GlobalSettingsStep({
             <div>
               <ToggleSwitch
                 id="backup_periodic_enabled"
-                checked={formData.backup_periodic_enabled}
-                onChange={(checked) =>
+                enabled={formData.backup_periodic_enabled}
+                onChange={(enabled) =>
                   handleChange({
                     target: {
                       name: "backup_periodic_enabled",
                       type: "checkbox",
-                      checked,
+                      checked: enabled,
                     },
                   } as any)
                 }

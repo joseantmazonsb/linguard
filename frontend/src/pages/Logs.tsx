@@ -248,8 +248,8 @@ export default function Logs() {
           {/* Settings */}
           <div className="flex items-center gap-4 ml-auto">
             <ToggleSwitch
-              checked={autoScroll}
-              onChange={(checked) => setAutoScroll(checked)}
+              enabled={autoScroll}
+              onChange={(enabled) => setAutoScroll(enabled)}
               label="Auto-scroll"
             />
 

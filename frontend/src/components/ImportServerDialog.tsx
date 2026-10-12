@@ -703,7 +703,7 @@ export default function ImportServerDialog({
                     onChange={(value) =>
                       setFormData((prev) => ({
                         ...prev,
-                        bounce_via_server_id: value,
+                        bounce_via_server_id: String(value),
                       }))
                     }
                     options={[

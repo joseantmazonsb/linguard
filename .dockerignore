@@ -1,0 +1,30 @@
+# Keep dev/runtime state and local artifacts out of the image.
+# The container creates its own config and database (on volumes).
+
+# Local dev databases and config — baking these into the image breaks
+# fresh setup (e.g. "Users already exist" from a dev admin user).
+backend/data/
+backend/linguard.db
+backend/linguard.db-journal
+backend/linguard.config.json
+backend/.env
+
+# Python dev artifacts
+backend/.venv/
+backend/.pytest_cache/
+backend/.coverage
+backend/coverage.xml
+backend/coverage_report/
+backend/htmlcov/
+
+# Frontend build artifacts and dependencies (rebuilt in the builder stage)
+frontend/node_modules/
+frontend/dist/
+# Transpiled .js next to sources would shadow .tsx in vite resolution
+frontend/src/**/*.js
+
+# VCS / tooling
+.git/
+.github/
+.gitignore
+**/.DS_Store

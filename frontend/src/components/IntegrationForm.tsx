@@ -483,9 +483,9 @@ export default function IntegrationForm({
 
               <ToggleSwitch
                 id="enabled"
-                checked={formData.enabled}
-                onChange={(checked) =>
-                  setFormData({ ...formData, enabled: checked })
+                enabled={formData.enabled}
+                onChange={(enabled) =>
+                  setFormData({ ...formData, enabled: enabled })
                 }
                 disabled={isInAppNotifications}
                 label="Enabled"

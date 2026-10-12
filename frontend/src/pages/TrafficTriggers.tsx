@@ -632,7 +632,7 @@ export default function TrafficTriggers() {
                     </div>
                   </div>
                   <ToggleSwitch
-                    checked={trigger.enabled}
+                    enabled={trigger.enabled}
                     onChange={(enabled) =>
                       toggleEnabledMutation.mutate({
                         id: trigger.id,

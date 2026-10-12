@@ -11,6 +11,7 @@ interface CustomSelectProps {
   options: Option[];
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 export default function CustomSelect({ 

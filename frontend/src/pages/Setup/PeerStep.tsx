@@ -89,8 +89,8 @@ export default function PeerStep({ onNext, onBack, setupData }: PeerStepProps) {
 
         <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
           <ToggleSwitch
-            checked={formData.preshared_key}
-            onChange={(checked) => setFormData({ ...formData, preshared_key: checked })}
+            enabled={formData.preshared_key}
+            onChange={(enabled) => setFormData({ ...formData, preshared_key: enabled })}
             label="Enable Preshared Key (PSK)"
           />
           <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 ml-6">

@@ -121,15 +121,21 @@ async def configure_database_backend(config_data: ConfigureDatabase):
         # Handle SQLite path conversion
         db_url = config_data.database_url
         if config_data.database_type.value == "sqlite":
+            sqlite_env_path = os.environ.get("LINGUARD_SQLITE_PATH")
             # If it's a relative path, convert it to absolute
             if not db_url.startswith("sqlite"):
                 print(f"[SETUP] Converting relative path to absolute SQLite URL")
                 # Strip leading './' or '/' characters
                 path = db_url.lstrip("./")
                 print(f"[SETUP] Cleaned path: {path}")
-                # Get absolute path
-                abs_path = os.path.abspath(os.path.join(os.getcwd(), path))
-                print(f"[SETUP] Absolute path: {abs_path}")
+                if sqlite_env_path:
+                    # Container deployments pin SQLite to a persistent volume
+                    abs_path = sqlite_env_path
+                    print(f"[SETUP] Using LINGUARD_SQLITE_PATH override: {abs_path}")
+                else:
+                    # Get absolute path
+                    abs_path = os.path.abspath(os.path.join(os.getcwd(), path))
+                    print(f"[SETUP] Absolute path: {abs_path}")
                 # Ensure directory exists
                 parent_dir = os.path.dirname(abs_path)
                 print(f"[SETUP] Creating directory: {parent_dir}")

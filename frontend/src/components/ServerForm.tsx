@@ -418,8 +418,8 @@ export default function ServerForm({
               </h3>
               <ToggleSwitch
                 id="autostart"
-                checked={formData.autostart}
-                onChange={(checked) => setFormData({ ...formData, autostart: checked })}
+                enabled={formData.autostart}
+                onChange={(enabled) => setFormData({ ...formData, autostart: enabled })}
                 label="Auto-start on boot"
               />
               <p className="ml-14 text-xs text-gray-500 dark:text-gray-400 mt-1">

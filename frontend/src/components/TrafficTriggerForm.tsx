@@ -381,9 +381,9 @@ export default function TrafficTriggerForm({
           {/* Enabled */}
           <ToggleSwitch
             id="enabled"
-            checked={formData.enabled}
-            onChange={(checked) =>
-              setFormData({ ...formData, enabled: checked })
+            enabled={formData.enabled}
+            onChange={(enabled) =>
+              setFormData({ ...formData, enabled: enabled })
             }
             label="Enable"
           />
