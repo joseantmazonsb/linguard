@@ -77,11 +77,11 @@ class TestCheckSudoAccess:
         with patch('subprocess.run') as mock_run:
             mock_result = MagicMock()
             mock_result.returncode = 0
-            mock_result.stderr = b""
+            mock_result.stderr = ""  # check_sudo_access runs with text=True
             mock_run.return_value = mock_result
-            
+
             result = check_sudo_access("iptables", ["-L"])
-            
+
             assert result is True
     
     def test_password_required_access(self):
@@ -89,11 +89,11 @@ class TestCheckSudoAccess:
         with patch('subprocess.run') as mock_run:
             mock_result = MagicMock()
             mock_result.returncode = 0
-            mock_result.stderr = b"password is required"
+            mock_result.stderr = "password is required"
             mock_run.return_value = mock_result
-            
+
             result = check_sudo_access("iptables", ["-L"])
-            
+
             assert result is False
     
     def test_timeout_access(self):
