@@ -827,6 +827,127 @@ className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
 
 ---
 
+## 🐍 Backend Setup & Development (FastAPI)
+
+### Prerequisites
+
+- Python 3.8+
+- pip package manager
+- Git
+- PostgreSQL, SQLite, or MySQL
+- iptables/nftables/firewalld (optional)
+
+### Virtual Environment Setup
+
+**IMPORTANT:** The backend must use its own virtual environment in `backend/.venv`.
+
+```bash
+# 1. Create virtual environment
+cd backend
+python3 -m venv .venv
+
+# 2. Activate the environment
+source .venv/bin/activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Verify installation
+python -c "import fastapi; import uvicorn; print('✅ Backend dependencies installed')"
+```
+
+### Running the Backend
+
+```bash
+# Activate virtual environment
+cd backend
+source .venv/bin/activate
+
+# Start the FastAPI server (add --reload for hot-reload during development)
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+# Access the API documentation
+# http://localhost:8000/docs (Swagger)
+# http://localhost:8000/redoc (ReDoc)
+```
+
+> Note for AI agents: you may start the backend in the background from your shell
+> when you need to test against it (`... &` or a background tool), but make sure
+> the process is properly stopped when done (`pkill -f "uvicorn app.main"`).
+
+### Using the CLI
+
+```bash
+# The CLI lives in backend/src/linguard_cli/
+# It depends on the backend (FastAPI)
+
+# Install the CLI
+cd backend/src/linguard_cli
+source ../.venv/bin/activate
+pip install -e .
+
+# Use the CLI
+linguard --help
+linguard completers ip
+linguard servers list
+```
+
+### Backend Configuration
+
+Create a `.env` file in the `backend/` directory:
+
+```bash
+# Database configuration
+DATABASE_URL=sqlite:///./linguard.db
+# DATABASE_URL=postgresql://user:password@localhost/linguard
+# DATABASE_URL=mysql://user:password@localhost/linguard
+
+# Security configuration
+SECRET_KEY=your-secret-key-here
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# OIDC configuration (optional)
+USE_OIDC=false
+OIDC_ISSUER_URL=https://your-oidc-provider.com
+```
+
+### Database Migrations
+
+```bash
+# Activate environment
+cd backend
+source .venv/bin/activate
+
+# Create a new migration
+alembic revision --autogenerate -m "your migration message"
+
+# Apply migrations
+alembic upgrade head
+
+# Revert migration
+alembic downgrade -1
+```
+
+### Testing the Backend
+
+```bash
+# Activate environment
+cd backend
+source .venv/bin/activate
+
+# Run all tests
+pytest
+
+# Run specific tests
+pytest tests/services/ -v
+
+# Check code coverage
+pytest --cov=app --cov-report=html
+```
+
+---
+
 ## 🚀 Development Workflow
 
 ### 1. Feature Development
