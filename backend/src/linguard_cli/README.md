@@ -1,36 +1,36 @@
 # Linguard CLI
 
-Command Line Interface para gestionar servidores WireGuard con Linguard.
+Command Line Interface to manage WireGuard servers with Linguard.
 
-## 🚀 Características
+## 🚀 Features
 
-- ✅ Gestión completa de servidores WireGuard
-- ✅ Gestión de peers con autocompletado de IPs
-- ✅ Traffic triggers para monitoreo
-- ✅ Integraciones y webhooks
-- ✅ Backups y restauración
-- ✅ Métricas y monitoreo
-- ✅ Sistema de notificaciones
-- ✅ **Autocompletado inteligente de IPs** (rangos privados, subnets)
-- ✅ **Sugerencias de DNS** (Cloudflare, Google, Quad9)
-- ✅ **Sugerencias de puertos** (WireGuard defaults, HTTPS)
-- ✅ **Sugerencias de nombres de peers**
-- ✅ **Sugerencias de subnets y rangos de IPs**
-- ✅ Salidas formateadas en tablas
-- ✅ Colores y formatting para mejor UX
-- ✅ Salida JSON para automatización
-- ✅ Autenticación JWT segura
+- ✅ Full WireGuard server management
+- ✅ Peer management with IP autocomplete
+- ✅ Traffic triggers for monitoring
+- ✅ Integrations and webhooks
+- ✅ Backups and restore
+- ✅ Metrics and monitoring
+- ✅ Notification system
+- ✅ **Smart IP autocomplete** (private ranges, subnets)
+- ✅ **DNS suggestions** (Cloudflare, Google, Quad9)
+- ✅ **Port suggestions** (WireGuard defaults, HTTPS)
+- ✅ **Peer name suggestions**
+- ✅ **Subnet and IP range suggestions**
+- ✅ Formatted table output
+- ✅ Colors and formatting for better UX
+- ✅ JSON output for automation
+- ✅ Secure JWT authentication
 
-## 📦 Instalación
+## 📦 Installation
 
-### Método 1: Usar pip directamente
+### Method 1: Install with pip directly
 
 ```bash
 cd backend/src/linguard_cli
 pip install -e .
 ```
 
-### Método 2: Instalar desde linguard
+### Method 2: Install from linguard
 
 ```bash
 cd backend
@@ -38,166 +38,166 @@ pip install -r requirements.txt
 pip install -e src/linguard_cli
 ```
 
-## Configuración
+## Configuration
 
-### Variables de Entorno
+### Environment Variables
 
 ```bash
 export LINGUARD_API_URL="http://localhost:8000"
 export LINGUARD_API_TOKEN="your-jwt-token-here"
 ```
 
-O crear un archivo `.env`:
+Or create a `.env` file:
 
 ```bash
 LINGUARD_API_URL=http://localhost:8000
 LINGUARD_API_TOKEN=your-jwt-token-here
 ```
 
-## 📖 Documentación
+## 📖 Documentation
 
-Para una guía completa con ejemplos detallados, ver [GUIDE.md](GUIDE.md)
+For a complete guide with detailed examples, see [GUIDE.md](GUIDE.md)
 
-## 🎯 Comandos Rápidos
+## 🎯 Quick Commands
 
 ```bash
-# Iniciar sesión
+# Log in
 linguard auth login
 
-# Listar servidores
+# List servers
 linguard servers list
 
-# Crear servidor
-linguard servers create --name mi-servidor --port 51820 --endpoint vpn.ejemplo.com
+# Create a server
+linguard servers create --name my-server --port 51820 --endpoint vpn.example.com
 
-# Listar peers
+# List peers
 linguard peers list
 
-# Crear peer
-linguard peers create 1 --name mi-peer --endpoint 203.0.113.1
+# Create a peer
+linguard peers create 1 --name my-peer --endpoint 203.0.113.1
 
-# Crear backup
+# Create a backup
 linguard backups create
 
-# Ver estado del sistema
+# Show system status
 linguard status system
 ```
 
-## Comandos Disponibles
+## Available Commands
 
 ### Authentication
 
-- `linguard auth login` - Iniciar sesión y obtener token
-- `linguard auth status` - Ver estado de autenticación
-- `linguard auth logout` - Eliminar token
+- `linguard auth login` - Log in and get a token
+- `linguard auth status` - Check authentication status
+- `linguard auth logout` - Clear the token
 
 ### Servers
 
-- `linguard servers list` - Listar todos los servidores
-- `linguard servers create` - Crear nuevo servidor
-- `linguard servers delete` - Eliminar servidor
-- `linguard servers start` - Iniciar servidor
-- `linguard servers stop` - Detener servidor
-- `linguard servers reload` - Recargar configuración
+- `linguard servers list` - List all servers
+- `linguard servers create` - Create a new server
+- `linguard servers delete` - Delete a server
+- `linguard servers start` - Start a server
+- `linguard servers stop` - Stop a server
+- `linguard servers reload` - Reload configuration
 
 ### Peers
 
-- `linguard peers list` - Listar todos los peers
-- `linguard peers create` - Crear nuevo peer
-- `linguard peers delete` - Eliminar peer
+- `linguard peers list` - List all peers
+- `linguard peers create` - Create a new peer
+- `linguard peers delete` - Delete a peer
 
 ### Backups
 
-- `linguard backups list` - Listar backups
-- `linguard backups create` - Crear backup
+- `linguard backups list` - List backups
+- `linguard backups create` - Create a backup
 
 ### Status
 
-- `linguard status system` - Info del sistema
+- `linguard status system` - System information
 - `linguard status health` - Health check
 
-## 🛠️ Autocompletado Inteligente
+## 🛠️ Smart Autocomplete
 
-El CLI incluye un sistema de autocompletado para facilitar la configuración de tu red.
+The CLI includes an autocomplete system to make network configuration easier.
 
-### Comandos de Autocompletado
+### Autocomplete Commands
 
 ```bash
-# Sugerencias de direcciones IP
+# IP address suggestions
 linguard completers ip
-linguard completers ip -c 20          # Mostrar 20 sugerencias
-linguard completers ip 192.168.1      # Sugerencias con prefijo
+linguard completers ip -c 20          # Show 20 suggestions
+linguard completers ip 192.168.1      # Suggestions with a prefix
 
-# Sugerencias de subnets
+# Subnet suggestions
 linguard completers subnet
 linguard completers subnet 192.168.1.0
 
-# Sugerencias de DNS
+# DNS suggestions
 linguard completers dns
 linguard completers dns --provider cloudflare
 linguard completers dns --provider google
 linguard completers dns --provider cloud
 
-# Sugerencias de puertos
+# Port suggestions
 linguard completers port
-linguard completers port -r 51820-65535  # Rango de puertos
+linguard completers port -r 51820-65535  # Port range
 
-# Sugerencias de nombres de peers
+# Peer name suggestions
 linguard completers peer
 linguard completers peer --server-port 51820
 ```
 
-### Usar con --suggest
+### Using --suggest
 
 ```bash
-# Sugerir IPs automáticamente
+# Suggest IPs automatically
 linguard servers create --suggest-ip --name "Server" --endpoint example.com
 
-# Sugerir rangos de IPs
+# Suggest IP ranges
 linguard peers create 1 --suggest-range --name "Peer"
 
-# Combinar sugerencias
+# Combine suggestions
 linguard servers create --suggest-ip --suggest-dns --suggest-port \
   --name "Prod Server" --endpoint vpn.example.com
 ```
 
-### Ejemplos Prácticos
+### Practical Examples
 
 ```bash
-# Ver sugerencias de IPs comunes
+# See common IP suggestions
 linguard completers ip
 
-# Ver sugerencias de subnets privadas
+# See private subnet suggestions
 linguard completers subnet
 
-# Ver sugerencias de DNS Cloudflare
+# See Cloudflare DNS suggestions
 linguard completers dns --provider cloudflare
 
-# Ver sugerencias de puertos WireGuard
+# See WireGuard port suggestions
 linguard completers port
 
-# Ver sugerencias de nombres de peers
+# See peer name suggestions
 linguard completers peer
 ```
 
-## 🎯 Comandos Rápidos
+## 🎯 Quick Commands
 
 ```bash
-# Iniciar sesión
+# Log in
 linguard auth login
 
-# Listar servidores con tabla
+# List servers as a table
 linguard servers list
 
-# Crear servidor
+# Create a server
 linguard servers create --name "MyServer" --port 51820 --endpoint vpn.example.com
 
-# Gestionar servidores
+# Manage servers
 linguard servers start 1
 linguard servers stop 1
 linguard servers reload 1
 
-# Gestionar peers
+# Manage peers
 linguard peers create 1 --name "Office" --endpoint 192.168.1.100
 linguard peers list
 
@@ -205,31 +205,31 @@ linguard peers list
 linguard traffic-triggers list
 linguard traffic-triggers create --name "Alert" --scope peer --peer-id 1 --direction combined --threshold-bytes 1000000 --window last_hour
 
-# Integraciones
+# Integrations
 linguard integrations list
 linguard integrations create --name "Slack" --type webhook --url "https://hooks.slack.com/xxx"
 
-# Notificaciones
+# Notifications
 linguard notifications list
 linguard notifications mark-all-read
 
-# Métricas
+# Metrics
 linguard metrics traffic --scope global
 
-# Estado del sistema
+# System status
 linguard status system
 linguard status health
 ```
 
-## 📁 Estructura del Proyecto
+## 📁 Full Server Creation
 
-### Crear un servidor completo
+### Create a complete server
 
 ```bash
 linguard servers create \
   --name "Production Server" \
   --port 51820 \
-  --endpoint "vpn.ejemplo.com" \
+  --endpoint "vpn.example.com" \
   --ipv4 "10.0.0.1/24" \
   --ipv6 "fd00::1/64" \
   --dns-primary "1.1.1.1" \
@@ -238,23 +238,23 @@ linguard servers create \
   --description "Production WireGuard Server"
 ```
 
-### Gestionar servidores
+### Manage servers
 
 ```bash
-# Listar servidores
+# List servers
 linguard servers list
 
-# Iniciar servidor
+# Start a server
 linguard servers start 1
 
-# Detener servidor
+# Stop a server
 linguard servers stop 1
 
-# Recargar configuración
+# Reload configuration
 linguard servers reload 1
 ```
 
-### Crear un peer
+### Create a peer
 
 ```bash
 linguard peers create \
@@ -265,7 +265,7 @@ linguard peers create \
   --preshared-key "your-pre-shared-key"
 ```
 
-## 📁 Estructura del Proyecto
+## 📁 Project Structure
 
 ```
 backend/src/linguard_cli/
@@ -279,28 +279,28 @@ backend/src/linguard_cli/
 └── GUIDE.md             # Complete documentation
 ```
 
-## 🎨 Mejoras de UX
+## 🎨 UX Improvements
 
-Para obtener salidas en formato JSON, usa la opción `--json`:
+To get JSON output, use the `--json` option:
 
 ```bash
 linguard servers list --json
 ```
 
-## Requisitos
+## Requirements
 
 - Python 3.8+
-- Linguard FastAPI backend corriendo
-- Token de autenticación válido
+- Running Linguard FastAPI backend
+- Valid authentication token
 
-## Contribuir
+## Contributing
 
-1. Clona el repositorio
-2. Crea una rama con tu feature
-3. Implementa los cambios
-4. Prueba tu código
-5. Envía un Pull Request
+1. Clone the repository
+2. Create a feature branch
+3. Implement your changes
+4. Test your code
+5. Submit a Pull Request
 
-## Licencia
+## License
 
 MIT License - see LICENSE file

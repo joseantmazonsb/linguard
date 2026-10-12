@@ -1,38 +1,38 @@
-# Ejemplos de Autocompletado Linguard CLI
+# Linguard CLI Autocomplete Examples
 
-## 🎯 Introducción
+## 🎯 Introduction
 
-El sistema de autocompletado de Linguard CLI te ayuda a configurar rápidamente tu red WireGuard sin tener que recordar direcciones IP, rangos de subnets, servidores DNS y más.
+The Linguard CLI autocomplete system helps you set up your WireGuard network quickly, without having to remember IP addresses, subnet ranges, DNS servers and more.
 
-## 📦 Instalación
+## 📦 Installation
 
 ```bash
 cd backend/src/linguard_cli
 pip install -e .
 ```
 
-## 🚀 Comandos de Autocompletado
+## 🚀 Autocomplete Commands
 
-### 1. Sugerencias de Direcciones IP
+### 1. IP Address Suggestions
 
 ```bash
-# Mostrar sugerencias generales de IPs
+# Show general IP suggestions
 linguard completers ip
 
-# Mostrar 20 sugerencias
+# Show 20 suggestions
 linguard completers ip -c 20
 
-# Sugerencias con prefijo específico
+# Suggestions with a specific prefix
 linguard completers ip 192.168.1
 
-# Sugerencias de IPs privadas
+# Private IP suggestions
 linguard completers ip 10.0.0
 
-# Sugerencias de IPs públicas de prueba
+# Test public IP suggestions
 linguard completers ip 203.0.113
 ```
 
-**Salida de ejemplo:**
+**Example output:**
 ```
 Suggested IP addresses:
   1. 192.168.1.1
@@ -46,22 +46,22 @@ Suggested IP addresses:
   9. 1.1.1.1
 ```
 
-### 2. Sugerencias de Subnets
+### 2. Subnet Suggestions
 
 ```bash
-# Mostrar rangos de subnets comunes
+# Show common subnet ranges
 linguard completers subnet
 
-# Sugerencias de subnets desde una red específica
+# Subnet suggestions from a specific network
 linguard completers subnet 192.168.1.0
 
-# Sugerencias con clase específica
+# Suggestions with a specific class
 linguard completers subnet --class A
 linguard completers subnet --class B
 linguard completers subnet --class C
 ```
 
-**Salida de ejemplo:**
+**Example output:**
 ```
 Common subnet ranges:
   192.168.1.0/24 - Class C - 254 hosts
@@ -70,23 +70,23 @@ Common subnet ranges:
   172.16.0.0/12 - Class B - 1M hosts
 ```
 
-### 3. Sugerencias de DNS
+### 3. DNS Suggestions
 
 ```bash
-# Mostrar todos los servidores DNS
+# Show all DNS servers
 linguard completers dns
 
-# DNS de Cloudflare
+# Cloudflare DNS
 linguard completers dns --provider cloudflare
 
-# DNS de Google
+# Google DNS
 linguard completers dns --provider google
 
-# DNS de Quad9
+# Quad9 DNS
 linguard completers dns --provider cloud
 ```
 
-**Salida de ejemplo:**
+**Example output:**
 ```
 Suggested DNS (cloudflare):
   1.1.1.1
@@ -95,20 +95,20 @@ Suggested DNS (cloudflare):
   2606:4700:4700::1001
 ```
 
-### 4. Sugerencias de Puertos
+### 4. Port Suggestions
 
 ```bash
-# Mostrar puertos WireGuard comunes
+# Show common WireGuard ports
 linguard completers port
 
-# Sugerencias de rango de puertos
+# Port range suggestions
 linguard completers port -r 51820-65535
 
-# Puertos específicos
+# Specific ports
 linguard completers port -r 443-8443
 ```
 
-**Salida de ejemplo:**
+**Example output:**
 ```
 Common WireGuard ports:
   51820
@@ -119,17 +119,17 @@ Common WireGuard ports:
   8080
 ```
 
-### 5. Sugerencias de Nombres de Peers
+### 5. Peer Name Suggestions
 
 ```bash
-# Mostrar nombres de peers comunes
+# Show common peer names
 linguard completers peer
 
-# Con puerto específico del servidor
+# With a specific server port
 linguard completers peer --server-port 51820
 ```
 
-**Salida de ejemplo:**
+**Example output:**
 ```
 Suggested peer names:
   1. Office Network
@@ -142,16 +142,16 @@ Suggested peer names:
   8. Remote Worker
 ```
 
-## 🔧 Uso en Comandos Principales
+## 🔧 Usage in Main Commands
 
-### Crear Servidor con Autocompletado
+### Create a Server with Autocomplete
 
 ```bash
-# Sugerir IPs, DNS y puertos
+# Suggest IPs, DNS and ports
 linguard servers create --suggest-ip --suggest-dns --suggest-port \
   --name "Production Server" --endpoint vpn.example.com
 
-# Usar sugerencias específicas
+# Use specific values
 linguard servers create \
   --name "Prod Server" \
   --port 51820 \
@@ -163,16 +163,16 @@ linguard servers create \
   --autostart
 ```
 
-### Crear Peer con Autocompletado
+### Create a Peer with Autocomplete
 
 ```bash
-# Sugerir rango de IPs
+# Suggest an IP range
 linguard peers create 1 --suggest-range \
   --name "Office Network" \
   --endpoint 192.168.1.100 \
   --allowed-ips 192.168.1.0/24
 
-# Crear peer con parámetros específicos
+# Create a peer with specific parameters
 linguard peers create 1 \
   --name "Home Device" \
   --endpoint 203.0.113.50 \
@@ -181,17 +181,17 @@ linguard peers create 1 \
   --preshared-key "your-key-here"
 ```
 
-### Ejemplos Prácticos
+### Practical Examples
 
-#### Escenario 1: Configurar Servidor de Producción
+#### Scenario 1: Set Up a Production Server
 
 ```bash
-# 1. Ver sugerencias disponibles
+# 1. Review available suggestions
 linguard completers ip
 linguard completers dns --provider cloudflare
 linguard completers port
 
-# 2. Crear servidor con sugerencias
+# 2. Create a server using suggestions
 linguard servers create \
   --name "Production VPN" \
   --suggest-ip \
@@ -199,7 +199,7 @@ linguard servers create \
   --suggest-port \
   --endpoint vpn.company.com
 
-# 3. Especificar configuración final
+# 3. Specify the final configuration
 linguard servers create \
   --name "Production VPN" \
   --port 51820 \
@@ -212,36 +212,36 @@ linguard servers create \
   --description "Main production WireGuard server"
 ```
 
-#### Escenario 2: Añadir Peers a la Red
+#### Scenario 2: Adding Peers to the Network
 
 ```bash
-# 1. Ver rangos de subnets disponibles
+# 1. Review available subnet ranges
 linguard completers subnet
 
-# 2. Crear peer de oficina
+# 2. Create an office peer
 linguard peers create 1 \
   --name "Office Network" \
   --endpoint 192.168.1.100 \
   --allowed-ips 192.168.1.0/24
 
-# 3. Crear peer de casa
+# 3. Create a home peer
 linguard peers create 1 \
   --name "Home Device" \
   --endpoint 203.0.113.50 \
   --allowed-ips 192.168.2.0/24 \
   --ipv6 fd00::200/128
 
-# 4. Crear peer de backup
+# 4. Create a backup peer
 linguard peers create 1 \
   --name "Backup Server" \
   --endpoint 10.0.0.50 \
   --allowed-ips 192.168.3.0/24
 ```
 
-#### Escenario 3: Configurar Red Completa
+#### Scenario 3: Setting Up a Complete Network
 
 ```bash
-# Paso 1: Crear servidor principal
+# Step 1: Create the main server
 linguard servers create \
   --name "Main VPN" \
   --port 51820 \
@@ -252,34 +252,34 @@ linguard servers create \
   --dns-secondary 8.8.8.8 \
   --autostart
 
-# Paso 2: Configurar peer de oficina
+# Step 2: Set up the office peer
 linguard peers create 1 \
   --name "Office" \
   --endpoint 192.168.1.100 \
   --allowed-ips 192.168.1.0/24
 
-# Paso 3: Configurar peer de desarrollo
+# Step 3: Set up the development peer
 linguard peers create 1 \
   --name "Dev Machine" \
   --endpoint 192.168.1.101 \
   --allowed-ips 192.168.1.0/24 \
   --preshared-key "dev-key-12345"
 
-# Paso 4: Ver configuración
+# Step 4: Review the configuration
 linguard servers list
 linguard peers list
 ```
 
-## 💡 Consejos y Mejores Prácticas
+## 💡 Tips and Best Practices
 
-### 1. Combinar Autocompletado con Parámetros Específicos
+### 1. Combine Autocomplete with Specific Parameters
 
 ```bash
-# Ver sugerencias primero
+# Review suggestions first
 linguard completers ip
 linguard completers subnet
 
-# Luego usar en el comando
+# Then use them in the command
 linguard servers create \
   --name "MyServer" \
   --port 51820 \
@@ -288,25 +288,25 @@ linguard servers create \
   --dns-primary 1.1.1.1
 ```
 
-### 2. Usar --suggest para Interactividad
+### 2. Use --suggest for Interactivity
 
 ```bash
-# El CLI te mostrará sugerencias y te pedirá confirmación
+# The CLI will show suggestions and ask for confirmation
 linguard servers create --suggest-ip \
   --name "Server" \
   --endpoint example.com
 
-# Te mostrará opciones como:
+# It will show options such as:
 # 1. 10.0.0.1/24
 # 2. 192.168.1.0/24
 # 3. 172.16.0.0/12
 # (Enter to skip)
 ```
 
-### 3. Guardar Configuraciones Reutilizables
+### 3. Save Reusable Configurations
 
 ```bash
-# Crear un script para configuraciones estándar
+# Create a script for standard configurations
 cat > create_server.sh << 'EOF'
 #!/bin/bash
 linguard servers create \
@@ -322,10 +322,10 @@ EOF
 chmod +x create_server.sh
 ```
 
-### 4. Usar DNS Seguros
+### 4. Use Secure DNS
 
 ```bash
-# DNS seguro de Cloudflare
+# Secure Cloudflare DNS
 linguard servers create \
   --name "Secure Server" \
   --port 51820 \
@@ -333,7 +333,7 @@ linguard servers create \
   --dns-primary 1.0.0.1 \
   --dns-secondary 1.1.1.1
 
-# DNS de Google
+# Google DNS
 linguard servers create \
   --name "Google DNS" \
   --port 51820 \
@@ -342,41 +342,41 @@ linguard servers create \
   --dns-secondary 8.8.4.4
 ```
 
-## 🔍 Solución de Problemas
+## 🔍 Troubleshooting
 
-### Problema: Las sugerencias no aparecen
+### Problem: Suggestions do not appear
 
-**Solución:**
+**Solution:**
 ```bash
-# Verificar que la CLI esté instalada
+# Verify the CLI is installed
 linguard --version
 
-# Verificar permisos
+# Check permissions
 ls -la linguard
 
-# Reiniciar autocompletado
+# Restart autocomplete
 linguard completers ip
 ```
 
-### Problema: Las IPs sugeridas no son válidas
+### Problem: Suggested IPs are not valid
 
-**Solución:**
+**Solution:**
 ```bash
-# Verificar las sugerencias manualmente
+# Verify the suggestions manually
 linguard completers ip --count 10
 
-# Usar rangos conocidos
+# Use well-known ranges
 linguard completers subnet --class C
 ```
 
-### Problema: DNS no se conecta
+### Problem: DNS does not connect
 
-**Solución:**
+**Solution:**
 ```bash
-# Verificar DNS disponibles
+# Check available DNS servers
 linguard completers dns
 
-# Usar DNS público confiable
+# Use a trusted public DNS
 linguard servers create \
   --name "Test" \
   --port 51820 \
@@ -384,48 +384,48 @@ linguard servers create \
   --dns-primary 1.1.1.1
 ```
 
-## 📚 Recursos Adicionales
+## 📚 Additional Resources
 
-- [Documentación completa](README.md)
-- [Guía de usuario](GUIDE.md)
+- [Full documentation](README.md)
+- [User guide](GUIDE.md)
 - [API Reference](http://localhost:8000/docs)
 
-## 🎓 Aprendizaje
+## 🎓 Learning
 
-### Nivel Básico
+### Basic Level
 
 ```bash
-# Ver todas las opciones
+# See all options
 linguard completers --help
 
-# Usar sugerencias básicas
+# Use basic suggestions
 linguard servers create --suggest-ip --name "Test" --endpoint test.com
 ```
 
-### Nivel Intermedio
+### Intermediate Level
 
 ```bash
-# Combinar múltiples sugerencias
+# Combine multiple suggestions
 linguard servers create --suggest-ip --suggest-dns --suggest-port \
   --name "Prod" --endpoint vpn.com
 
-# Usar subnets específicas
+# Use specific subnets
 linguard completers subnet 192.168.1.0
 ```
 
-### Nivel Avanzado
+### Advanced Level
 
 ```bash
-# Script con autocompletado
+# Script with autocomplete
 cat > deploy_vpn.sh << 'EOF'
 #!/bin/bash
-# Sugerir IPs para servidor
+# Suggest IPs for the server
 linguard completers ip > /tmp/ip_suggestions.txt
 
-# Sugerir DNS
+# Suggest DNS
 linguard completers dns --provider cloudflare > /tmp/dns.txt
 
-# Usar sugerencias
+# Use the suggestions
 SERVER_IP=$(head -1 /tmp/ip_suggestions.txt)
 DNS_PRIMARY=$(head -1 /tmp/dns.txt)
 
@@ -440,14 +440,14 @@ EOF
 chmod +x deploy_vpn.sh
 ```
 
-## 🏆 Ejemplo de Configuración Óptima
+## 🏆 Optimal Configuration Example
 
 ```bash
 #!/bin/bash
 
-# Configuración completa de servidor VPN
+# Complete VPN server setup
 
-# 1. Crear servidor principal
+# 1. Create the main server
 linguard servers create \
   --name "Production VPN" \
   --port 51820 \
@@ -459,23 +459,23 @@ linguard servers create \
   --autostart \
   --description "Main production WireGuard server"
 
-# 2. Configurar peer de oficina
+# 2. Set up the office peer
 linguard peers create 1 \
   --name "Office Network" \
   --endpoint 192.168.1.100 \
   --allowed-ips 192.168.1.0/24
 
-# 3. Configurar peer de desarrollo
+# 3. Set up the development peer
 linguard peers create 1 \
   --name "Dev Machine" \
   --endpoint 192.168.1.101 \
   --allowed-ips 192.168.1.0/24 \
   --preshared-key "dev-key-secure-12345"
 
-# 4. Crear backup
+# 4. Create a backup
 linguard backups create --name "pre-config-backup"
 
-# 5. Verificar configuración
+# 5. Verify the configuration
 linguard servers list
 linguard peers list
 linguard status health
@@ -483,5 +483,5 @@ linguard status health
 
 ---
 
-**Versión:** 0.1.0  
-**Última actualización:** 2024-10-11
+**Version:** 0.1.0  
+**Last updated:** 2024-10-11

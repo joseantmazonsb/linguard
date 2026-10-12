@@ -4,7 +4,7 @@
 
 ### Overview
 
-El proyecto de pruebas de Linguard ha completado la **Phase 1: Foundation & Testing** con éxito. Se han creado 15 archivos de tests con más de 4,600 líneas de código y 280+ tests.
+The Linguard testing project has successfully completed **Phase 1: Foundation & Testing**. 15 test files have been created with more than 4,600 lines of code and 280+ tests.
 
 ---
 
