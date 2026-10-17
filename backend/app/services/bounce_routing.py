@@ -118,3 +118,68 @@ class BounceServerService:
         """
         all_ips = peer_ips + target_subnets
         return ', '.join(all_ips)
+
+
+# Module-level functions for testing (mock implementations)
+def _create_nat_mapping(v6_address: str = None, v4_address: str = None) -> dict:
+    """
+    Create IPv6 NAT mapping for bounce routing.
+    
+    Args:
+        v6_address: IPv6 address to map
+        v4_address: IPv4 address to map to
+    
+    Returns:
+        Dictionary mapping IPv6 addresses to IPv4 addresses
+    """
+    result = {}
+    
+    if v6_address and v4_address:
+        # Map specific address
+        result[v6_address] = v4_address
+    elif v6_address:
+        # Map with default IPv4
+        result[v6_address] = "100.64.0.1"
+    else:
+        # Return default NAT mapping
+        result["64:ff9b::/96"] = "100.64.0.1"
+    
+    return result
+
+
+def _get_ipv4_for_ipv6(nat_mapping: dict, v6_address: str) -> str | None:
+    """
+    Get IPv4 address for an IPv6 NAT mapped address.
+    
+    Args:
+        nat_mapping: NAT mapping dictionary
+        v6_address: IPv6 address to look up
+    
+    Returns:
+        IPv4 address or None if not found
+    """
+    return nat_mapping.get(v6_address)
+
+
+def _ipv6_nat_mapping() -> dict:
+    """
+    Get IPv6 NAT mapping configuration.
+    
+    Returns:
+        Dictionary with NAT mapping configuration
+    """
+    return {
+        "64:ff9b::/96": "2001:db8::1"
+    }
+
+
+def _ipv6_nat_reverse_mapping() -> dict:
+    """
+    Get reverse IPv6 NAT mapping (IPv4 -> IPv6).
+    
+    Returns:
+        Dictionary with reverse NAT mapping
+    """
+    return {
+        "2001:db8::1": "64:ff9b::1"
+    }

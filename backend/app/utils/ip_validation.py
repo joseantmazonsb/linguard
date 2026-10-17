@@ -16,13 +16,20 @@ def validate_ipv4_cidr(ip_str: str) -> tuple[bool, Optional[str]]:
         return False, "IPv4 CIDR cannot be empty"
     
     try:
-        network = ipaddress.IPv4Network(ip_str, strict=False)
-        # Check if it's a host address (not just a network)
+        # Check if it's just an address without CIDR
         if '/' not in ip_str:
-            return False, "IPv4 address must include CIDR notation (e.g., 10.0.0.1/24)"
+            return False, "Invalid CIDR"
+        
+        network = ipaddress.IPv4Network(ip_str, strict=False)
+        
+        # Validate CIDR prefix length (must be 1-30 for subnets, not a host)
+        prefix_len = network.prefixlen
+        if prefix_len == 32 or prefix_len > 30:
+            return False, "Invalid CIDR"
+        
         return True, None
-    except ValueError as e:
-        return False, f"Invalid IPv4 CIDR format: {str(e)}"
+    except ValueError:
+        return False, "Invalid CIDR"
 
 
 def validate_ipv6_cidr(ip_str: str) -> tuple[bool, Optional[str]]:
@@ -173,6 +180,62 @@ def normalize_ip_cidr(ip_str: str) -> Optional[str]:
         return str(network)
     except ValueError:
         return None
+
+
+def is_null_ip(ip_str: str) -> bool:
+    """
+    Check if an IP address is NULL (empty string, whitespace, or special NULL values).
+    
+    NULL IPs are used to indicate "no IP assigned" or "any IP accepted".
+    
+    Args:
+        ip_str: IP address string to check (can be None or string)
+    
+    Returns:
+        True if IP is NULL (empty, whitespace, "0.0.0.0", or "::"), False otherwise
+    """
+    if ip_str is None:
+        return True
+    
+    if not ip_str or ip_str.strip() == "":
+        return True
+    
+    # Special NULL IP values
+    if ip_str == "0.0.0.0" or ip_str == "::":
+        return True
+    
+    return False
+
+
+def _match_null_ip(source_ip: str, target_ip: str) -> bool:
+    """
+    Check if a source IP matches a target IP (including NULL IP matching).
+    
+    NULL IP (empty string) matching rules:
+    - NULL source matches NULL target (both mean "any")
+    - NULL source matches any non-NULL target (source means "any")
+    - Non-NULL source does NOT match NULL target (target means "no specific match")
+    
+    Args:
+        source_ip: Source IP (can be NULL)
+        target_ip: Target IP to match against (can be NULL)
+    
+    Returns:
+        True if IPs match, False otherwise
+    """
+    # Both NULL IPs match (both mean "any IP")
+    if is_null_ip(source_ip) and is_null_ip(target_ip):
+        return True
+    
+    # NULL source IP matches any non-NULL target IP
+    if is_null_ip(source_ip):
+        return True
+    
+    # Non-NULL source IP only matches non-NULL target IP if they're equal
+    if is_null_ip(target_ip):
+        return False
+    
+    return source_ip == target_ip
 
 
 def check_server_ip_subnet_conflicts(new_server_ip: str, existing_server_ips: list[str]) -> tuple[bool, Optional[str]]:

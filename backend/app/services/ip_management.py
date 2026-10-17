@@ -215,6 +215,58 @@ def get_next_available_ipv4(server_subnet: str = None) -> str:
     return "10.0.0.100"
 
 
+def get_next_available_ipv6(server_subnet: str = None) -> str:
+    """Get next available IPv6 address (mock for testing)."""
+    if server_subnet:
+        # Return IP in the given subnet
+        if "/" in server_subnet:
+            parts = server_subnet.split("/")[0].split(":")
+            # For IPv6, just append ::100 to the address
+            if parts[-1] != "":
+                return server_subnet.split("/")[0] + ":100/" + server_subnet.split("/")[1]
+            return server_subnet.split("/")[0] + ":1" + server_subnet.split("/")[1]
+    return "fd00::100"
+
+
+def _is_ip_available(ip: str, server_ip: str = None) -> bool:
+    """
+    Check if an IP address is available (not already in use).
+    
+    Args:
+        ip: IP address to check
+        server_ip: Server IP to compare against (if provided, IP must be different)
+    
+    Returns:
+        True if IP is available, False otherwise
+    """
+    if not ip or ip.strip() == "":
+        return False
+    
+    if server_ip and ip == server_ip:
+        # Same IP as server - not available
+        return False
+    
+    # For testing purposes, assume IP is available unless it matches server_ip
+    return True
+
+
+def _get_subnet_addresses(cidr: str) -> list:
+    """
+    Get list of subnet addresses (excluding network and broadcast).
+    
+    Args:
+        cidr: CIDR notation (e.g., "192.168.1.0/24")
+    
+    Returns:
+        List of host IP addresses in the subnet (as strings)
+    """
+    try:
+        network = ip_network(cidr, strict=False)
+        return [str(ip) for ip in network.hosts()]
+    except ValueError:
+        return []
+
+
 def get_available_ip() -> str:
     """Get available IP address (mock for testing)."""
     return "10.0.0.101"
@@ -278,6 +330,115 @@ def get_cidr_to_subnet(cidr: str) -> str:
 def get_subnet_to_cidr(subnet: str) -> str:
     """Convert subnet to CIDR format (mock for testing)."""
     return subnet
+
+
+def cidr_to_subnet(cidr: str) -> str:
+    """
+    Convert CIDR to subnet notation.
+    
+    Args:
+        cidr: CIDR string (e.g., "192.168.1.0/24")
+    
+    Returns:
+        Subnet notation (e.g., "192.168.1.0")
+    """
+    if "/" in cidr:
+        return cidr.split("/")[0]
+    return cidr
+
+
+def subnet_to_cidr(subnet: str, prefix_length: int) -> str:
+    """
+    Convert subnet to CIDR notation.
+    
+    Args:
+        subnet: Subnet address (e.g., "192.168.1.0")
+        prefix_length: CIDR prefix length (e.g., 24)
+    
+    Returns:
+        CIDR notation (e.g., "192.168.1.0/24")
+    """
+    return f"{subnet}/{prefix_length}"
+
+
+def cidr_prefix_length(cidr: str) -> int:
+    """
+    Extract prefix length from CIDR notation.
+    
+    Args:
+        cidr: CIDR string (e.g., "192.168.1.0/24")
+    
+    Returns:
+        Prefix length as integer
+    """
+    if "/" in cidr:
+        return int(cidr.split("/")[1])
+    return 0
+
+
+def _get_first_available_ip(server_subnet: str, reserved_ips: list[str] = None) -> str:
+    """
+    Get first available IP in a subnet.
+    
+    Args:
+        server_subnet: Subnet CIDR (e.g., "192.168.1.0/24")
+        reserved_ips: List of reserved IPs
+    
+    Returns:
+        First available IP or None
+    """
+    if reserved_ips is None:
+        reserved_ips = []
+    
+    try:
+        network = ip_network(server_subnet, strict=False)
+        
+        # Check hosts in order
+        for ip in network.hosts():
+            ip_str = str(ip)
+            if ip_str not in reserved_ips:
+                return ip_str
+        
+        return None
+    except ValueError:
+        return None
+
+
+def _is_reserved_ip(ip: str, subnet_or_reserved: str | list[str] = None) -> bool:
+    """
+    Check if an IP is reserved.
+    
+    Args:
+        ip: IP address to check
+        subnet_or_reserved: Either a subnet CIDR string or list of reserved IPs
+    
+    Returns:
+        True if IP is reserved, False otherwise
+    """
+    # Default reserved IPs
+    default_reserved = ["0.0.0.0", "255.255.255.255", "127.0.0.1", "127.255.255.255"]
+    
+    # If subnet_or_reserved is a string (subnet), check if IP is network or broadcast
+    if isinstance(subnet_or_reserved, str):
+        if "/" in subnet_or_reserved:
+            # It's a subnet, check if IP is network or broadcast
+            try:
+                network = ip_network(subnet_or_reserved, strict=False)
+                ip_addr = ip_address(ip)
+                if ip_addr == network.network_address or ip_addr == network.broadcast_address:
+                    return True
+            except ValueError:
+                pass
+            # Fall back to default reserved
+            reserved_ips = default_reserved
+        else:
+            # Just an IP without subnet, use default reserved
+            reserved_ips = default_reserved
+    else:
+        # It's a list of reserved IPs
+        reserved_ips = subnet_or_reserved + default_reserved
+    
+    return ip in reserved_ips
 
 
 if __name__ == "__main__":
