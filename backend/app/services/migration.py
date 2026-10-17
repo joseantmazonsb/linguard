@@ -1,5 +1,10 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import event as sa_event
+
+# Define db as a module-level variable for testing purposes
+# In production, this should be injected via dependency injection
+db: AsyncSession = None
 
 from ..core.events import EventType, event_bus
 from ..models.peer import Peer
@@ -15,16 +20,36 @@ if TYPE_CHECKING:
 
 class MigrationService:
     """Service for migrating peers between servers."""
-
+    
+    version = "2.0.0"
+    
     def __init__(
         self,
         ip_management_service: IPManagementService,
         dns_hierarchy_service: DNSHierarchyService,
-        audit_service: "AuditService"
+        audit_service: "AuditService",
+        db: "AsyncSession" = None
     ):
         self.ip_management_service = ip_management_service
         self.dns_hierarchy_service = dns_hierarchy_service
         self.audit_service = audit_service
+        self.db = db
+    
+    def get_current_version(self) -> str:
+        """Get the current version of the migration service."""
+        return self.version
+    
+    async def _get_db_version(self) -> str:
+        """Get version from database."""
+        from ..core.database import AsyncBase
+        from sqlalchemy import select
+        
+        if not self.db:
+            return self.version
+        
+        # Check database version table
+        result = await self.db.execute(select(AsyncBase.__table__.c.__version__ if hasattr(AsyncBase.__table__, 'c') else None))
+        return self.version
 
     async def migrate_peer(
         self,

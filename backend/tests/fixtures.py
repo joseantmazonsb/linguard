@@ -1,6 +1,7 @@
 """Pytest fixtures for DI services - simplified for testing."""
 
 import pytest
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy import text
@@ -17,20 +18,9 @@ def event_loop():
 @pytest.fixture
 def async_test_db():
     """Create in-memory SQLite database for tests."""
+    # Just return the engine - tables will be created by individual tests
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-    
-    async with engine.begin() as conn:
-        # Create tables
-        await conn.run_sync(lambda conn: __import__('app.core.database').AsyncBase.metadata.create_all(conn))
-    
     return engine
-
-
-@pytest.fixture
-def async_session(async_test_db):
-    """Create async session."""
-    async with async_test_db() as session:
-        yield session
 
 
 @pytest.fixture
@@ -239,4 +229,46 @@ def version_service():
     service = MagicMock()
     service.get_version = AsyncMock(return_value="1.0.0")
     service.check_for_updates = AsyncMock(return_value=False)
+    return service
+
+
+@pytest.fixture
+def mock_wireguard_service():
+    """WireGuard Service mock for simple tests."""
+    service = MagicMock()
+    service.generate_keypair.return_value = ("mock_private_key", "mock_public_key")
+    service.generate_server_config = AsyncMock(return_value="[Interface]\nPrivateKey = test\n")
+    return service
+
+
+@pytest.fixture
+def mock_config_parser():
+    """Config Parser mock for simple tests."""
+    parser = MagicMock()
+    parser.parse_server_config.return_value = {
+        "name": "test-server",
+        "listen_port": 51820,
+    }
+    return parser
+
+
+@pytest.fixture
+def mock_autofill_service():
+    """AutoFill Service mock for simple tests."""
+    service = MagicMock()
+    service.get_server_defaults = AsyncMock(return_value={
+        "listen_port": 51820,
+        "address": "10.0.0.1",
+        "ipv4_allowed_ips": ["10.0.0.0/24"],
+        "ipv6_allowed_ips": ["fd00:1::/104"],
+        "keepalive": 60,
+    })
+    return service
+
+
+@pytest.fixture
+def mock_audit_service():
+    """Audit Service mock for simple tests."""
+    service = MagicMock()
+    service.log_action = AsyncMock()
     return service

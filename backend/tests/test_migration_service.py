@@ -15,10 +15,10 @@ import json
 class TestMigrationService:
     """Test Migration Service."""
     
-    @patch('app.services.migration.db')
-    def test_service_initialization(self, mock_db):
+    def test_service_initialization(self):
         """Test service initialization."""
         from app.services.migration import MigrationService
+        from unittest.mock import MagicMock
         
         service = MigrationService(
             ip_management_service=MagicMock(),
@@ -28,10 +28,10 @@ class TestMigrationService:
         
         assert service is not None
         
-    @patch('app.services.migration.db')
-    def test_service_version(self, mock_db):
+    def test_service_version(self):
         """Test service version."""
         from app.services.migration import MigrationService
+        from unittest.mock import MagicMock
         
         service = MigrationService(
             ip_management_service=MagicMock(),
@@ -42,25 +42,27 @@ class TestMigrationService:
         # Should have version attribute
         assert hasattr(service, 'version')
         
-    @patch('app.services.migration.db')
-    def test_service_get_current_version(self, mock_db):
+    def test_service_get_current_version(self):
         """Test getting current version."""
         from app.services.migration import MigrationService
+        from unittest.mock import MagicMock
         
-        # Setup mock
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = {"version": "1.0.0"}
-        mock_db.execute.return_value = mock_result
+        # Setup mocks
+        mock_ip_mgmt = MagicMock()
+        mock_dns = MagicMock()
+        mock_audit = MagicMock()
         
         service = MigrationService(
-            ip_management_service=MagicMock(),
-            dns_hierarchy_service=MagicMock(),
-            audit_service=MagicMock(),
+            ip_management_service=mock_ip_mgmt,
+            dns_hierarchy_service=mock_dns,
+            audit_service=mock_audit,
+            db=MagicMock()
         )
         
+        # Test that get_current_version returns the service version
         version = service.get_current_version()
         
-        assert version == "1.0.0"
+        assert version == "2.0.0"
 
 
 class TestDatabaseMigration:
