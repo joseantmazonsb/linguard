@@ -272,3 +272,36 @@ def mock_audit_service():
     service = MagicMock()
     service.log_action = AsyncMock()
     return service
+
+
+@pytest.fixture
+def client():
+    """Create FastAPI test client with initialized database."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.core.database import _build_engine, engine, Base
+    import tempfile
+    import os
+    
+    # Create temporary database file for tests
+    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+        temp_db_path = f.name
+    
+    try:
+        # Initialize engine with temporary database
+        temp_engine = _build_engine(f"sqlite+aiosqlite:///{temp_db_path}")
+        
+        async def init_db():
+            async with temp_engine.begin() as conn:
+                await conn.run_sync(lambda conn: Base.metadata.create_all(conn))
+        
+        asyncio.get_event_loop().run_until_complete(init_db())
+        
+        # Override the engine in the app for tests
+        app.state.engine = temp_engine
+        
+        with TestClient(app) as c:
+            yield c
+    finally:
+        # Cleanup
+        os.unlink(temp_db_path)
