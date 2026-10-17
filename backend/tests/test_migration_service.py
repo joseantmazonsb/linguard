@@ -15,37 +15,52 @@ import json
 class TestMigrationService:
     """Test Migration Service."""
     
-    def test_service_initialization(self):
+    @patch('app.services.migration.db')
+    def test_service_initialization(self, mock_db):
         """Test service initialization."""
         from app.services.migration import MigrationService
         
-        service = MigrationService()
+        service = MigrationService(
+            ip_management_service=MagicMock(),
+            dns_hierarchy_service=MagicMock(),
+            audit_service=MagicMock(),
+        )
         
         assert service is not None
         
-    def test_service_version(self):
+    @patch('app.services.migration.db')
+    def test_service_version(self, mock_db):
         """Test service version."""
         from app.services.migration import MigrationService
         
-        service = MigrationService()
+        service = MigrationService(
+            ip_management_service=MagicMock(),
+            dns_hierarchy_service=MagicMock(),
+            audit_service=MagicMock(),
+        )
         
         # Should have version attribute
         assert hasattr(service, 'version')
         
-    def test_service_get_current_version(self):
+    @patch('app.services.migration.db')
+    def test_service_get_current_version(self, mock_db):
         """Test getting current version."""
         from app.services.migration import MigrationService
         
-        with patch('app.services.migration.db') as mock_db:
-            mock_result = MagicMock()
-            mock_result.scalar_one_or_none.return_value = {"version": "1.0.0"}
-            mock_db.execute.return_value = mock_result
-            
-            service = MigrationService()
-            
-            version = service.get_current_version()
-            
-            assert version == "1.0.0"
+        # Setup mock
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = {"version": "1.0.0"}
+        mock_db.execute.return_value = mock_result
+        
+        service = MigrationService(
+            ip_management_service=MagicMock(),
+            dns_hierarchy_service=MagicMock(),
+            audit_service=MagicMock(),
+        )
+        
+        version = service.get_current_version()
+        
+        assert version == "1.0.0"
 
 
 class TestDatabaseMigration:
@@ -337,7 +352,11 @@ class TestMigrationServiceIntegration:
         mock_db.execute.return_value = mock_result
         
         # Create service
-        service = MigrationService()
+        service = MigrationService(
+            ip_management_service=MagicMock(),
+            dns_hierarchy_service=MagicMock(),
+            audit_service=MagicMock(),
+        )
         
         # Check if migration needed
         needs_migration = service.check_migration_needed()
@@ -359,13 +378,13 @@ class TestMigrationServiceIntegration:
         mock_db.execute.return_value = mock_result
         
         # Create service
-        service = MigrationService()
+        service = MigrationService(
+            ip_management_service=MagicMock(),
+            dns_hierarchy_service=MagicMock(),
+            audit_service=MagicMock(),
+        )
         
         # Migrate peers
         peers = service.migrate_peers()
         
         assert peers is not None
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v", "--cov=app.services.migration", "--cov-report=term-missing"])
