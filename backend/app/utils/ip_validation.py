@@ -11,9 +11,9 @@ def validate_ipv4_cidr(ip_str: str) -> tuple[bool, Optional[str]]:
     Returns:
         (is_valid, error_message)
     """
-    # Empty strings are considered valid (for flexibility)
-    if not ip_str:
-        return True, None
+    # Empty strings are invalid (must provide a valid CIDR)
+    if not ip_str or ip_str.strip() == "":
+        return False, "IPv4 CIDR cannot be empty"
     
     try:
         network = ipaddress.IPv4Network(ip_str, strict=False)
@@ -32,9 +32,9 @@ def validate_ipv6_cidr(ip_str: str) -> tuple[bool, Optional[str]]:
     Returns:
         (is_valid, error_message)
     """
-    # Empty strings are considered valid (for flexibility)
-    if not ip_str:
-        return True, None
+    # Empty strings are invalid (must provide a valid CIDR)
+    if not ip_str or ip_str.strip() == "":
+        return False, "IPv6 CIDR cannot be empty"
     
     try:
         network = ipaddress.IPv6Network(ip_str, strict=False)

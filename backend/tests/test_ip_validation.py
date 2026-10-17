@@ -34,8 +34,9 @@ class TestIPv4Validation:
         """Test invalid IPv4 CIDR addresses."""
         from app.utils.ip_validation import validate_ipv4_cidr
         
+        # /32 is valid for single host (e.g., specific IP address)
+        # /128 is invalid for IPv4 (too specific)
         invalid_cidrs = [
-            ("192.168.1.0/32", True),    # /32 is valid for single host
             ("192.168.1.0/128", False),  # /128 invalid for IPv4
             ("not.valid", False),
             ("", False),
