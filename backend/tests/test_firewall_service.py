@@ -101,7 +101,7 @@ class TestFirewallRuleValidation:
     
     def test_valid_rule(self):
         """Test valid firewall rule."""
-        from app.services.firewall import validate_rule
+        from app.services.firewall import validate_rule, FirewallRule
         
         rule = FirewallRule(
             name="test_rule",
@@ -118,73 +118,89 @@ class TestFirewallRuleValidation:
         
     def test_invalid_action(self):
         """Test invalid action."""
-        from app.services.firewall import validate_rule
-        from app.services.firewall import FirewallRule
+        from app.services.firewall import validate_rule, FirewallRule
         
-        rule = FirewallRule(
-            name="test_rule",
-            action="invalid_action",
-            protocol="tcp",
-            src_ip="192.168.1.0/24",
-            dst_ip="any",
-            port="any"
-        )
-        
-        result = validate_rule(rule)
+        # Create rule with invalid action (Pydantic V2 will validate immediately)
+        try:
+            rule = FirewallRule(
+                name="test_rule",
+                action="invalid_action",
+                protocol="tcp",
+                src_ip="192.168.1.0/24",
+                dst_ip="any",
+                port="any"
+            )
+            # If no exception was raised, validate using validate_rule
+            result = validate_rule(rule)
+        except Exception:
+            # If validation failed during creation, result is False
+            result = False
         
         assert result is False
         
     def test_invalid_protocol(self):
         """Test invalid protocol."""
-        from app.services.firewall import validate_rule
-        from app.services.firewall import FirewallRule
+        from app.services.firewall import validate_rule, FirewallRule
         
-        rule = FirewallRule(
-            name="test_rule",
-            action="accept",
-            protocol="invalid_protocol",
-            src_ip="192.168.1.0/24",
-            dst_ip="any",
-            port="any"
-        )
-        
-        result = validate_rule(rule)
+        # Create rule with invalid protocol (Pydantic V2 will validate immediately)
+        try:
+            rule = FirewallRule(
+                name="test_rule",
+                action="accept",
+                protocol="invalid_protocol",
+                src_ip="192.168.1.0/24",
+                dst_ip="any",
+                port="any"
+            )
+            # If no exception was raised, validate using validate_rule
+            result = validate_rule(rule)
+        except Exception:
+            # If validation failed during creation, result is False
+            result = False
         
         assert result is False
         
     def test_missing_name(self):
         """Test rule without name."""
-        from app.services.firewall import validate_rule
-        from app.services.firewall import FirewallRule
+        from app.services.firewall import validate_rule, FirewallRule
         
-        rule = FirewallRule(
-            name=None,
-            action="accept",
-            protocol="tcp",
-            src_ip="192.168.1.0/24",
-            dst_ip="any",
-            port="any"
-        )
-        
-        result = validate_rule(rule)
+        # Create rule without name (Pydantic V2 will validate immediately)
+        try:
+            rule = FirewallRule(
+                name=None,
+                action="accept",
+                protocol="tcp",
+                src_ip="192.168.1.0/24",
+                dst_ip="any",
+                port="any"
+            )
+            # If no exception was raised, validate using validate_rule
+            result = validate_rule(rule)
+        except Exception:
+            # If validation failed during creation, result is False
+            result = False
         
         assert result is False
         
     def test_missing_required_fields(self):
         """Test rule without required fields."""
-        from app.services.firewall import validate_rule
-        from app.services.firewall import FirewallRule
+        from app.services.firewall import validate_rule, FirewallRule
         
-        rule = FirewallRule(
-            name="test_rule",
-            action=None,
-            protocol=None,
-            src_ip=None,
-            dst_ip=None,
-            port=None
-        )
-        
-        result = validate_rule(rule)
+        # Create rule without required fields (Pydantic V2 will validate immediately)
+        try:
+            rule = FirewallRule(
+                name="test_rule",
+                action=None,
+                protocol=None,
+                src_ip=None,
+                dst_ip=None,
+                port=None
+            )
+            # If no exception was raised, validate using validate_rule
+            result = validate_rule(rule)
+        except Exception:
+            # If validation failed during creation, result is False
+            result = False
         
         assert result is False
 

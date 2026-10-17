@@ -1,6 +1,12 @@
 from typing import Optional
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from enum import Enum
+import hashlib
+
+
+def _generate_id(name: str) -> int:
+    """Generate a unique ID based on the rule name."""
+    return int(hashlib.md5(name.encode()).hexdigest(), 16) % 1000000
 
 
 class FirewallRuleAction(Enum):
@@ -36,14 +42,16 @@ class FirewallRule(BaseModel):
             return False
         return self.model_dump() == other.model_dump()
     
-    @validator("action", pre=True)
+    @field_validator("action", mode="before")
+    @classmethod
     def validate_action(cls, v):
         """Validate action field."""
         if v.lower() in ["accept", "drop", "reject", "log"]:
             return v.lower()
         raise ValueError(f"Invalid action: {v}")
     
-    @validator("protocol", pre=True)
+    @field_validator("protocol", mode="before")
+    @classmethod
     def validate_protocol(cls, v):
         """Validate protocol field."""
         valid_protocols = ["tcp", "udp", "icmp", "all"]
@@ -51,23 +59,46 @@ class FirewallRule(BaseModel):
             return v.lower()
         raise ValueError(f"Invalid protocol: {v}")
     
-    @validator("src_ip", pre=True)
+    @field_validator("src_ip", mode="before")
+    @classmethod
     def validate_src_ip(cls, v):
         """Validate source IP field."""
         if v.lower() == "any":
             return "any"
         return v
     
-    @validator("dst_ip", pre=True)
+    @field_validator("dst_ip", mode="before")
+    @classmethod
     def validate_dst_ip(cls, v):
         """Validate destination IP field."""
         if v.lower() == "any":
             return "any"
         return v
     
-    @validator("port", pre=True)
+    @field_validator("port", mode="before")
+    @classmethod
     def validate_port(cls, v):
         """Validate port field."""
         if v.lower() == "any":
             return "any"
         return v
+
+
+def validate_rule(rule: FirewallRule) -> bool:
+    """
+    Validate a firewall rule.
+    
+    Args:
+        rule: FirewallRule instance to validate
+        
+    Returns:
+        True if rule is valid, False otherwise
+    """
+    try:
+        # Use model_validate to validate the rule data
+        # This is more flexible than creating a new instance
+        FirewallRule.model_validate(rule.model_dump())
+        return True
+    except Exception as e:
+        # Check if it's a validation error
+        return False
