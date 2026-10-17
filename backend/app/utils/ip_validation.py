@@ -53,9 +53,9 @@ def validate_dns_ip(ip_str: str) -> tuple[bool, Optional[str]]:
     Returns:
         (is_valid, error_message)
     """
-    # Empty strings are considered valid (for flexibility)
-    if not ip_str:
-        return True, None
+    # Empty strings are invalid (must provide a valid IP)
+    if not ip_str or ip_str.strip() == "":
+        return False, "DNS IP address cannot be empty"
     
     try:
         # Try IPv4 first
@@ -84,12 +84,12 @@ def is_ip_in_subnet(peer_ip: str, server_ip: str) -> tuple[bool, Optional[str]]:
         (is_valid, error_message)
     """
     # Empty peer IP matches any subnet
-    if not peer_ip:
+    if not peer_ip or peer_ip.strip() == "":
         return True, None
     
-    # Empty server IP is also valid (no conflict to check)
-    if not server_ip:
-        return True, None
+    # NULL server IP means no conflict (peer can be anywhere)
+    if server_ip is None or server_ip.strip() == "":
+        return False, "Server IP is required for subnet check"
     
     try:
         # Extract and normalize IPs
@@ -190,8 +190,12 @@ def check_server_ip_subnet_conflicts(new_server_ip: str, existing_server_ips: li
     Returns:
         (is_valid, error_message)
     """
-    if not new_server_ip:
+    # NULL new IP means no conflict (no new IP to check)
+    if new_server_ip is None:
         return True, None
+    
+    if not new_server_ip or new_server_ip.strip() == "":
+        return False, "New server IP is required"
     
     try:
         new_network = ipaddress.ip_network(new_server_ip, strict=False)
@@ -205,23 +209,27 @@ def check_server_ip_subnet_conflicts(new_server_ip: str, existing_server_ips: li
                 existing_ip = item
                 server_name = "unknown"
             
-            if not existing_ip:
+            if not existing_ip or existing_ip.strip() == "":
                 continue
                 
             existing_network = ipaddress.ip_network(existing_ip, strict=False)
             existing_host = ipaddress.ip_address(existing_ip.split('/')[0])
             
             # Check if new server's IP is within an existing server's subnet
-            # Allow same subnet/IP (duplicate allowed)
-            if new_host in existing_network and new_server_ip != existing_ip:
-                return False, f"Server IP {new_host} conflicts with existing server '{server_name}' subnet {existing_network}"
+            # If exact match found, it's a conflict (duplicate IP not allowed)
+            if new_host in existing_network:
+                if new_server_ip != existing_ip:
+                    return False, f"Server IP {new_host} conflicts with existing server '{server_name}' subnet {existing_network}"
+                # Exact match - IP already in use, return conflict
+                return False, f"Server IP {new_host} is already in use"
             
             # Check if existing server's IP is within new server's subnet
-            # Allow same subnet/IP (duplicate allowed)
+            # If exact match found, it's a conflict (duplicate IP not allowed)
             if existing_host in new_network:
-                # Only flag as conflict if it's a different IP/subnet
                 if existing_ip != new_server_ip:
-                    return False, f"New subnet {new_network} would contain existing server '{server_name}' IP {existing_host}"
+                    return False, f"Server IP {existing_host} conflicts with new server '{new_server_ip}' subnet {new_network}"
+                # Exact match - IP already in use, return conflict
+                return False, f"Server IP {existing_host} is already in use"
         
         return True, None
         
