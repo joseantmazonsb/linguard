@@ -35,5 +35,9 @@ backups/
 *.log
 *cache/
 *.conf
-backend/plugins/.coverage
 .coverage
+coverage.xml
+coverage_report/
+htmlcov/
+.pytest_cache/
+
