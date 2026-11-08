@@ -135,9 +135,10 @@ class FakeIntegrationService:
 
 
 class FakeWireGuardForAutostart:
-    def __init__(self, results=None, raises_for=None):
+    def __init__(self, results=None, raises_for=None, interfaces=None):
         self.results = results or {}
         self.raises_for = raises_for or set()
+        self.interfaces = interfaces or {}
         self.started_servers = []
 
     async def start_interface(self, db, server_id, interface):
@@ -150,7 +151,7 @@ class FakeWireGuardForAutostart:
         return "wg9"
 
     def find_interface_by_public_key(self, public_key):
-        return "wg9"
+        return self.interfaces.get(public_key)
 
 
 @pytest.fixture
@@ -546,7 +547,8 @@ async def test_should_initialise_engine_integrations_plugins_and_autostart_when_
 
     plugin_manager = FakePluginManager()
     wireguard = FakeWireGuardForAutostart(
-        results={broken.id: False}, raises_for={explosive.id}
+        results={broken.id: False}, raises_for={explosive.id},
+        interfaces={running.public_key: "wg9"},
     )
     configure_logging_calls = []
 
@@ -572,6 +574,7 @@ async def test_should_initialise_engine_integrations_plugins_and_autostart_when_
 
     # Autostart: running servers skipped, successful ones marked running,
     # failures rolled back instead of aborting startup.
+    assert running.id not in wireguard.started_servers
     assert healthy.id in wireguard.started_servers
     assert broken.id in wireguard.started_servers
     assert after_failure.id in wireguard.started_servers
@@ -587,6 +590,40 @@ async def test_should_initialise_engine_integrations_plugins_and_autostart_when_
     # Shutdown stopped the monitors and the update checker.
     assert all(m.stops == 1 for m in fake_monitors.values())
     assert fake_update_checker.instances[0].stopped is True
+
+
+@pytest.mark.asyncio
+async def test_should_reconcile_autostart_with_actual_interfaces(
+    api_db, db_session, tmp_path, monkeypatch, fake_monitors, reset_monitor_globals,
+    captured_handlers, fake_update_checker, recorded_logging_config,
+):
+    (tmp_path / "linguard.config.json").write_text("{}")
+    monkeypatch.setattr(config_loader, "config_path", tmp_path / "linguard.config.json")
+    await _seed_existing_install(db_session)
+    stale = await _add_server(db_session, "stale", status="running", interface="wg1")
+    failed = await _add_server(db_session, "failed", status="running", interface="wg2")
+    existing = await _add_server(db_session, "existing", status="stopped", interface="wg3")
+    disabled = await _add_server(db_session, "disabled", autostart=False, interface="wg4")
+    error = await _add_server(db_session, "error", status="running", interface="wg5")
+    wireguard = FakeWireGuardForAutostart(
+        results={failed.id: False}, raises_for={error.id},
+        interfaces={existing.public_key: "wg-existing"}
+    )
+
+    with patch("app.main.init_engine"), \
+         patch.object(app.container, "plugin_manager", lambda: FakePluginManager()), \
+         patch.object(app.container, "wireguard_service", lambda: wireguard):
+        async with lifespan(app):
+            pass
+
+    assert wireguard.started_servers == [stale.id, failed.id]
+    for server in (stale, failed, existing, disabled, error):
+        await db_session.refresh(server)
+    assert stale.status == "running"
+    assert failed.status == "stopped"
+    assert existing.status == "running"
+    assert disabled.status == "stopped"
+    assert error.status == "stopped"
 
 
 @pytest.mark.asyncio

@@ -362,17 +362,29 @@ async def lifespan(app: FastAPI):
                     # that raises MissingGreenlet in async sessions (which used to
                     # abort auto-start for every remaining server).
                     autostart_targets = [
-                        (server.id, server.name, server.status, server.public_key)
+                        (server.id, server.name, server.public_key)
                         for server in autostart_servers
                     ]
 
-                    for server_id, server_name, server_status, public_key in autostart_targets:
+                    for server_id, server_name, public_key in autostart_targets:
                         try:
-                            # Skip if already running
-                            if server_status == "running":
-                                logger.info(f"Server '{server_name}' already running - skipping")
+                            # The persisted status can outlive the network namespace.
+                            actual_interface = wireguard_service.find_interface_by_public_key(public_key)
+                            server = await async_session.get(Server, server_id)
+                            if server is None:
+                                logger.error(f"Server '{server_name}' disappeared during auto-start")
                                 continue
-                            
+                            if actual_interface:
+                                if server.status != "running":
+                                    server.status = "running"
+                                    await async_session.commit()
+                                logger.info(f"Server '{server_name}' already running on '{actual_interface}' - skipping")
+                                continue
+
+                            if server.status == "running":
+                                server.status = "stopped"
+                                await async_session.commit()
+
                             logger.info(f"Auto-starting server: {server_name}")
                             
                             # Use a temporary interface name (wg0, wg1, etc.) for starting
