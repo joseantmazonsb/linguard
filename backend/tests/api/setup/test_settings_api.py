@@ -12,6 +12,103 @@ from app.models.user import User
 GLOBAL_URL = "/api/v1/settings/global"
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("change", ["key", "role"])
+async def test_should_revalidate_admin_after_acquiring_settings_lock(api_db, db_session, seeded_db, change):
+    from fastapi import HTTPException
+    from jose import jwt
+    from starlette.requests import Request
+    from app.api.settings import update_global_settings
+    from app.schemas.settings import GlobalSettingsUpdate
+    from app.services.audit_logger import AuditService
+
+    admin = (await db_session.execute(select(User).where(User.username == "admin"))).scalar_one()
+    settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+    token = jwt.encode({"sub": "admin", "auth_method": "local", "exp": 9999999999}, settings.secret_key, algorithm=settings.algorithm)
+    async with api_db.sessionmaker() as session:
+        stale_admin = (await session.execute(select(User).where(User.id == admin.id))).scalar_one()
+        await session.execute(select(GlobalSettings))
+        if change == "key":
+            settings.secret_key = "new-key"
+        else:
+            admin.role = "standard"
+        await db_session.commit()
+        request = Request({"type": "http", "method": "PUT", "path": GLOBAL_URL,
+                           "headers": [(b"authorization", f"Bearer {token}".encode())]})
+        with pytest.raises(HTTPException) as exc:
+            await update_global_settings(settings_data=GlobalSettingsUpdate(dns_primary="1.1.1.1"), request=request, db=session, current_user=stale_admin, audit_service=AuditService())
+        assert exc.value.status_code in (401, 403)
+
+
+@pytest.mark.asyncio
+async def test_should_reject_oidc_only_without_oidc_admin_session(auth_client, db_session):
+    response = auth_client.put(GLOBAL_URL, json={"auth_mode": "oidc_only"})
+    assert response.status_code == 400
+    settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+    await db_session.refresh(settings)
+    assert settings.auth_mode == "both"
+
+
+@pytest.mark.asyncio
+async def test_should_roll_back_revocation_when_settings_commit_fails(auth_client, db_session):
+    settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+    response = auth_client.put(GLOBAL_URL, json={"oidc_admin_groups": "admins", "backup_dir": None})
+    assert response.status_code == 500
+    await db_session.refresh(settings)
+    assert settings.setup_current_step is None
+    assert settings.oidc_admin_groups == ""
+    assert auth_client.get("/api/v1/auth/profile").status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_should_reject_oidc_only_through_settings_during_setup(auth_client, db_session):
+    from jose import jwt
+
+    from app.api.settings import oidc_configuration_fingerprint
+
+    settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+    settings.setup_completed = False
+    settings.oidc_discovery_url = "https://idp.example.com/discovery"
+    settings.oidc_client_id = "client"
+    admin = (await db_session.execute(select(User).where(User.username == "admin"))).scalar_one()
+    admin.oidc_sub = "sso-admin"
+    await db_session.commit()
+    token = jwt.encode({"sub": "admin", "exp": 9999999999, "oidc_config": oidc_configuration_fingerprint(settings)}, settings.secret_key, algorithm=settings.algorithm)
+    response = auth_client.put(GLOBAL_URL, headers={"Authorization": f"Bearer {token}"}, json={"auth_mode": "oidc_only"})
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_should_reject_provider_changes_in_oidc_only(auth_client, db_session):
+    from jose import jwt
+    from app.core.security import oidc_configuration_fingerprint
+
+    settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+    settings.auth_mode = "oidc_only"
+    settings.oidc_discovery_url = "https://idp.example.com/discovery"
+    settings.oidc_client_id = "client"
+    await db_session.commit()
+    token = jwt.encode({"sub": "admin", "auth_method": "oidc", "oidc_config": oidc_configuration_fingerprint(settings), "exp": 9999999999}, settings.secret_key, algorithm=settings.algorithm)
+    response = auth_client.put(GLOBAL_URL, headers={"Authorization": f"Bearer {token}"}, json={"oidc_client_id": "different"})
+    assert response.status_code == 400
+    await db_session.refresh(settings)
+    assert settings.oidc_client_id == "client"
+
+
+@pytest.mark.asyncio
+async def test_should_not_reinterpret_existing_oidc_subjects_under_another_provider(auth_client, db_session):
+    settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+    settings.oidc_discovery_url = "https://idp.example.com/discovery"
+    settings.oidc_client_id = "client"
+    admin = (await db_session.execute(select(User).where(User.username == "admin"))).scalar_one()
+    admin.oidc_sub = "existing-sub"
+    await db_session.commit()
+    response = auth_client.put(GLOBAL_URL, json={"oidc_discovery_url": "https://other.example.com/discovery"})
+    assert response.status_code == 400
+    await db_session.refresh(settings)
+    assert settings.oidc_discovery_url == "https://idp.example.com/discovery"
+
+
 def _headers(username, secret="test-secret-key-for-jwt-signing"):
     from datetime import datetime, timedelta
 

@@ -145,6 +145,18 @@ async def test_should_reject_local_login_when_auth_mode_is_oidc_only(api_client,
 
 
 @pytest.mark.asyncio
+async def test_should_allow_local_admin_recovery_when_setup_was_stranded_in_oidc_only(api_client, db_session, seeded_db):
+    settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+    settings.auth_mode = "oidc_only"
+    settings.setup_completed = False
+    await db_session.commit()
+    login = api_client.post(TOKEN_URL, data={"username": "admin", "password": "admin123"})
+    assert login.status_code == 200
+    assert api_client.get(PROFILE_URL, headers={"Authorization": f"Bearer {login.json()['access_token']}"}).status_code == 200
+    assert api_client.post(TOKEN_URL, data={"username": "bob", "password": "admin123"}).status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_should_return_503_when_settings_table_is_missing(api_client, db_session, seeded_db):
     """A half-migrated database (no global_settings) cannot mint tokens."""
     from sqlalchemy import text
@@ -233,7 +245,7 @@ async def test_should_return_first_user_when_auth_is_disabled(api_client, db_ses
 
 
 @pytest.mark.asyncio
-async def test_should_create_temporary_admin_when_auth_disabled_and_no_user_exists(api_client, db_session, seeded_db):
+async def test_should_reject_when_auth_disabled_and_no_user_exists(api_client, db_session, seeded_db):
     settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
     settings.disable_auth = True
     await db_session.commit()
@@ -243,9 +255,8 @@ async def test_should_create_temporary_admin_when_auth_disabled_and_no_user_exis
 
     response = api_client.get(PROFILE_URL)
 
-    assert response.status_code == 200
-    assert response.json()["username"] == "admin"
-    assert (await db_session.execute(select(User))).scalars().all() != []
+    assert response.status_code == 401
+    assert (await db_session.execute(select(User))).scalars().all() == []
 
 
 @pytest.mark.asyncio
@@ -413,6 +424,23 @@ async def test_should_allow_demotion_when_another_admin_exists(auth_client, db_s
 
     assert response.status_code == 200
     assert response.json()["role"] == "standard"
+
+
+@pytest.mark.asyncio
+async def test_should_refuse_demotion_of_last_oidc_admin_in_oidc_only(auth_client, db_session, seeded_db):
+    from jose import jwt
+    from app.core.security import oidc_configuration_fingerprint
+
+    settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+    settings.auth_mode = "oidc_only"
+    admin = (await db_session.execute(select(User).where(User.username == "admin"))).scalar_one()
+    admin.oidc_sub = "admin-sub"
+    await _add_user(db_session, "localadmin", role="admin")
+    token = jwt.encode({"sub": "admin", "auth_method": "oidc", "oidc_config": oidc_configuration_fingerprint(settings), "exp": 9999999999}, settings.secret_key, algorithm=settings.algorithm)
+    response = auth_client.put(f"{USERS_URL}/{admin.id}", headers={"Authorization": f"Bearer {token}"}, json={"role": "standard"})
+    assert response.status_code == 422
+    await db_session.refresh(admin)
+    assert admin.role == "admin"
 
 
 @pytest.mark.asyncio

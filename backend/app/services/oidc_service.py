@@ -20,9 +20,10 @@ from urllib.parse import urlencode, urlparse
 import httpx
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..core.security import authenticate_locked, auth_generations, lock_auth_settings, oidc_configuration_fingerprint, verify_password
 from ..models.user import User
 
 logger = logging.getLogger(__name__)
@@ -41,8 +42,8 @@ class OIDCService:
     """Handles discovery, authorization URLs, code exchange and user provisioning."""
 
     def __init__(self):
-        # state -> (code_verifier, redirect_uri, expires_at)
-        self._pending_flows: dict[str, tuple[str, str, float]] = {}
+        # state -> (code_verifier, redirect_uri, expires_at, configuration binding)
+        self._pending_flows: dict[str, tuple[str, str, float, tuple[str, str]]] = {}
         # discovery_url -> (document, fetched_at)
         self._discovery_cache: dict[str, tuple[dict, float]] = {}
 
@@ -102,11 +103,12 @@ class OIDCService:
         force_refresh: bool = False,
     ) -> str:
         """Build the IdP authorization URL and register a pending login flow."""
+        binding = (oidc_configuration_fingerprint(settings), auth_generations(settings)[1])
         discovery = await self.get_discovery(settings.oidc_discovery_url, force_refresh=force_refresh)
 
         verifier, challenge = self._pkce_pair()
         state = secrets.token_urlsafe(32)
-        self._pending_flows[state] = (verifier, redirect_uri, time.time() + FLOW_TTL_SECONDS)
+        self._pending_flows[state] = (verifier, redirect_uri, time.time() + FLOW_TTL_SECONDS, binding)
         self._prune_flows()
 
         params = {
@@ -123,24 +125,32 @@ class OIDCService:
 
     def _prune_flows(self):
         now = time.time()
-        expired = [s for s, (_, _, exp) in self._pending_flows.items() if exp < now]
+        expired = [s for s, flow in self._pending_flows.items() if flow[2] < now]
         for state in expired:
             del self._pending_flows[state]
 
-    def pop_flow(self, state: str) -> tuple[str, str]:
+    def pop_flow(self, state: str) -> tuple[str, str, tuple[str, str]]:
         """
         Consume a pending login flow.
 
-        Returns (code_verifier, redirect_uri). Raises OIDCError for unknown,
+        Returns (code_verifier, redirect_uri, configuration binding). Raises OIDCError for unknown,
         expired or already-used states.
         """
         flow = self._pending_flows.pop(state, None)
         if not flow:
             raise OIDCError("Invalid or expired login state. Please try signing in again.")
-        verifier, redirect_uri, expires_at = flow
+        verifier, redirect_uri, expires_at, binding = flow
         if expires_at < time.time():
             raise OIDCError("Login flow expired. Please try signing in again.")
-        return verifier, redirect_uri
+        return verifier, redirect_uri, binding
+
+    @staticmethod
+    async def lock_flow_settings(db: AsyncSession, binding: tuple[str, str], link: bool = False):
+        settings = await lock_auth_settings(db)
+        if (not settings or settings.auth_mode not in (("both",) if link else ("both", "oidc_only"))
+                or binding != (oidc_configuration_fingerprint(settings), auth_generations(settings)[1])):
+            raise OIDCError("OIDC configuration changed. Please sign in again.")
+        return settings
 
     # ------------------------------------------------------------------
     # Code exchange + ID token validation
@@ -230,7 +240,7 @@ class OIDCService:
                 algorithms=algorithms,
                 audience=settings.oidc_client_id,
                 issuer=discovery["issuer"],
-                options={"leeway": 60},
+                options={"leeway": 60, "require_exp": True},
             )
         except JWTError as e:
             raise OIDCError(f"ID token validation failed: {e}") from e
@@ -242,9 +252,18 @@ class OIDCService:
         if not id_token:
             raise OIDCError("Identity provider did not return an ID token")
         claims = await self.validate_id_token(settings, discovery, id_token)
+        subject = claims.get("sub")
+        if not isinstance(subject, str) or not subject:
+            raise OIDCError("ID token is missing a valid subject")
 
         userinfo = await self.fetch_userinfo(discovery, token_response.get("access_token", ""))
-        if userinfo:
+        if userinfo is not None:
+            if not isinstance(userinfo, dict) or userinfo.get("sub") != subject:
+                raise OIDCError("UserInfo subject does not match the ID token subject")
+            if "email" in userinfo and "email_verified" not in userinfo:
+                claims.pop("email_verified", None)
+            if "email_verified" in userinfo and "email" not in userinfo:
+                userinfo = {key: value for key, value in userinfo.items() if key != "email_verified"}
             claims.update(userinfo)
         return claims
 
@@ -253,17 +272,61 @@ class OIDCService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _role_from_groups(claims: dict, admin_groups_setting: str) -> str:
-        """Map the standard 'groups' claim against the configured admin groups."""
+    def _role_from_groups(claims: dict, admin_groups_setting: str) -> str | None:
+        """Map groups to a role, or return None when role sync is not configured."""
         configured = {g.strip() for g in (admin_groups_setting or "").split(",") if g.strip()}
         if not configured:
-            return "standard"
-        user_groups = claims.get("groups") or []
+            return None
+        user_groups = claims.get("groups")
         if isinstance(user_groups, str):
             user_groups = [user_groups]
+        if not isinstance(user_groups, list) or not all(isinstance(group, str) for group in user_groups):
+            raise OIDCError("Identity provider did not return valid groups")
         if configured.intersection(user_groups):
             return "admin"
         return "standard"
+
+    async def link_local_account(
+        self, db: AsyncSession, settings, username: str, password: str, state: str, code: str, token: str
+    ) -> User:
+        """Link only after proving control of both the local and OIDC accounts."""
+        verifier, redirect_uri, binding = self.pop_flow(state)
+        if binding != (oidc_configuration_fingerprint(settings), auth_generations(settings)[1]):
+            raise OIDCError("OIDC configuration changed. Please sign in again.")
+        result = await db.execute(select(User).where(User.username == username))
+        user = result.scalar_one_or_none()
+        if (not user or user.auth_provider != "local" or user.oidc_sub or not user.hashed_password
+                or not verify_password(password, user.hashed_password)):
+            raise OIDCError("Unable to link local account")
+
+        discovery = await self.get_discovery(settings.oidc_discovery_url)
+        tokens = await self.exchange_code(settings, discovery, code, redirect_uri, verifier)
+        claims = await self.obtain_claims(settings, discovery, tokens)
+        settings = await self.lock_flow_settings(db, binding, link=True)
+        try:
+            authenticated = await authenticate_locked(db, settings, token)
+        except HTTPException as exc:
+            raise OIDCError("Authentication required") from exc
+        if authenticated.username != username:
+            raise OIDCError("Authentication required")
+        result = await db.execute(select(User).where(User.username == username).with_for_update().execution_options(populate_existing=True))
+        user = result.scalar_one_or_none()
+        if (not user or user.auth_provider != "local" or user.oidc_sub or not user.hashed_password
+                or not verify_password(password, user.hashed_password)):
+            raise OIDCError("Unable to link local account")
+        subject = claims.get("sub")
+        if (not isinstance(subject, str) or not subject or claims.get("email_verified") is not True
+                or claims.get("email") != user.email):
+            raise OIDCError("Unable to link local account")
+        if user.role == "admin" and self._role_from_groups(claims, settings.oidc_admin_groups) != "admin":
+            raise OIDCError("OIDC identity is not in an administrator group")
+        result = await db.execute(select(User).where(User.oidc_sub == subject))
+        if result.scalar_one_or_none():
+            raise OIDCError("OIDC identity is already linked")
+        user.oidc_sub = subject
+        await db.commit()
+        await db.refresh(user)
+        return user
 
     @staticmethod
     async def _unique_username(db: AsyncSession, base: str) -> str:
@@ -284,8 +347,9 @@ class OIDCService:
         """
         Find or create the Linguard user for the given OIDC claims.
 
-        Order: match by oidc_sub, then link by email, then (optionally)
-        auto-provision a new user.
+        Match by oidc_sub or (optionally) auto-provision a new user. The caller
+        owns the transaction and holds the settings lock until commit.
+        Email collisions are never linked without an authenticated linking flow.
         """
         oidc_sub = claims.get("sub")
         if not oidc_sub:
@@ -295,20 +359,39 @@ class OIDCService:
         result = await db.execute(select(User).where(User.oidc_sub == oidc_sub))
         user = result.scalar_one_or_none()
         if user:
+            if user.auth_provider == "oidc":
+                role = self._role_from_groups(claims, settings.oidc_admin_groups)
+                if role is not None and user.role != role:
+                    if user.role == "admin" and role != "admin":
+                        # Serialize demotions, including on SQLite where FOR UPDATE is ignored.
+                        await db.execute(update(User).where(User.role == "admin").values(
+                            role=User.role, updated_at=User.updated_at
+                        ))
+                        admins = (await db.execute(
+                            select(User).where(User.role == "admin").order_by(User.id).with_for_update()
+                        )).scalars().all()
+                        oidc_only = getattr(settings, "auth_mode", None) == "oidc_only"
+                        if not any(
+                            admin.id != user.id and (not oidc_only or admin.oidc_sub)
+                            for admin in admins
+                        ):
+                            raise OIDCError("Cannot demote the last administrator; OIDC login denied")
+                    user.role = role
+                    await db.flush()
+            elif user.role == "admin":
+                role = self._role_from_groups(claims, settings.oidc_admin_groups)
+                if role is not None and role != "admin":
+                    raise OIDCError("OIDC identity is not in an administrator group")
             return user
 
         email = claims.get("email")
 
-        # 2. Link by email to an existing local account
+        # 2. Never link an account solely on the basis of an email claim.
         if email:
             result = await db.execute(select(User).where(User.email == email))
             user = result.scalar_one_or_none()
             if user:
-                user.auth_provider = "oidc"
-                user.oidc_sub = oidc_sub
-                await db.commit()
-                await db.refresh(user)
-                return user
+                raise OIDCError("An account with this email already exists; automatic linking is not allowed")
 
         # 3. Auto-provision
         if not settings.oidc_auto_provision:
@@ -322,7 +405,7 @@ class OIDCService:
 
         base_username = claims.get("preferred_username") or email.split("@")[0]
         username = await self._unique_username(db, str(base_username)[:50])
-        role = self._role_from_groups(claims, settings.oidc_admin_groups)
+        role = self._role_from_groups(claims, settings.oidc_admin_groups) or "standard"
 
         user = User(
             username=username,
@@ -333,8 +416,7 @@ class OIDCService:
             oidc_sub=oidc_sub,
         )
         db.add(user)
-        await db.commit()
-        await db.refresh(user)
+        await db.flush()
         logger.info(f"Provisioned OIDC user '{username}' (role={role})")
         return user
 

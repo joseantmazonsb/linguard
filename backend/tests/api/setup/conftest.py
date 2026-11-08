@@ -25,7 +25,7 @@ def isolated_config(tmp_path, monkeypatch):
 
 @pytest.fixture
 def fake_engine_switch():
-    """Patch reinit_engine / init_db / start_background_monitors.
+    """Use a real isolated candidate engine and record its requested URL.
 
     Returns a recorder so tests can assert exactly which database URL the
     wizard asked the engine to switch to, and whether the schema creation and
@@ -40,16 +40,15 @@ def fake_engine_switch():
 
     recorder = Recorder()
 
-    def _reinit(url):
-        recorder.reinit_calls.append(url)
+    build_engine = app_database._build_engine
 
-    async def _init_db():
-        recorder.init_db_calls += 1
+    def _build(url):
+        recorder.reinit_calls.append(url)
+        return build_engine("sqlite+aiosqlite://")
 
     async def _start_monitors():
         recorder.monitor_starts += 1
 
-    with patch.object(app_database, "reinit_engine", _reinit), \
-         patch.object(app_database, "init_db", _init_db), \
+    with patch.object(app_database, "_build_engine", _build), \
          patch("app.main.start_background_monitors", _start_monitors):
         yield recorder

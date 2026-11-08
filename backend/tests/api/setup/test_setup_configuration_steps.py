@@ -1,6 +1,8 @@
 """Tests for the account, globals, auth and progress steps of the setup wizard."""
 
 import pytest
+from datetime import datetime, timedelta, timezone
+from jose import jwt
 from sqlalchemy import select
 
 from app.core.security import verify_password
@@ -38,6 +40,14 @@ GLOBALS_PAYLOAD = {
 
 async def _settings_row(session):
     return (await session.execute(select(GlobalSettings))).scalar_one_or_none()
+
+
+async def _authorize_setup(client, session):
+    settings = await _settings_row(session)
+    session.add(User(username="setupadmin", email="setupadmin@example.com", hashed_password="unused", role="admin"))
+    await session.commit()
+    token = jwt.encode({"sub": "setupadmin", "exp": datetime.now(timezone.utc) + timedelta(minutes=30)}, settings.secret_key, algorithm=settings.algorithm)
+    client.headers.update({"Authorization": f"Bearer {token}"})
 
 
 # ---------------------------------------------------------------------------
@@ -87,8 +97,11 @@ async def test_should_update_existing_settings_when_initializing_again_after_wip
 
 
 @pytest.mark.asyncio
-async def test_should_reject_initialize_when_users_already_exist(api_client, seeded_db):
-    response = api_client.post(INITIALIZE_URL, json=ADMIN_PAYLOAD)
+async def test_should_reject_initialize_when_users_already_exist(api_client, seeded_db, db_session, admin_headers):
+    settings = await _settings_row(db_session)
+    settings.setup_completed = False
+    await db_session.commit()
+    response = api_client.post(INITIALIZE_URL, json=ADMIN_PAYLOAD, headers=admin_headers)
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Users already exist. Setup cannot be initialized again."
@@ -124,6 +137,9 @@ async def test_should_reject_initialize_when_email_is_invalid(api_client):
 async def test_should_create_settings_row_when_configuring_globals_first_time(
     api_client, db_session, isolated_config
 ):
+    assert api_client.post(INITIALIZE_URL, json=ADMIN_PAYLOAD).status_code == 200
+    login = api_client.post("/api/v1/auth/token", data={"username": "firstadmin", "password": "SuperSecret123"})
+    api_client.headers.update({"Authorization": f"Bearer {login.json()['access_token']}"})
     response = api_client.post(GLOBALS_URL, json=GLOBALS_PAYLOAD)
 
     assert response.status_code == 200
@@ -131,6 +147,7 @@ async def test_should_create_settings_row_when_configuring_globals_first_time(
     assert body["success"] is True
 
     settings = await _settings_row(db_session)
+    await db_session.refresh(settings)
     assert settings.id == body["settings_id"]
     assert settings.secret_key == "s" * 48
     assert settings.dns_primary == "9.9.9.9"
@@ -161,6 +178,7 @@ async def test_should_update_existing_settings_when_configuring_globals_again(
         )
     )
     await db_session.commit()
+    await _authorize_setup(api_client, db_session)
 
     response = api_client.post(GLOBALS_URL, json=GLOBALS_PAYLOAD)
 
@@ -172,7 +190,10 @@ async def test_should_update_existing_settings_when_configuring_globals_again(
 
 
 @pytest.mark.asyncio
-async def test_should_reject_short_secret_key_when_configuring_globals(api_client):
+async def test_should_reject_short_secret_key_when_configuring_globals(api_client, db_session):
+    db_session.add(GlobalSettings(secret_key="k" * 40, backup_dir="./b"))
+    await db_session.commit()
+    await _authorize_setup(api_client, db_session)
     response = api_client.post(GLOBALS_URL, json={**GLOBALS_PAYLOAD, "secret_key": "short"})
 
     assert response.status_code == 422
@@ -182,7 +203,10 @@ async def test_should_reject_short_secret_key_when_configuring_globals(api_clien
 
 
 @pytest.mark.asyncio
-async def test_should_reject_out_of_range_backup_retention_when_configuring_globals(api_client):
+async def test_should_reject_out_of_range_backup_retention_when_configuring_globals(api_client, db_session):
+    db_session.add(GlobalSettings(secret_key="k" * 40, backup_dir="./b"))
+    await db_session.commit()
+    await _authorize_setup(api_client, db_session)
     response = api_client.post(
         GLOBALS_URL, json={**GLOBALS_PAYLOAD, "backup_retention_days": 0}
     )
@@ -201,10 +225,7 @@ async def test_should_reject_out_of_range_backup_retention_when_configuring_glob
 async def test_should_reject_configure_auth_when_settings_do_not_exist(api_client, isolated_config):
     response = api_client.post(AUTH_URL, json={"skip": True})
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == (
-        "Setup has not been initialized yet. Complete the previous steps first."
-    )
+    assert response.status_code == 409
 
 
 @pytest.mark.asyncio
@@ -213,6 +234,7 @@ async def test_should_advance_to_server_step_when_configure_auth_skipped(api_cli
         GlobalSettings(secret_key="k" * 40, backup_dir="./b", setup_current_step="auth")
     )
     await db_session.commit()
+    await _authorize_setup(api_client, db_session)
 
     response = api_client.post(AUTH_URL, json={"skip": True})
 
@@ -229,12 +251,13 @@ async def test_should_store_oidc_settings_when_configure_auth_with_oidc(api_clie
         GlobalSettings(secret_key="k" * 40, backup_dir="./b", setup_current_step="auth")
     )
     await db_session.commit()
+    await _authorize_setup(api_client, db_session)
 
     response = api_client.post(
         AUTH_URL,
         json={
             "skip": False,
-            "auth_mode": "oidc_only",
+            "auth_mode": "both",
             "oidc_discovery_url": "https://idp.example.com/.well-known/openid-configuration",
             "oidc_client_id": "linguard",
             "oidc_client_secret": "shhh",
@@ -247,7 +270,7 @@ async def test_should_store_oidc_settings_when_configure_auth_with_oidc(api_clie
     assert response.status_code == 200
     assert response.json() == {"success": True, "skipped": False}
     settings = await _settings_row(db_session)
-    assert settings.auth_mode == "oidc_only"
+    assert settings.auth_mode == "both"
     assert settings.oidc_discovery_url == "https://idp.example.com/.well-known/openid-configuration"
     assert settings.oidc_client_id == "linguard"
     assert settings.oidc_client_secret == "shhh"
@@ -258,11 +281,50 @@ async def test_should_store_oidc_settings_when_configure_auth_with_oidc(api_clie
 
 
 @pytest.mark.asyncio
+async def test_should_reject_oidc_only_during_setup_and_keep_local_login(api_client, db_session, seeded_db, admin_headers):
+    settings = await _settings_row(db_session)
+    settings.setup_completed = False
+    await db_session.commit()
+    response = api_client.post(AUTH_URL, headers=admin_headers, json={
+        "skip": False, "auth_mode": "oidc_only",
+        "oidc_discovery_url": "https://idp.example.com/discovery", "oidc_client_id": "client",
+    })
+    assert response.status_code == 400
+    await db_session.refresh(settings)
+    assert settings.auth_mode == "both"
+    assert api_client.post("/api/v1/auth/token", data={"username": "admin", "password": "admin123"}).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_should_recover_stranded_oidc_only_when_skipping_auth_setup(api_client, db_session, seeded_db, admin_headers):
+    settings = await _settings_row(db_session)
+    settings.setup_completed = False
+    settings.auth_mode = "oidc_only"
+    await db_session.commit()
+    assert api_client.post(AUTH_URL, json={"skip": True}, headers=admin_headers).status_code == 200
+    await db_session.refresh(settings)
+    assert settings.auth_mode == "both"
+
+
+@pytest.mark.asyncio
+async def test_should_not_complete_stranded_oidc_only_setup(api_client, db_session, seeded_db, admin_headers):
+    settings = await _settings_row(db_session)
+    settings.setup_completed = False
+    settings.auth_mode = "oidc_only"
+    await db_session.commit()
+    response = api_client.post("/api/v1/setup/complete", headers=admin_headers)
+    assert response.status_code == 400
+    await db_session.refresh(settings)
+    assert settings.setup_completed is False
+
+
+@pytest.mark.asyncio
 async def test_should_reject_configure_auth_when_oidc_client_id_missing(api_client, db_session):
     db_session.add(
         GlobalSettings(secret_key="k" * 40, backup_dir="./b", setup_current_step="auth")
     )
     await db_session.commit()
+    await _authorize_setup(api_client, db_session)
 
     response = api_client.post(
         AUTH_URL,
@@ -281,7 +343,10 @@ async def test_should_reject_configure_auth_when_oidc_client_id_missing(api_clie
 
 
 @pytest.mark.asyncio
-async def test_should_reject_non_http_discovery_url_when_configure_auth(api_client):
+async def test_should_reject_non_http_discovery_url_when_configure_auth(api_client, db_session):
+    db_session.add(GlobalSettings(secret_key="k" * 40, backup_dir="./b"))
+    await db_session.commit()
+    await _authorize_setup(api_client, db_session)
     response = api_client.post(
         AUTH_URL,
         json={
@@ -311,7 +376,8 @@ async def test_should_create_settings_row_when_updating_progress_on_fresh_instal
     assert response.json() == {"success": True, "current_step": "database"}
     settings = await _settings_row(db_session)
     assert settings.setup_current_step == "database"
-    assert settings.secret_key == "temporary-key-will-be-replaced"
+    assert len(settings.secret_key) >= 32
+    assert settings.secret_key != "temporary-key-will-be-replaced"
 
 
 @pytest.mark.asyncio
@@ -322,6 +388,7 @@ async def test_should_overwrite_current_step_when_updating_progress_on_existing_
         GlobalSettings(secret_key="k" * 40, backup_dir="./b", setup_current_step="globals")
     )
     await db_session.commit()
+    await _authorize_setup(api_client, db_session)
 
     response = api_client.post(PROGRESS_URL, json={"current_step": "peer"})
 

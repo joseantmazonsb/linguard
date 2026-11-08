@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.core import database as app_database
 from app.models.settings import GlobalSettings
+from app.models.user import User
 
 STATUS_URL = "/api/v1/setup/status"
 RESET_URL = "/api/v1/setup/reset"
@@ -29,8 +30,8 @@ async def _add_settings(session, **overrides):
 
 
 @pytest.mark.asyncio
-async def test_should_report_requires_setup_when_engine_is_absent(api_client):
-    with patch.object(app_database, "engine", None):
+async def test_should_report_requires_setup_when_engine_is_absent(api_client, isolated_config):
+    with patch.object(app_database, "engine", None), patch.object(app_database, "AsyncSessionLocal", None):
         response = api_client.get(STATUS_URL)
 
     assert response.status_code == 200
@@ -42,12 +43,12 @@ async def test_should_report_requires_setup_when_engine_is_absent(api_client):
 
 
 @pytest.mark.asyncio
-async def test_should_report_requires_setup_when_no_settings_row_exists(api_client, db_session):
+async def test_should_resume_account_when_database_has_no_settings_or_users(api_client, db_session):
     response = api_client.get(STATUS_URL)
 
     assert response.status_code == 200
     assert response.json()["requires_setup"] is True
-    assert response.json()["current_step"] is None
+    assert response.json()["current_step"] == "account"
 
     rows = (await db_session.execute(select(GlobalSettings))).scalars().all()
     assert rows == []
@@ -56,6 +57,8 @@ async def test_should_report_requires_setup_when_no_settings_row_exists(api_clie
 @pytest.mark.asyncio
 async def test_should_return_current_step_when_setup_is_in_progress(api_client, db_session):
     await _add_settings(db_session, setup_current_step="auth")
+    db_session.add(User(username="admin", email="admin@example.com", hashed_password="hash"))
+    await db_session.commit()
 
     response = api_client.get(STATUS_URL)
 
@@ -65,6 +68,42 @@ async def test_should_return_current_step_when_setup_is_in_progress(api_client, 
         "requires_setup": True,
         "current_step": "auth",
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("step", [None, "database", "account", "globals", "auth", "complete"])
+async def test_should_resume_account_when_settings_exist_without_users(api_client, db_session, step):
+    await _add_settings(db_session, setup_current_step=step)
+    response = api_client.get(STATUS_URL)
+    assert response.status_code == 200
+    assert response.json()["current_step"] == "account"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("step", [None, "database", "account"])
+async def test_should_resume_globals_when_user_exists_and_progress_is_missing_or_early(api_client, db_session, step):
+    await _add_settings(db_session, setup_current_step=step)
+    db_session.add(User(username="admin", email="admin@example.com", hashed_password="hash"))
+    await db_session.commit()
+    response = api_client.get(STATUS_URL)
+    assert response.status_code == 200
+    assert response.json()["current_step"] == "globals"
+
+
+@pytest.mark.asyncio
+async def test_should_fail_closed_when_user_exists_without_settings(api_client, db_session):
+    db_session.add(User(username="admin", email="admin@example.com", hashed_password="hash"))
+    await db_session.commit()
+    assert api_client.get(STATUS_URL).status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_should_fail_closed_when_user_query_fails(api_client, api_db):
+    from sqlalchemy import text
+
+    async with api_db.engine.begin() as conn:
+        await conn.execute(text("DROP TABLE users"))
+    assert api_client.get(STATUS_URL).status_code == 503
 
 
 @pytest.mark.asyncio
@@ -81,29 +120,64 @@ async def test_should_report_completed_when_settings_marked_complete(api_client,
 
 
 @pytest.mark.asyncio
-async def test_should_fall_back_to_requires_setup_when_database_query_fails(api_client):
+async def test_should_fail_closed_when_database_query_fails(api_client):
     def _boom():
         raise RuntimeError("database is down")
 
     with patch.object(app_database, "AsyncSessionLocal", _boom):
         response = api_client.get(STATUS_URL)
 
-    assert response.status_code == 200
-    assert response.json()["requires_setup"] is True
+    assert response.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_should_fail_closed_when_settings_table_is_missing(api_client, api_db):
+    from sqlalchemy import text
+
+    async with api_db.engine.begin() as conn:
+        await conn.execute(text("DROP TABLE global_settings"))
+    assert api_client.get(STATUS_URL).status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_should_fail_closed_when_config_exists_but_engine_is_absent(api_client, isolated_config):
+    isolated_config.write_text('{"database":{"type":"sqlite","url":"sqlite://"}}')
+    with patch.object(app_database, "engine", None), patch.object(app_database, "AsyncSessionLocal", None):
+        response = api_client.get(STATUS_URL)
+    assert response.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_should_fail_closed_when_engine_state_is_inconsistent(api_client, isolated_config):
+    with patch.object(app_database, "engine", None):
+        assert api_client.get(STATUS_URL).status_code == 503
+    with patch.object(app_database, "AsyncSessionLocal", None):
+        assert api_client.get(STATUS_URL).status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_should_fail_closed_when_config_check_fails(api_client, isolated_config):
+    with patch.object(app_database, "engine", None), patch.object(app_database, "AsyncSessionLocal", None), \
+         patch("app.api.setup.config_loader.exists", side_effect=RuntimeError("orphaned database")):
+        assert api_client.get(STATUS_URL).status_code == 503
 
 
 @pytest.mark.asyncio
 async def test_should_drop_tables_delete_config_and_stop_monitors_when_reset(
-    api_client, db_session, isolated_config, seeded_db
+    api_client, api_db, db_session, isolated_config, seeded_db, admin_headers
 ):
+    settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+    settings.setup_completed = False
+    await db_session.commit()
     isolated_config.write_text('{"database": {"type": "sqlite", "url": "sqlite://"}}')
     stop_calls = []
 
     async def _stop():
         stop_calls.append(True)
 
-    with patch("app.main.stop_background_monitors", _stop):
-        response = api_client.post(RESET_URL)
+    with patch("app.main.stop_background_monitors", _stop), \
+         patch("sqlalchemy.ext.asyncio.AsyncEngine.dispose", new_callable=AsyncMock):
+        response = api_client.post(RESET_URL, headers=admin_headers)
 
     assert response.status_code == 200
     assert response.json() == {
@@ -115,14 +189,13 @@ async def test_should_drop_tables_delete_config_and_stop_monitors_when_reset(
     assert app_database.engine is None
     assert app_database.AsyncSessionLocal is None
 
-    # Tables were dropped: the seeded settings row is gone from disk.
-    from sqlalchemy import create_engine, text
+    # Inspect the in-memory database before the fixture disposes the engine.
+    from sqlalchemy import text
 
-    sync_engine = create_engine(f"sqlite:///{isolated_config.parent / 'api_test.db'}")
-    with sync_engine.connect() as conn:
-        tables = conn.execute(
+    async with api_db.engine.connect() as conn:
+        tables = (await conn.execute(
             text("SELECT name FROM sqlite_master WHERE type='table'")
-        ).fetchall()
+        )).fetchall()
     assert ("global_settings",) not in tables
 
 
@@ -183,7 +256,6 @@ async def test_should_convert_relative_sqlite_path_when_configure_database(
         "requires_restart": False,
     }
     assert fake_engine_switch.reinit_calls == [expected_url]
-    assert fake_engine_switch.init_db_calls == 1
     assert fake_engine_switch.monitor_starts == 1
     # The chosen backend is persisted for the next startup.
     assert isolated_config.exists()
@@ -243,14 +315,8 @@ async def test_should_keep_url_verbatim_when_configure_database_postgresql(
 
 @pytest.mark.asyncio
 async def test_should_still_configure_database_when_monitors_fail_to_start(
-    api_client, isolated_config, monkeypatch
+    api_client, isolated_config, fake_engine_switch
 ):
-    from app.core import database as db_module
-
-    started = []
-    monkeypatch.setattr(db_module, "reinit_engine", lambda url: started.append(url))
-    monkeypatch.setattr(db_module, "init_db", AsyncMock())
-
     async def _boom():
         raise RuntimeError("monitor cannot start")
 
@@ -262,7 +328,7 @@ async def test_should_still_configure_database_when_monitors_fail_to_start(
 
     assert response.status_code == 200
     assert response.json()["success"] is True
-    assert started == ["sqlite+aiosqlite:///:memory:"]
+    assert fake_engine_switch.reinit_calls == ["sqlite+aiosqlite:///:memory:"]
 
 
 @pytest.mark.asyncio
@@ -274,7 +340,7 @@ async def test_should_return_500_when_configure_database_engine_init_fails(
     def _fail(url):
         raise RuntimeError("cannot connect")
 
-    monkeypatch.setattr(db_module, "reinit_engine", _fail)
+    monkeypatch.setattr(db_module, "_build_engine", _fail)
 
     response = api_client.post(
         CONFIGURE_DB_URL,

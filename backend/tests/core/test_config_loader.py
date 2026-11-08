@@ -8,6 +8,77 @@ from unittest.mock import patch
 from app.core.config_loader import ConfigLoader
 
 
+def test_default_config_path_uses_environment_override(tmp_path, monkeypatch):
+    config_path = tmp_path / "data" / "linguard.config.json"
+    monkeypatch.setenv("LINGUARD_CONFIG_PATH", str(config_path))
+
+    loader = ConfigLoader()
+    assert loader.config_path == config_path
+    loader.set_database("postgresql", "postgresql+asyncpg://user:pass@db/linguard")
+
+    assert ConfigLoader().get_database_url() == "postgresql+asyncpg://user:pass@db/linguard"
+
+
+def test_explicit_config_path_takes_precedence_over_environment(tmp_path, monkeypatch):
+    monkeypatch.setenv("LINGUARD_CONFIG_PATH", str(tmp_path / "environment.json"))
+    explicit_path = tmp_path / "explicit.json"
+
+    assert ConfigLoader(explicit_path).config_path == explicit_path
+
+
+def test_default_config_path_remains_compatible_without_override(monkeypatch):
+    monkeypatch.delenv("LINGUARD_CONFIG_PATH", raising=False)
+
+    assert ConfigLoader().config_path == ConfigLoader.DEFAULT_CONFIG_PATH
+
+
+def test_missing_persistent_config_rejects_existing_sqlite_database(tmp_path, monkeypatch):
+    monkeypatch.setenv("LINGUARD_CONFIG_PATH", str(tmp_path / "data" / "config.json"))
+    db_path = tmp_path / "data" / "linguard.db"
+    db_path.parent.mkdir()
+    db_path.touch()
+    monkeypatch.setenv("LINGUARD_SQLITE_PATH", str(db_path))
+    monkeypatch.setattr(ConfigLoader, "DEFAULT_CONFIG_PATH", tmp_path / "legacy.json")
+
+    with pytest.raises(RuntimeError, match="existing.*database"):
+        ConfigLoader().exists()
+
+
+def test_missing_persistent_config_rejects_legacy_config(tmp_path, monkeypatch):
+    monkeypatch.setenv("LINGUARD_CONFIG_PATH", str(tmp_path / "data" / "config.json"))
+    monkeypatch.delenv("LINGUARD_SQLITE_PATH", raising=False)
+    legacy = tmp_path / "legacy.json"
+    legacy.write_text('{}')
+    monkeypatch.setattr(ConfigLoader, "DEFAULT_CONFIG_PATH", legacy)
+
+    with pytest.raises(RuntimeError, match="legacy.*config"):
+        ConfigLoader().exists()
+
+
+def test_persistent_config_takes_precedence_over_existing_files(tmp_path, monkeypatch):
+    target = tmp_path / "config.json"
+    target.write_text('{"database":{"type":"sqlite","url":"sqlite+aiosqlite:///current.db"}}')
+    legacy = tmp_path / "legacy.json"
+    legacy.write_text('{}')
+    db = tmp_path / "linguard.db"
+    db.touch()
+    monkeypatch.setenv("LINGUARD_CONFIG_PATH", str(target))
+    monkeypatch.setenv("LINGUARD_SQLITE_PATH", str(db))
+    monkeypatch.setattr(ConfigLoader, "DEFAULT_CONFIG_PATH", legacy)
+
+    assert ConfigLoader().exists()
+    assert ConfigLoader().get_database_url() == "sqlite+aiosqlite:///current.db"
+
+
+def test_explicit_config_path_does_not_inspect_container_data(tmp_path, monkeypatch):
+    db = tmp_path / "linguard.db"
+    db.touch()
+    monkeypatch.setenv("LINGUARD_CONFIG_PATH", str(tmp_path / "persistent.json"))
+    monkeypatch.setenv("LINGUARD_SQLITE_PATH", str(db))
+
+    assert not ConfigLoader(tmp_path / "explicit.json").exists()
+
+
 def test_load_config_file_exists(tmp_path):
     """Test loading existing config file."""
     # Create a temporary config directory

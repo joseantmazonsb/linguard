@@ -4,7 +4,8 @@ from urllib.parse import urlparse
 from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import func, select
+from jose import JWTError, jwt
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.containers import Container
@@ -13,9 +14,11 @@ from ..core.events import EventType, event_bus
 from ..core.exceptions import ValidationError
 from ..core.security import (
     create_access_token,
+    auth_generations,
     get_current_admin,
     get_current_user,
     get_password_hash,
+    oidc_configuration_fingerprint,
     verify_password,
 )
 from ..models.audit import AuditLog
@@ -36,6 +39,10 @@ from ..services.audit_logger import AuditService
 from ..services.oidc_service import OIDCError, oidc_service
 
 router = APIRouter()
+
+
+class OIDCLinkRequest(OIDCCallbackRequest):
+    password: str
 
 
 async def _get_auth_settings(db: AsyncSession) -> GlobalSettings | None:
@@ -98,7 +105,8 @@ async def login(
 
 
     settings = await _get_auth_settings(db)
-    if settings and settings.auth_mode == "oidc_only":
+    if (settings and settings.auth_mode == "oidc_only"
+            and (settings.setup_completed or not user or user.role != "admin" or user.auth_provider != "local")):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Local password login is disabled (OIDC-only mode). Sign in with your identity provider.",
@@ -125,7 +133,7 @@ async def login(
 
     # Note: create_access_token will load token expiration from database settings
     access_token = await create_access_token(
-        data={"sub": user.username},
+        data={"sub": user.username, "auth_method": "local"},
         db=db
     )
 
@@ -250,6 +258,16 @@ async def update_user_role(
         )
 
     if user.role == "admin" and user_data.role != "admin":
+        settings = await _get_auth_settings(db)
+        if settings and settings.auth_mode == "oidc_only":
+            await db.execute(update(User).where(User.role == "admin").values(
+                role=User.role, updated_at=User.updated_at
+            ))
+            admins = (await db.execute(
+                select(User).where(User.role == "admin").order_by(User.id).with_for_update()
+            )).scalars().all()
+            if user.oidc_sub and not any(admin.id != user.id and admin.oidc_sub for admin in admins):
+                raise ValidationError("role", "Cannot demote the last OIDC administrator")
         # Prevent removing the last admin
         result = await db.execute(
             select(func.count(User.id)).where(User.role == "admin")
@@ -355,19 +373,22 @@ async def oidc_callback(
 ):
     """Complete an OIDC login: exchange the code, provision the user, mint a JWT."""
     settings = await _get_auth_settings(db)
-    if not settings or not settings.oidc_discovery_url:
+    if not settings or settings.auth_mode == "local_only" or not settings.oidc_discovery_url:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Single Sign-On is not configured"
         )
 
     try:
-        verifier, redirect_uri = oidc_service.pop_flow(callback_data.state)
+        verifier, redirect_uri, binding = oidc_service.pop_flow(callback_data.state)
+        if binding != (oidc_configuration_fingerprint(settings), auth_generations(settings)[1]):
+            raise OIDCError("OIDC configuration changed. Please sign in again.")
         discovery = await oidc_service.get_discovery(settings.oidc_discovery_url)
         token_response = await oidc_service.exchange_code(
             settings, discovery, callback_data.code, redirect_uri, verifier
         )
         claims = await oidc_service.obtain_claims(settings, discovery, token_response)
+        settings = await oidc_service.lock_flow_settings(db, binding)
         user = await oidc_service.get_or_provision_user(db, settings, claims)
     except OIDCError as e:
         await _audit_login(db, audit_service, request, None, False, "oidc",
@@ -381,7 +402,7 @@ async def oidc_callback(
         raise
 
     access_token = await create_access_token(
-        data={"sub": user.username},
+        data={"sub": user.username, "auth_method": "oidc", "oidc_config": oidc_configuration_fingerprint(settings)},
         db=db
     )
 
@@ -397,6 +418,34 @@ async def oidc_callback(
     await db.commit()
 
     return {"access_token": access_token, "token_type": "bearer", "user": user}
+
+
+@router.post("/oidc/link", response_model=UserResponse)
+async def oidc_link(
+    link_data: OIDCLinkRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Link the authenticated local account after independently proving both identities."""
+    settings = await _get_auth_settings(db)
+    if not settings or settings.auth_mode != "both" or not settings.oidc_discovery_url or not settings.oidc_client_id:
+        raise HTTPException(status_code=400, detail="Configure both authentication modes before linking an account.")
+    scheme, _, token = request.headers.get("authorization", "").partition(" ")
+    try:
+        if scheme.lower() != "bearer" or not token:
+            raise JWTError("Missing bearer token")
+        claims = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm], options={"require_exp": True})
+        if claims.get("sub") != current_user.username:
+            raise JWTError("Invalid user")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Authentication required") from None
+    try:
+        return await oidc_service.link_local_account(
+            db, settings, current_user.username, link_data.password, link_data.state, link_data.code, token
+        )
+    except OIDCError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 
 @router.post("/oidc/test", response_model=OIDCTestResponse)

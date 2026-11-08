@@ -1,5 +1,6 @@
 """Tests for OIDCService: discovery, PKCE flow, token validation and provisioning."""
 
+import asyncio
 import base64
 import hashlib
 import time
@@ -13,8 +14,12 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
 from jose import jwk, jwt
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import app.services.oidc_service as oidc_module
+from app.core.database import Base
+from app.core.security import auth_generations, get_password_hash, oidc_configuration_fingerprint
+from app.models.settings import GlobalSettings
 from app.models.user import User
 from app.services.oidc_service import (
     DISCOVERY_TTL_SECONDS,
@@ -43,6 +48,9 @@ def oidc_settings(**overrides):
         "oidc_scopes": "openid email profile",
         "oidc_auto_provision": True,
         "oidc_admin_groups": "",
+        "secret_key": "test-secret",
+        "setup_completed": True,
+        "setup_current_step": None,
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -204,7 +212,8 @@ async def test_should_build_authorization_url_when_settings_given(service):
     assert params["scope"] == ["openid email profile"]
     assert params["code_challenge_method"] == ["S256"]
     state = params["state"][0]
-    verifier, redirect_uri, expires_at = service._pending_flows[state]
+    verifier, redirect_uri, expires_at, binding = service._pending_flows[state]
+    assert binding == (oidc_configuration_fingerprint(oidc_settings()), "")
     assert redirect_uri == "https://linguard.local/auth/callback"
     assert expires_at > time.time()
     assert base64.urlsafe_b64encode(
@@ -231,9 +240,9 @@ async def test_should_propagate_discovery_failure_when_building_authorization_ur
 
 
 def test_should_return_flow_and_consume_it_when_state_known(service):
-    service._pending_flows["state-1"] = ("verifier-1", "https://cb", time.time() + FLOW_TTL_SECONDS)
+    service._pending_flows["state-1"] = ("verifier-1", "https://cb", time.time() + FLOW_TTL_SECONDS, ("fingerprint", ""))
 
-    assert service.pop_flow("state-1") == ("verifier-1", "https://cb")
+    assert service.pop_flow("state-1") == ("verifier-1", "https://cb", ("fingerprint", ""))
     # One-shot: the state cannot be reused
     with pytest.raises(OIDCError, match="Invalid or expired login state"):
         service.pop_flow("state-1")
@@ -245,7 +254,7 @@ def test_should_raise_oidc_error_when_state_unknown(service):
 
 
 def test_should_raise_oidc_error_when_flow_expired(service):
-    service._pending_flows["state-2"] = ("v", "https://cb", time.time() - 1)
+    service._pending_flows["state-2"] = ("v", "https://cb", time.time() - 1, ("fingerprint", ""))
 
     with pytest.raises(OIDCError, match="Login flow expired"):
         service.pop_flow("state-2")
@@ -388,6 +397,14 @@ async def test_should_return_claims_when_id_token_is_valid(service, rsa_keypair)
     assert claims["iss"] == ISSUER
 
 
+async def test_should_reject_id_token_without_expiration(service, rsa_keypair):
+    private_pem, jwks = rsa_keypair
+    token = jwt.encode({"sub": "abc", "iss": ISSUER, "aud": "linguard-client"}, private_pem,
+                       algorithm="RS256", headers={"kid": "key-1"})
+    with patch.object(service, "get_jwks", new=AsyncMock(return_value=jwks)), pytest.raises(OIDCError):
+        await service.validate_id_token(oidc_settings(), DISCOVERY, token)
+
+
 async def test_should_raise_oidc_error_when_token_is_malformed(service, rsa_keypair):
     _, jwks = rsa_keypair
     with patch.object(service, "get_jwks", new=AsyncMock(return_value=jwks)), \
@@ -428,7 +445,7 @@ async def test_should_reject_id_token_when_claim_invalid(
 async def test_should_merge_userinfo_into_claims_when_obtaining(service, rsa_keypair):
     private_pem, _ = rsa_keypair
     service.validate_id_token = AsyncMock(return_value={"sub": "abc", "email": "id@token"})
-    service.fetch_userinfo = AsyncMock(return_value={"email": "userinfo@x", "groups": ["admins"]})
+    service.fetch_userinfo = AsyncMock(return_value={"sub": "abc", "email": "userinfo@x", "groups": ["admins"]})
 
     claims = await service.obtain_claims(
         oidc_settings(), DISCOVERY, {"id_token": "t", "access_token": "at"}
@@ -438,6 +455,25 @@ async def test_should_merge_userinfo_into_claims_when_obtaining(service, rsa_key
     service.fetch_userinfo.assert_awaited_once_with(DISCOVERY, "at")
 
 
+@pytest.mark.parametrize("userinfo", [{"sub": "other", "groups": ["admins"]}, {"email": "x@y"}, {}])
+async def test_should_reject_userinfo_with_missing_or_mismatched_subject(service, rsa_keypair, userinfo):
+    private_pem, jwks = rsa_keypair
+    token = make_id_token(private_pem, {"sub": "abc"})
+    with patch.object(service, "get_jwks", new=AsyncMock(return_value=jwks)), \
+         patch.object(service, "fetch_userinfo", new=AsyncMock(return_value=userinfo)), \
+         pytest.raises(OIDCError, match="subject"):
+        await service.obtain_claims(oidc_settings(), DISCOVERY, {"id_token": token})
+
+
+async def test_should_reject_missing_id_token_subject_before_merging_userinfo(service, rsa_keypair):
+    private_pem, jwks = rsa_keypair
+    token = make_id_token(private_pem, {})
+    with patch.object(service, "get_jwks", new=AsyncMock(return_value=jwks)), \
+         patch.object(service, "fetch_userinfo", new=AsyncMock(return_value={"sub": "abc"})), \
+         pytest.raises(OIDCError, match="subject"):
+        await service.obtain_claims(oidc_settings(), DISCOVERY, {"id_token": token})
+
+
 async def test_should_keep_id_token_claims_when_userinfo_absent(service):
     service.validate_id_token = AsyncMock(return_value={"sub": "abc"})
     service.fetch_userinfo = AsyncMock(return_value=None)
@@ -445,6 +481,21 @@ async def test_should_keep_id_token_claims_when_userinfo_absent(service):
     claims = await service.obtain_claims(oidc_settings(), DISCOVERY, {"id_token": "t"})
 
     assert claims == {"sub": "abc"}
+
+
+async def test_should_not_inherit_verification_for_userinfo_email(service):
+    service.validate_id_token = AsyncMock(return_value={"sub": "abc", "email": "old@x", "email_verified": True})
+    service.fetch_userinfo = AsyncMock(return_value={"sub": "abc", "email": "new@x"})
+    claims = await service.obtain_claims(oidc_settings(), DISCOVERY, {"id_token": "t"})
+    assert claims["email"] == "new@x"
+    assert claims.get("email_verified") is not True
+
+
+async def test_should_not_apply_userinfo_verification_to_id_token_email(service):
+    service.validate_id_token = AsyncMock(return_value={"sub": "abc", "email": "old@x"})
+    service.fetch_userinfo = AsyncMock(return_value={"sub": "abc", "email_verified": True})
+    claims = await service.obtain_claims(oidc_settings(), DISCOVERY, {"id_token": "t"})
+    assert claims.get("email_verified") is not True
 
 
 async def test_should_raise_oidc_error_when_id_token_missing(service):
@@ -463,13 +514,18 @@ async def test_should_raise_oidc_error_when_id_token_missing(service):
         ({"groups": ["admins"]}, "admins,ops", "admin"),
         ({"groups": ["users"]}, "admins", "standard"),
         ({"groups": "admins"}, " admins ", "admin"),
-        ({"groups": ["admins"]}, "", "standard"),
+        ({"groups": ["admins"]}, "", None),
         ({"groups": []}, "admins", "standard"),
-        ({}, "admins", "standard"),
     ],
 )
 def test_should_map_groups_to_role_when_configured(groups_claim, configured, expected):
     assert OIDCService._role_from_groups(groups_claim, configured) == expected
+
+
+@pytest.mark.parametrize("groups_claim", [{}, {"groups": None}, {"groups": 123}, {"groups": ["admins", None]}])
+def test_should_reject_missing_or_invalid_groups_when_mapping_configured(groups_claim):
+    with pytest.raises(OIDCError, match="groups"):
+        OIDCService._role_from_groups(groups_claim, "admins")
 
 
 # ----------------------------------------------------------------------------
@@ -505,18 +561,203 @@ async def test_should_raise_oidc_error_when_sub_claim_missing(service, api_db, d
         await service.get_or_provision_user(db_session, oidc_settings(), {"email": "a@b.c"})
 
 
-async def test_should_link_existing_local_account_when_email_matches(service, api_db, db_session):
-    local = await _seed_user(db_session, "bob", "bob@x")
+@pytest.mark.parametrize("verified", [True, False, None])
+@pytest.mark.parametrize("role", ["admin", "standard"])
+@pytest.mark.parametrize("auto_provision", [True, False])
+async def test_should_refuse_linking_local_account_by_email(
+    service, api_db, db_session, verified, role, auto_provision
+):
+    local = await _seed_user(db_session, "bob", "bob@x", role=role)
 
-    user = await service.get_or_provision_user(
-        db_session, oidc_settings(), {"sub": "sub-bob", "email": "bob@x"}
-    )
+    with pytest.raises((OIDCError, HTTPException)):
+        await service.get_or_provision_user(
+            db_session, oidc_settings(oidc_auto_provision=auto_provision),
+            {"sub": "sub-bob", "email": "bob@x", "email_verified": verified},
+        )
 
-    assert user.id == local.id
     await db_session.refresh(local)
-    assert local.auth_provider == "oidc"
-    assert local.oidc_sub == "sub-bob"
-    assert local.hashed_password == "hashed"  # local password kept as fallback
+    assert local.auth_provider == "local"
+    assert local.oidc_sub is None
+    assert local.hashed_password == "hashed"
+    assert local.role == role
+
+
+async def test_should_refuse_relinking_another_oidc_subject_by_email(service, api_db, db_session):
+    existing = await _seed_user(db_session, "bob", "bob@x", auth_provider="oidc", oidc_sub="original")
+    with pytest.raises((OIDCError, HTTPException)):
+        await service.get_or_provision_user(
+            db_session, oidc_settings(), {"sub": "different", "email": "bob@x", "email_verified": True}
+        )
+    await db_session.refresh(existing)
+    assert existing.oidc_sub == "original"
+
+
+@pytest.mark.parametrize(
+    "initial_role, groups, configured, expected",
+    [
+        ("standard", ["admins"], "admins", "admin"),
+        ("admin", ["users"], "admins", "standard"),
+        ("admin", [], "admins", "standard"),
+    ],
+)
+async def test_should_sync_role_for_existing_oidc_account(
+    service, api_db, db_session, initial_role, groups, configured, expected
+):
+    existing = await _seed_user(
+        db_session, "alice", "alice@x", role=initial_role, auth_provider="oidc", oidc_sub="sub-1"
+    )
+    await _seed_user(db_session, "other-admin", "other@x", role="admin")
+    user = await service.get_or_provision_user(
+        db_session, oidc_settings(oidc_admin_groups=configured, oidc_auto_provision=False),
+        {"sub": "sub-1", "groups": groups},
+    )
+    await db_session.refresh(existing)
+    assert user.id == existing.id
+    assert existing.role == expected
+
+
+@pytest.mark.parametrize("mapping", ["", "  ,  ", None])
+@pytest.mark.parametrize("groups_claim", [{}, {"groups": None}, {"groups": []}, {"groups": ["admins"]}])
+@pytest.mark.parametrize("provider,role", [("oidc", "admin"), ("oidc", "standard"), ("local", "admin")])
+async def test_should_preserve_existing_role_when_admin_mapping_not_configured(
+    service, api_db, db_session, mapping, groups_claim, provider, role
+):
+    existing = await _seed_user(db_session, "alice", "alice@x", role=role, auth_provider=provider, oidc_sub="sub-1")
+    user = await service.get_or_provision_user(
+        db_session, oidc_settings(oidc_admin_groups=mapping), {"sub": "sub-1", **groups_claim}
+    )
+    await db_session.refresh(existing)
+    assert user.id == existing.id
+    assert existing.role == role
+
+
+async def test_should_provision_standard_user_when_admin_mapping_missing(service, api_db, db_session):
+    user = await service.get_or_provision_user(
+        db_session, oidc_settings(oidc_admin_groups=""), {"sub": "new-sub", "email": "new@x"}
+    )
+    assert user.role == "standard"
+
+
+async def test_should_deny_linked_local_admin_when_group_no_longer_matches(service, api_db, db_session):
+    existing = await _seed_user(db_session, "alice", "alice@x", role="admin", oidc_sub="sub-1")
+    with pytest.raises(OIDCError, match="admin"):
+        await service.get_or_provision_user(
+            db_session, oidc_settings(oidc_admin_groups="admins"), {"sub": "sub-1", "groups": []}
+        )
+    await db_session.refresh(existing)
+    assert existing.role == "admin"
+
+
+@pytest.mark.parametrize("groups", [["users"], []])
+async def test_should_deny_login_without_demoting_last_admin(service, api_db, db_session, groups):
+    existing = await _seed_user(db_session, "alice", "alice@x", role="admin", auth_provider="oidc", oidc_sub="sub-1")
+    with pytest.raises(OIDCError, match="last administrator"):
+        await service.get_or_provision_user(db_session, oidc_settings(oidc_admin_groups="admins"),
+                                            {"sub": "sub-1", "groups": groups})
+    await db_session.refresh(existing)
+    assert existing.role == "admin"
+
+
+async def test_should_not_count_unlinked_local_admin_in_oidc_only_mode(service, api_db, db_session):
+    existing = await _seed_user(db_session, "alice", "alice@x", role="admin", auth_provider="oidc", oidc_sub="sub-1")
+    await _seed_user(db_session, "local", "local@x", role="admin")
+    with pytest.raises(OIDCError, match="last administrator"):
+        await service.get_or_provision_user(db_session, oidc_settings(auth_mode="oidc_only", oidc_admin_groups="admins"),
+                                            {"sub": "sub-1", "groups": []})
+    await db_session.refresh(existing)
+    assert existing.role == "admin"
+
+
+async def test_should_serialize_concurrent_admin_demotions(service, tmp_path):
+    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'demotions.db'}")
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        sessions = async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
+        async with sessions() as session:
+            await _seed_user(session, "alice", "alice@x", role="admin", auth_provider="oidc", oidc_sub="alice")
+            await _seed_user(session, "bob", "bob@x", role="admin", auth_provider="oidc", oidc_sub="bob")
+
+        async def demote(subject):
+            async with sessions() as session:
+                try:
+                    await service.get_or_provision_user(session, oidc_settings(oidc_admin_groups="admins"),
+                                                        {"sub": subject, "groups": []})
+                    await session.commit()
+                    return "demoted"
+                except OIDCError:
+                    await session.rollback()
+                    return "denied"
+
+        assert sorted(await asyncio.gather(demote("alice"), demote("bob"))) == ["demoted", "denied"]
+        async with sessions() as session:
+            admins = (await session.execute(select(User).where(User.role == "admin"))).scalars().all()
+            assert len(admins) == 1
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.parametrize("groups_claim", [{}, {"groups": None}])
+async def test_should_deny_login_without_changing_role_when_groups_missing(service, api_db, db_session, groups_claim):
+    existing = await _seed_user(db_session, "alice", "alice@x", role="admin", auth_provider="oidc", oidc_sub="sub-1")
+    with pytest.raises(OIDCError, match="groups"):
+        await service.get_or_provision_user(db_session, oidc_settings(oidc_admin_groups="admins"),
+                                            {"sub": "sub-1", **groups_claim})
+    await db_session.refresh(existing)
+    assert existing.role == "admin"
+
+
+async def test_should_securely_link_local_admin_using_password_and_fresh_oidc_flow(service, api_db, db_session):
+    local = await _seed_user(db_session, "alice", "alice@x", role="admin", hashed_password=get_password_hash("secret"))
+    settings = GlobalSettings(secret_key="test-secret", backup_dir="./b", auth_mode="both", setup_completed=True,
+                              oidc_discovery_url=DISCOVERY_URL, oidc_client_id="linguard-client", oidc_client_secret="s3cret",
+                              oidc_scopes="openid email profile", oidc_admin_groups="admins")
+    db_session.add(settings)
+    await db_session.commit()
+    token = jwt.encode({"sub": "alice", "auth_method": "local", "exp": 9999999999}, settings.secret_key, algorithm="HS256")
+    service._pending_flows["state"] = ("verifier", "https://cb", time.time() + 60, (oidc_configuration_fingerprint(settings), auth_generations(settings)[1]))
+    service.get_discovery = AsyncMock(return_value=DISCOVERY)
+    service.exchange_code = AsyncMock(return_value={"id_token": "token"})
+    service.obtain_claims = AsyncMock(return_value={"sub": "alice-sub", "email": "alice@x", "email_verified": True, "groups": ["admins"]})
+    user = await service.link_local_account(db_session, settings, "alice", "secret", "state", "code", token)
+    assert user.id == local.id
+    assert user.auth_provider == "local"
+    assert user.oidc_sub == "alice-sub"
+    assert user.role == "admin"
+    service.exchange_code.assert_awaited_once_with(settings, DISCOVERY, "code", "https://cb", "verifier")
+    with pytest.raises(OIDCError):
+        service.pop_flow("state")
+    assert (await service.get_or_provision_user(db_session, oidc_settings(oidc_admin_groups="admins"),
+                                                {"sub": "alice-sub", "groups": ["admins"]})).id == local.id
+
+
+@pytest.mark.parametrize("password, email, verified, groups, subject", [
+    ("wrong", "alice@x", True, ["admins"], "alice-sub"),
+    ("secret", "other@x", True, ["admins"], "alice-sub"),
+    ("secret", "alice@x", False, ["admins"], "alice-sub"),
+    ("secret", "alice@x", None, ["admins"], "alice-sub"),
+    ("secret", "alice@x", True, [], "alice-sub"),
+    ("secret", "alice@x", True, None, "alice-sub"),
+    ("secret", "alice@x", True, ["admins"], "taken"),
+])
+async def test_should_refuse_unsafe_local_link(service, api_db, db_session, password, email, verified, groups, subject):
+    local = await _seed_user(db_session, "alice", "alice@x", role="admin", hashed_password=get_password_hash("secret"))
+    await _seed_user(db_session, "other", "other@x", auth_provider="oidc", oidc_sub="taken")
+    settings = GlobalSettings(secret_key="test-secret", backup_dir="./b", auth_mode="both", setup_completed=True,
+                              oidc_discovery_url=DISCOVERY_URL, oidc_client_id="linguard-client", oidc_client_secret="s3cret",
+                              oidc_scopes="openid email profile", oidc_admin_groups="admins")
+    db_session.add(settings)
+    await db_session.commit()
+    token = jwt.encode({"sub": "alice", "auth_method": "local", "exp": 9999999999}, settings.secret_key, algorithm="HS256")
+    service._pending_flows["state"] = ("verifier", "https://cb", time.time() + 60, (oidc_configuration_fingerprint(settings), auth_generations(settings)[1]))
+    service.get_discovery = AsyncMock(return_value=DISCOVERY)
+    service.exchange_code = AsyncMock(return_value={"id_token": "token"})
+    service.obtain_claims = AsyncMock(return_value={"sub": subject, "email": email, "email_verified": verified, "groups": groups})
+    with pytest.raises(OIDCError):
+        await service.link_local_account(db_session, settings, "alice", password, "state", "code", token)
+    await db_session.refresh(local)
+    assert local.oidc_sub is None
+    assert local.role == "admin"
 
 
 async def test_should_refuse_unknown_user_when_auto_provision_disabled(service, api_db, db_session):
@@ -534,6 +775,13 @@ async def test_should_refuse_unknown_user_when_auto_provision_disabled(service, 
 async def test_should_refuse_provisioning_when_email_missing(service, api_db, db_session):
     with pytest.raises(OIDCError, match="email address"):
         await service.get_or_provision_user(db_session, oidc_settings(), {"sub": "new-sub"})
+
+
+async def test_should_refuse_provisioning_when_configured_groups_missing(service, api_db, db_session):
+    with pytest.raises(OIDCError, match="groups"):
+        await service.get_or_provision_user(db_session, oidc_settings(oidc_admin_groups="admins"),
+                                            {"sub": "new-sub", "email": "new@x"})
+    assert (await db_session.execute(select(User).where(User.oidc_sub == "new-sub"))).scalar_one_or_none() is None
 
 
 async def test_should_provision_admin_user_when_group_matches(service, api_db, db_session):

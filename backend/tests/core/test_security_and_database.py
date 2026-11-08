@@ -131,11 +131,19 @@ class TestCreateAccessToken:
 
 
 class TestGetCurrentUser:
+    async def test_should_reject_token_without_expiration(self, db_session):
+        await _add_settings(db_session)
+        await _add_user(db_session)
+        token = jwt.encode({"sub": "alice"}, TEST_SECRET, algorithm="HS256")
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_user(_credentials(token), db_session)
+        assert exc_info.value.status_code == 401
+
     async def test_should_return_user_for_valid_token(self, db_session):
         await _add_settings(db_session)
         user = await _add_user(db_session)
 
-        token = jwt.encode({"sub": user.username}, TEST_SECRET, algorithm="HS256")
+        token = jwt.encode({"sub": user.username, "exp": datetime.utcnow() + timedelta(minutes=30)}, TEST_SECRET, algorithm="HS256")
 
         assert (await get_current_user(_credentials(token), db_session)).id == user.id
 
@@ -206,16 +214,16 @@ class TestGetCurrentUserWithAuthDisabled:
 
         assert (await get_current_user(None, db_session)).id == user.id
 
-    async def test_should_create_temp_admin_when_auth_disabled_and_no_users(
+    async def test_should_reject_when_auth_disabled_and_no_users(
         self, db_session
     ):
         await _add_settings(db_session, disable_auth=True)
 
-        user = await get_current_user(None, db_session)
-
-        assert user.username == "admin"
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_user(None, db_session)
+        assert exc_info.value.status_code == 401
         result = await db_session.execute(select(User))
-        assert len(result.scalars().all()) == 1
+        assert result.scalars().all() == []
 
 
 class TestGetCurrentAdmin:

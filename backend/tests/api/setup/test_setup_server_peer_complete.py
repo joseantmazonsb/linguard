@@ -1,8 +1,10 @@
 """Tests for the server, peer and completion steps of the setup wizard."""
 
 from unittest.mock import patch
+from datetime import datetime, timedelta, timezone
 
 import pytest
+from jose import jwt
 from sqlalchemy import select
 
 from app.main import app
@@ -99,6 +101,8 @@ async def test_should_fall_back_to_defaults_when_detection_raises(api_client):
 @pytest.mark.asyncio
 async def test_should_skip_server_creation_when_wireguard_is_missing(api_client, db_session, isolated_config):
     await _add_settings(db_session)
+    await _add_user(db_session)
+    api_client.headers.update(_admin_headers())
 
     with patch("app.api.setup.detect_wireguard_binaries", return_value={"wg": None}):
         response = api_client.post(SERVER_URL, json=SERVER_PAYLOAD)
@@ -120,6 +124,8 @@ async def test_should_create_server_with_keys_and_dns_when_wireguard_is_availabl
     api_client, db_session, isolated_config
 ):
     await _add_settings(db_session)
+    await _add_user(db_session)
+    api_client.headers.update(_admin_headers())
 
     with patch("app.api.setup.detect_wireguard_binaries", return_value={"wg": "/usr/bin/wg"}):
         response = api_client.post(SERVER_URL, json=SERVER_PAYLOAD)
@@ -151,6 +157,8 @@ async def test_should_create_server_with_keys_and_dns_when_wireguard_is_availabl
 @pytest.mark.asyncio
 async def test_should_leave_dns_empty_when_server_payload_has_no_dns(api_client, db_session, isolated_config):
     await _add_settings(db_session)
+    await _add_user(db_session)
+    api_client.headers.update(_admin_headers())
     payload = {k: v for k, v in SERVER_PAYLOAD.items() if k != "dns"}
 
     with patch("app.api.setup.detect_wireguard_binaries", return_value={"wg": "/usr/bin/wg"}):
@@ -163,7 +171,10 @@ async def test_should_leave_dns_empty_when_server_payload_has_no_dns(api_client,
 
 
 @pytest.mark.asyncio
-async def test_should_reject_invalid_listen_port_when_creating_server(api_client):
+async def test_should_reject_invalid_listen_port_when_creating_server(api_client, db_session):
+    await _add_settings(db_session)
+    await _add_user(db_session)
+    api_client.headers.update(_admin_headers())
     response = api_client.post(SERVER_URL, json={**SERVER_PAYLOAD, "listen_port": 80})
 
     assert response.status_code == 422
@@ -173,7 +184,10 @@ async def test_should_reject_invalid_listen_port_when_creating_server(api_client
 
 
 @pytest.mark.asyncio
-async def test_should_reject_invalid_endpoint_when_creating_server(api_client):
+async def test_should_reject_invalid_endpoint_when_creating_server(api_client, db_session):
+    await _add_settings(db_session)
+    await _add_user(db_session)
+    api_client.headers.update(_admin_headers())
     response = api_client.post(SERVER_URL, json={**SERVER_PAYLOAD, "endpoint": "not a host!"})
 
     assert response.status_code == 422
@@ -199,6 +213,14 @@ async def _add_user(session, username="firstadmin"):
     return user
 
 
+def _admin_headers(username="firstadmin"):
+    token = jwt.encode(
+        {"sub": username, "exp": datetime.now(timezone.utc) + timedelta(minutes=30)},
+        "k" * 40, algorithm="HS256",
+    )
+    return {"Authorization": f"Bearer {token}"}
+
+
 async def _create_server_row(session):
     server = Server(
         name="wg-main",
@@ -219,6 +241,8 @@ async def _create_server_row(session):
 @pytest.mark.asyncio
 async def test_should_skip_peer_creation_when_wireguard_is_missing(api_client, db_session, isolated_config):
     await _add_settings(db_session, setup_current_step="peer")
+    await _add_user(db_session)
+    api_client.headers.update(_admin_headers())
 
     with patch("app.api.setup.detect_wireguard_binaries", return_value={"wg": None}):
         response = api_client.post(PEER_URL, json={"server_id": 1, "name": "laptop"})
@@ -237,6 +261,8 @@ async def test_should_skip_peer_creation_when_wireguard_is_missing(api_client, d
 @pytest.mark.asyncio
 async def test_should_return_404_when_creating_peer_for_unknown_server(api_client, db_session, isolated_config):
     await _add_settings(db_session, setup_current_step="peer")
+    await _add_user(db_session)
+    api_client.headers.update(_admin_headers())
 
     with patch("app.api.setup.detect_wireguard_binaries", return_value={"wg": "/usr/bin/wg"}):
         response = api_client.post(PEER_URL, json={"server_id": 4242, "name": "laptop"})
@@ -248,6 +274,8 @@ async def test_should_return_404_when_creating_peer_for_unknown_server(api_clien
 @pytest.mark.asyncio
 async def test_should_create_peer_with_explicit_ips_when_server_exists(api_client, db_session, isolated_config):
     await _add_settings(db_session, setup_current_step="peer")
+    await _add_user(db_session)
+    api_client.headers.update(_admin_headers())
     server = await _create_server_row(db_session)
 
     with patch("app.api.setup.detect_wireguard_binaries", return_value={"wg": "/usr/bin/wg"}):
@@ -286,6 +314,8 @@ async def test_should_create_peer_with_explicit_ips_when_server_exists(api_clien
 @pytest.mark.asyncio
 async def test_should_autofill_peer_addresses_when_none_provided(api_client, db_session, isolated_config):
     await _add_settings(db_session, setup_current_step="peer")
+    await _add_user(db_session)
+    api_client.headers.update(_admin_headers())
     server = await _create_server_row(db_session)
 
     with patch("app.api.setup.detect_wireguard_binaries", return_value={"wg": "/usr/bin/wg"}):
@@ -308,10 +338,7 @@ async def test_should_autofill_peer_addresses_when_none_provided(api_client, db_
 async def test_should_reject_complete_when_settings_missing(api_client, isolated_config):
     response = api_client.post(COMPLETE_URL)
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == (
-        "Global settings not configured. Please configure settings first."
-    )
+    assert response.status_code == 409
 
 
 @pytest.mark.asyncio
@@ -320,8 +347,7 @@ async def test_should_reject_complete_when_no_user_exists(api_client, db_session
 
     response = api_client.post(COMPLETE_URL)
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "No admin user created. Please initialize setup first."
+    assert response.status_code == 409
 
 
 class _FakeBackup:
@@ -348,7 +374,7 @@ async def test_should_complete_setup_and_create_backup_and_integration(api_clien
     fake_backup = _FakeBackup()
 
     with app.container.backup_service.override(fake_backup):
-        response = api_client.post(COMPLETE_URL)
+        response = api_client.post(COMPLETE_URL, headers=_admin_headers())
 
     assert response.status_code == 200
     assert response.json() == {
@@ -380,7 +406,7 @@ async def test_should_still_complete_when_backup_creation_fails(api_client, db_s
     fake_backup = _FakeBackup(error=RuntimeError("disk full"))
 
     with app.container.backup_service.override(fake_backup):
-        response = api_client.post(COMPLETE_URL)
+        response = api_client.post(COMPLETE_URL, headers=_admin_headers())
 
     assert response.status_code == 200
     assert response.json()["success"] is True
@@ -404,7 +430,7 @@ async def test_should_still_complete_when_integration_creation_fails(
 
     with app.container.backup_service.override(_FakeBackup()), \
          app.container.integration_service.override(ExplodingIntegrationService()):
-        response = api_client.post(COMPLETE_URL)
+        response = api_client.post(COMPLETE_URL, headers=_admin_headers())
 
     assert response.status_code == 200
     assert response.json()["backup_id"] == 7
@@ -414,9 +440,9 @@ async def test_should_still_complete_when_integration_creation_fails(
 
 
 @pytest.mark.asyncio
-async def test_should_not_duplicate_integration_when_completing_twice(api_client, db_session, isolated_config):
+async def test_should_not_duplicate_existing_integration_when_completing_setup(api_client, db_session, isolated_config):
     await _add_user(db_session)
-    await _add_settings(db_session, setup_current_step="complete", setup_completed=True)
+    await _add_settings(db_session, setup_current_step="complete")
     db_session.add(
         Integration(
             name="In-App Notifications",
@@ -429,7 +455,7 @@ async def test_should_not_duplicate_integration_when_completing_twice(api_client
     await db_session.commit()
 
     with app.container.backup_service.override(_FakeBackup()):
-        response = api_client.post(COMPLETE_URL)
+        response = api_client.post(COMPLETE_URL, headers=_admin_headers())
 
     assert response.status_code == 200
     integrations = (await db_session.execute(select(Integration))).scalars().all()

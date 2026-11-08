@@ -1,6 +1,11 @@
+import asyncio
+import secrets
+
 from dependency_injector.wiring import Provide, inject
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from jose import JWTError, jwt
 from sqlalchemy import select
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config_loader import config_loader
@@ -32,6 +37,82 @@ from ..utils.database_manager import DatabaseManager
 from ..utils.wireguard_detect import detect_wireguard_binaries, get_wireguard_paths, verify_wireguard_binary
 
 router = APIRouter()
+_setup_lock = asyncio.Lock()
+
+
+async def require_incomplete_setup(request: Request):
+    """Keep setup mutations closed unless the current installation is unfinished."""
+    from ..core import database as _db
+
+    async with _setup_lock:
+        try:
+            if _db.engine is None and _db.AsyncSessionLocal is None:
+                if config_loader.exists() or request.scope["route"].name not in (
+                    "reset_setup", "configure_database_backend"
+                ):
+                    raise RuntimeError("Database is not initialized")
+                completed = False
+            elif _db.engine is None or _db.AsyncSessionLocal is None:
+                raise RuntimeError("Database initialization is incomplete")
+            else:
+                async with _db.AsyncSessionLocal() as db:
+                    result = await db.execute(select(GlobalSettings))
+                    settings = result.scalar_one_or_none()
+                    completed = settings is not None and settings.setup_completed
+                    users = (await db.execute(select(User))).scalars().all()
+                    if not completed and not users and request.scope["route"].name in (
+                        "configure_global_settings", "configure_auth", "create_first_server",
+                        "create_first_peer", "complete_setup",
+                    ):
+                        raise HTTPException(
+                            status_code=status.HTTP_409_CONFLICT,
+                            detail="Create an administrator before continuing setup.",
+                        )
+                    if not completed and users:
+                        if not settings or settings.secret_key == "temporary-key-will-be-replaced":
+                            raise RuntimeError("Setup signing key requires local recovery")
+                        authorization = request.headers.get("authorization", "")
+                        scheme, _, token = authorization.partition(" ")
+                        try:
+                            if scheme.lower() != "bearer" or not token:
+                                raise JWTError("Missing bearer token")
+                            payload = jwt.decode(
+                                token, settings.secret_key, algorithms=[settings.algorithm],
+                                options={"require_exp": True},
+                            )
+                            user = next((user for user in users if user.username == payload.get("sub")), None)
+                            if not user:
+                                raise JWTError("Unknown user")
+                        except JWTError:
+                            raise HTTPException(
+                                status_code=status.HTTP_401_UNAUTHORIZED,
+                                detail="Admin authentication required for setup.",
+                                headers={"WWW-Authenticate": "Bearer"},
+                            ) from None
+                        if user.role != "admin":
+                            raise HTTPException(
+                                status_code=status.HTTP_403_FORBIDDEN,
+                                detail="Administrator privileges required",
+                            )
+                        if request.scope["route"].name == "configure_database_backend":
+                            raise HTTPException(
+                                status_code=status.HTTP_409_CONFLICT,
+                                detail="Reset setup before changing the database.",
+                            )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Cannot verify setup state.",
+            ) from exc
+
+        if completed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Setup has already been completed.",
+            )
+        yield
 
 
 @router.get("/status", response_model=SetupStatus)
@@ -39,11 +120,13 @@ async def get_setup_status():
     """Check if initial setup has been completed."""
     from ..core import database as _db
 
-    # If engine not ready, setup definitely isn't complete
-    if _db.engine is None:
-        return SetupStatus(setup_completed=False, requires_setup=True, current_step=None)
-
     try:
+        if _db.engine is None and _db.AsyncSessionLocal is None:
+            if config_loader.exists():
+                raise RuntimeError("Database is not initialized")
+            return SetupStatus(setup_completed=False, requires_setup=True, current_step=None)
+        if _db.engine is None or _db.AsyncSessionLocal is None:
+            raise RuntimeError("Database initialization is incomplete")
         async with _db.AsyncSessionLocal() as db:
             # Check setup_completed flag in global settings
             result = await db.execute(select(GlobalSettings))
@@ -54,16 +137,29 @@ async def get_setup_status():
                     setup_completed=True, requires_setup=False, current_step=None
                 )
 
+            user_exists = (await db.execute(select(User.id).limit(1))).scalar_one_or_none() is not None
+            if user_exists and not settings:
+                raise RuntimeError("Users exist without authentication settings")
+            if not user_exists:
+                current_step = "account"
+            elif settings.setup_current_step not in ("globals", "auth", "server", "peer", "complete"):
+                current_step = "globals"
+            else:
+                current_step = settings.setup_current_step
+
             return SetupStatus(
                 setup_completed=False,
                 requires_setup=True,
-                current_step=settings.setup_current_step if settings else None,
+                current_step=current_step,
             )
-    except Exception:
-        return SetupStatus(setup_completed=False, requires_setup=True, current_step=None)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Cannot verify setup state.",
+        ) from exc
 
 
-@router.post("/reset")
+@router.post("/reset", dependencies=[Depends(require_incomplete_setup)])
 async def reset_setup():
     """
     Reset the application to a clean state so the setup wizard can run again.
@@ -72,10 +168,17 @@ async def reset_setup():
     engine to None. Safe to call at any point before setup_completed=True.
     """
     import os
+    from pathlib import Path
     from ..core import database as _db
     from ..core.database import Base
 
     try:
+        pinned = os.environ.get("LINGUARD_SQLITE_PATH")
+        db_url = make_url(config_loader.get_database_url()) if config_loader.exists() else None
+        remove_pinned = (
+            pinned and db_url and db_url.get_backend_name() == "sqlite" and db_url.database
+            and Path(db_url.database).resolve() == Path(pinned).resolve()
+        )
         # Stop background monitors first — they hold a reference to the engine
         try:
             from ..main import stop_background_monitors
@@ -88,6 +191,9 @@ async def reset_setup():
             async with _db.engine.begin() as conn:
                 await conn.run_sync(Base.metadata.drop_all)
             await _db.engine.dispose()
+
+        if remove_pinned:
+            Path(pinned).unlink(missing_ok=True)
 
         # Reset module-level globals
         _db.engine = None
@@ -107,16 +213,20 @@ async def reset_setup():
         )
 
 
-@router.post("/configure-database")
+@router.post("/configure-database", dependencies=[Depends(require_incomplete_setup)])
 async def configure_database_backend(config_data: ConfigureDatabase):
     """Configure database backend (first step in setup)."""
     import os
     import traceback as _tb
+    from pathlib import Path
+    from ..core import database as _db
+    from ..core.database import Base
+    candidate = None
+    new_pinned_db = None
     
     try:
         print(f"[SETUP] Received database config request")
         print(f"[SETUP] Database type: {config_data.database_type.value}")
-        print(f"[SETUP] Database URL (raw): {config_data.database_url}")
         
         # Handle SQLite path conversion
         db_url = config_data.database_url
@@ -145,18 +255,30 @@ async def configure_database_backend(config_data: ConfigureDatabase):
                 db_url = f"sqlite+aiosqlite:///{abs_path}"
                 print(f"[SETUP] Final SQLite URL: {db_url}")
         
-        print(f"[SETUP] Saving config to file...")
-        config_loader.set_database(
-            db_type=config_data.database_type.value, db_url=db_url
+        # Prepare the new database without disrupting the current installation.
+        saved_config = config_loader.load()
+        sqlite_url = make_url(db_url)
+        pinned = os.environ.get("LINGUARD_SQLITE_PATH")
+        if (pinned and sqlite_url.get_backend_name() == "sqlite" and sqlite_url.database
+                and Path(sqlite_url.database).resolve() == Path(pinned).resolve()
+                and not Path(pinned).exists()):
+            new_pinned_db = Path(pinned)
+        candidate = _db._build_engine(db_url)
+        async with candidate.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        new_session_factory = _db.async_sessionmaker(
+            candidate, class_=AsyncSession, expire_on_commit=False,
+            autocommit=False, autoflush=False,
         )
-        print(f"[SETUP] Config saved successfully")
 
-        print(f"[SETUP] Calling reinit_engine({db_url!r})...")
-        from ..core.database import reinit_engine, init_db
-        reinit_engine(db_url)
-        print(f"[SETUP] reinit_engine done, calling init_db()...")
-        await init_db()
-        print(f"[SETUP] Database engine ready and tables created")
+        saved_config["database"] = {"type": config_data.database_type.value, "url": db_url}
+        config_loader.save(saved_config)
+        old_engine = _db.engine
+        _db.engine = candidate
+        _db.AsyncSessionLocal = new_session_factory
+        candidate = None
+        if old_engine is not None:
+            await old_engine.dispose()
 
         # Start the background monitors now that the engine is live
         try:
@@ -174,6 +296,10 @@ async def configure_database_backend(config_data: ConfigureDatabase):
             "requires_restart": False,
         }
     except Exception as e:
+        if candidate is not None:
+            await candidate.dispose()
+            if new_pinned_db is not None and not config_loader.config_path.exists():
+                new_pinned_db.unlink(missing_ok=True)
         full_trace = _tb.format_exc()
         print(f"[SETUP ERROR] {type(e).__name__}: {str(e)}")
         print(f"[SETUP ERROR] Full traceback:\n{full_trace}")
@@ -233,7 +359,7 @@ async def detect_wireguard():
         }
 
 
-@router.post("/initialize", response_model=dict)
+@router.post("/initialize", response_model=dict, dependencies=[Depends(require_incomplete_setup)])
 async def initialize_setup(
     setup_data: InitializeSetup, db: AsyncSession = Depends(get_db)
 ):
@@ -281,7 +407,7 @@ async def initialize_setup(
             database_type=config_loader.get_database_type(),
             setup_current_step="globals",
             # Temporary required field values (will be set in configure-globals)
-            secret_key="temporary-key-will-be-replaced",
+            secret_key=secrets.token_urlsafe(48),
             backup_dir="/tmp/linguard-backups",
             log_path="./linguard.log",
             # Traffic monitoring defaults
@@ -293,12 +419,13 @@ async def initialize_setup(
     else:
         settings.database_type = config_loader.get_database_type()
         settings.setup_current_step = "globals"
+        settings.secret_key = secrets.token_urlsafe(48)
     await db.commit()
 
     return {"success": True, "user_id": user.id, "username": user.username}
 
 
-@router.post("/configure-globals")
+@router.post("/configure-globals", dependencies=[Depends(require_incomplete_setup)])
 async def configure_global_settings(
     config_data: ConfigureGlobals, db: AsyncSession = Depends(get_db)
 ):
@@ -365,7 +492,7 @@ async def configure_global_settings(
     return {"success": True, "settings_id": settings.id}
 
 
-@router.post("/configure-auth")
+@router.post("/configure-auth", dependencies=[Depends(require_incomplete_setup)])
 async def configure_auth(config_data: ConfigureAuth, db: AsyncSession = Depends(get_db)):
     """Configure authentication (OIDC) during setup, or skip to continue with local auth."""
     result = await db.execute(select(GlobalSettings))
@@ -378,11 +505,22 @@ async def configure_auth(config_data: ConfigureAuth, db: AsyncSession = Depends(
         )
 
     if not config_data.skip:
+        if config_data.auth_mode == "oidc_only":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="OIDC-only mode cannot be enabled during setup. Configure both modes, complete setup, and sign in as an OIDC administrator first.",
+            )
         if not config_data.oidc_discovery_url or not config_data.oidc_client_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="OIDC discovery URL and client ID are required when configuring Single Sign-On."
             )
+
+        if (settings.oidc_discovery_url != config_data.oidc_discovery_url
+                or settings.oidc_client_id != config_data.oidc_client_id):
+            linked_user = (await db.execute(select(User.id).where(User.oidc_sub.is_not(None)).limit(1))).scalar_one_or_none()
+            if linked_user is not None:
+                raise HTTPException(status_code=400, detail="OIDC provider or client cannot be changed while accounts are linked.")
 
         settings.auth_mode = config_data.auth_mode
         settings.oidc_discovery_url = config_data.oidc_discovery_url
@@ -392,6 +530,9 @@ async def configure_auth(config_data: ConfigureAuth, db: AsyncSession = Depends(
         settings.oidc_auto_provision = config_data.oidc_auto_provision
         settings.oidc_admin_groups = config_data.oidc_admin_groups
 
+    elif settings.auth_mode == "oidc_only":
+        settings.auth_mode = "both"
+
     settings.setup_current_step = "server"  # Next step
     await db.commit()
     await db.refresh(settings)
@@ -399,7 +540,7 @@ async def configure_auth(config_data: ConfigureAuth, db: AsyncSession = Depends(
     return {"success": True, "skipped": config_data.skip}
 
 
-@router.post("/update-progress")
+@router.post("/update-progress", dependencies=[Depends(require_incomplete_setup)])
 async def update_setup_progress(
     progress_data: UpdateSetupProgress, db: AsyncSession = Depends(get_db)
 ):
@@ -413,7 +554,7 @@ async def update_setup_progress(
         # schema defaults (secret_key, backup_dir).
         settings = GlobalSettings(
             setup_current_step=progress_data.current_step,
-            secret_key="temporary-key-will-be-replaced",
+            secret_key=secrets.token_urlsafe(48),
             backup_dir="/tmp/linguard-backups",
         )
         db.add(settings)
@@ -424,7 +565,7 @@ async def update_setup_progress(
     return {"success": True, "current_step": progress_data.current_step}
 
 
-@router.post("/create-server", response_model=dict)
+@router.post("/create-server", response_model=dict, dependencies=[Depends(require_incomplete_setup)])
 @inject
 async def create_first_server(
     server_data: CreateServer,
@@ -494,7 +635,7 @@ async def create_first_server(
     }
 
 
-@router.post("/create-peer", response_model=dict)
+@router.post("/create-peer", response_model=dict, dependencies=[Depends(require_incomplete_setup)])
 @inject
 async def create_first_peer(
     peer_data: CreatePeer,
@@ -592,7 +733,7 @@ async def create_first_peer(
     }
 
 
-@router.post("/complete", response_model=SetupComplete)
+@router.post("/complete", response_model=SetupComplete, dependencies=[Depends(require_incomplete_setup)])
 @inject
 async def complete_setup(
     db: AsyncSession = Depends(get_db),
@@ -609,6 +750,9 @@ async def complete_setup(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Global settings not configured. Please configure settings first.",
         )
+
+    if settings.auth_mode == "oidc_only":
+        raise HTTPException(status_code=400, detail="Enable local login before completing setup.")
 
     # Verify at least one user exists
     result = await db.execute(select(User))

@@ -1,8 +1,10 @@
 import ipaddress
+from secrets import token_urlsafe
 import subprocess
 
 from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,14 +13,16 @@ from ..core.config_loader import config_loader
 from ..core.containers import Container
 from ..core.database import get_db
 from ..core.events import EventType, event_bus
-from ..core.security import get_current_user
+from ..core.security import (
+    OIDC_SECURITY_FIELDS, auth_generations, get_current_user, oidc_configuration_fingerprint,
+    validate_auth_method, authenticate_locked, lock_auth_settings,
+)
 from ..models.settings import GlobalSettings
 from ..models.user import User
 from ..schemas.settings import GlobalSettingsResponse, GlobalSettingsUpdate
 from ..services.audit_logger import AuditService
 
 router = APIRouter()
-
 
 @router.get("/global", response_model=GlobalSettingsResponse)
 async def get_global_settings(
@@ -32,8 +36,6 @@ async def get_global_settings(
         # Bootstrap a row. secret_key and backup_dir have no schema default but
         # are NOT NULL, so they must be filled to keep the insert valid; the
         # setup wizard replaces the placeholder key when it runs.
-        from secrets import token_urlsafe
-
         settings = GlobalSettings(
             secret_key=token_urlsafe(32),
             backup_dir="./backups",
@@ -77,13 +79,17 @@ async def update_global_settings(
 ):
     """Update global settings (DNS servers and IP pools)"""
     # Get existing settings
-    result = await db.execute(select(GlobalSettings))
-    settings = result.scalar_one_or_none()
+    # Serialize settings writes, including on SQLite where FOR UPDATE is ignored.
+    settings = await lock_auth_settings(db)
+
+    if settings:
+        scheme, _, token = request.headers.get("authorization", "").partition(" ")
+        current_user = await authenticate_locked(db, settings, token if scheme.lower() == "bearer" else None)
+        if current_user.role != "admin":
+            raise HTTPException(status_code=403, detail="Administrator privileges required")
 
     if not settings:
         # Create if doesn't exist (same NOT NULL bootstrap as the GET handler)
-        from secrets import token_urlsafe
-
         settings = GlobalSettings(
             secret_key=token_urlsafe(32),
             backup_dir="./backups",
@@ -170,6 +176,37 @@ async def update_global_settings(
                 detail="OIDC discovery URL must start with http:// or https://."
             )
 
+    if any(field in update_data and update_data[field] != getattr(settings, field)
+           for field in ("oidc_discovery_url", "oidc_client_id")):
+        linked_user = (await db.execute(
+            select(User.id).where(User.oidc_sub.is_not(None)).limit(1).with_for_update()
+        )).scalar_one_or_none()
+        if linked_user is not None:
+            raise HTTPException(status_code=400, detail="OIDC provider or client cannot be changed while accounts are linked.")
+
+    resulting_mode = update_data.get("auth_mode", settings.auth_mode)
+    if resulting_mode == "oidc_only":
+        if not settings.setup_completed:
+            raise HTTPException(status_code=400, detail="Complete setup before enabling OIDC-only mode.")
+        if any(field in update_data and update_data[field] != getattr(settings, field) for field in OIDC_SECURITY_FIELDS):
+            raise HTTPException(status_code=400, detail="Switch to both authentication modes before changing OIDC configuration.")
+        if settings.auth_mode != "oidc_only":
+            if any(field in update_data and update_data[field] != getattr(settings, field) for field in ("secret_key", "algorithm")):
+                raise HTTPException(status_code=400, detail="Change signing settings and sign in again before enabling OIDC-only mode.")
+            authorization = request.headers.get("authorization", "")
+            scheme, _, token = authorization.partition(" ")
+            try:
+                if scheme.lower() != "bearer" or not token or not settings.oidc_discovery_url or not settings.oidc_client_id:
+                    raise JWTError("OIDC session required")
+                claims = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm], options={"require_exp": True})
+                validate_auth_method(claims, settings, current_user)
+                if (claims.get("sub") != current_user.username or not current_user.oidc_sub
+                        or claims.get("auth_method", "oidc") != "oidc"
+                        or claims.get("oidc_config") != oidc_configuration_fingerprint(settings)):
+                    raise JWTError("OIDC session required")
+            except JWTError:
+                raise HTTPException(status_code=400, detail="Sign in as an OIDC administrator before enabling OIDC-only mode.") from None
+
     # The backup schedule columns are NOT NULL and the response schema declares
     # them as integers, so a null time (sent when periodic backups are being
     # disabled) means "keep the stored schedule" rather than "store NULL".
@@ -182,6 +219,23 @@ async def update_global_settings(
         "dns_primary": settings.dns_primary,
         "dns_secondary": settings.dns_secondary
     }
+
+    if settings.setup_completed:
+        local_generation, oidc_generation = auth_generations(settings)
+        changed = False
+        if settings.auth_mode != "oidc_only" and resulting_mode == "oidc_only":
+            if local_generation == "ffffffff":
+                raise HTTPException(status_code=503, detail="Authentication revocation counter exhausted.")
+            local_generation = f"{int(local_generation or '0', 16) + 1:08x}"
+            changed = True
+        if ((settings.auth_mode != resulting_mode and "local_only" in (settings.auth_mode, resulting_mode)) or
+                any(field in update_data and update_data[field] != getattr(settings, field) for field in OIDC_SECURITY_FIELDS)):
+            if oidc_generation == "ffffffff":
+                raise HTTPException(status_code=503, detail="Authentication revocation counter exhausted.")
+            oidc_generation = f"{int(oidc_generation or '0', 16) + 1:08x}"
+            changed = True
+        if changed:
+            settings.setup_current_step = f"r{local_generation or '00000000'}{oidc_generation or '00000000'}"
 
     # Update fields
     for field, value in update_data.items():
@@ -211,4 +265,3 @@ async def update_global_settings(
     )
 
     return settings
-

@@ -3,9 +3,11 @@
 from unittest.mock import AsyncMock
 
 import pytest
+from jose import jwt
 from sqlalchemy import select
 
 from app.api.auth import oidc_service
+from app.core.security import auth_generations, oidc_configuration_fingerprint
 from app.models.audit import AuditLog
 from app.models.settings import GlobalSettings
 from app.models.user import User
@@ -15,6 +17,332 @@ LOGIN_URL = "/api/v1/auth/oidc/login"
 CALLBACK_URL = "/api/v1/auth/oidc/callback"
 TEST_URL = "/api/v1/auth/oidc/test"
 PROFILE_URL = "/api/v1/auth/profile"
+
+
+@pytest.mark.asyncio
+async def test_should_revoke_legacy_and_oidc_tokens_when_local_only_is_reenabled(api_client, db_session, seeded_db):
+    from app.core.security import oidc_configuration_fingerprint
+
+    settings = await _configure_oidc(db_session)
+    local = api_client.post("/api/v1/auth/token", data={"username": "admin", "password": "admin123"}).json()["access_token"]
+    oidc = jwt.encode({"sub": "admin", "auth_method": "oidc", "oidc_config": oidc_configuration_fingerprint(settings), "exp": 9999999999}, settings.secret_key, algorithm=settings.algorithm)
+    legacy = jwt.encode({"sub": "admin", "exp": 9999999999}, settings.secret_key, algorithm=settings.algorithm)
+    headers = lambda token: {"Authorization": f"Bearer {token}"}
+    assert api_client.put("/api/v1/settings/global", headers=headers(local), json={"auth_mode": "local_only"}).status_code == 200
+    assert api_client.get(PROFILE_URL, headers=headers(legacy)).status_code == 401
+    assert api_client.put("/api/v1/settings/global", headers=headers(local), json={"auth_mode": "both"}).status_code == 200
+    assert api_client.get(PROFILE_URL, headers=headers(oidc)).status_code == 401
+    assert api_client.get(PROFILE_URL, headers=headers(legacy)).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_should_reject_ambiguous_legacy_token_for_existing_local_only_deployment(api_client, db_session, seeded_db):
+    settings = await _configure_oidc(db_session, auth_mode="local_only")
+    legacy = jwt.encode({"sub": "admin", "exp": 9999999999}, settings.secret_key, algorithm=settings.algorithm)
+    assert api_client.get(PROFILE_URL, headers={"Authorization": f"Bearer {legacy}"}).status_code == 401
+    local = api_client.post("/api/v1/auth/token", data={"username": "admin", "password": "admin123"}).json()["access_token"]
+    assert api_client.put("/api/v1/settings/global", headers={"Authorization": f"Bearer {local}"}, json={"auth_mode": "both"}).status_code == 200
+    assert api_client.get(PROFILE_URL, headers={"Authorization": f"Bearer {legacy}"}).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_should_reject_flow_started_before_provider_changes(api_client, db_session, seeded_db, monkeypatch):
+    from urllib.parse import parse_qs, urlparse
+
+    settings = await _configure_oidc(db_session)
+    monkeypatch.setattr(oidc_service, "get_discovery", AsyncMock(return_value=DISCOVERY))
+    monkeypatch.setattr(oidc_service, "exchange_code", AsyncMock(return_value={"id_token": "t"}))
+    monkeypatch.setattr(oidc_service, "obtain_claims", AsyncMock(return_value={"sub": "new-sub", "email": "new@example.com"}))
+    login = api_client.get(LOGIN_URL)
+    state = parse_qs(urlparse(login.json()["authorization_url"]).query)["state"][0]
+    settings.oidc_discovery_url = "https://different.example/discovery"
+    await db_session.commit()
+    response = api_client.post(CALLBACK_URL, json={"code": "c", "state": state})
+    assert response.status_code == 401
+    assert (await db_session.execute(select(User).where(User.oidc_sub == "new-sub"))).scalar_one_or_none() is None
+
+
+@pytest.mark.asyncio
+async def test_should_reject_flow_after_oidc_configuration_is_changed_back(api_client, db_session, seeded_db, monkeypatch):
+    from urllib.parse import parse_qs, urlparse
+
+    await _configure_oidc(db_session, oidc_admin_groups="admins")
+    local = api_client.post("/api/v1/auth/token", data={"username": "admin", "password": "admin123"}).json()["access_token"]
+    headers = {"Authorization": f"Bearer {local}"}
+    monkeypatch.setattr(oidc_service, "get_discovery", AsyncMock(return_value=DISCOVERY))
+    state = parse_qs(urlparse(api_client.get(LOGIN_URL).json()["authorization_url"]).query)["state"][0]
+    assert api_client.put("/api/v1/settings/global", headers=headers, json={"oidc_admin_groups": "other"}).status_code == 200
+    assert api_client.put("/api/v1/settings/global", headers=headers, json={"oidc_admin_groups": "admins"}).status_code == 200
+    assert api_client.post(CALLBACK_URL, json={"code": "c", "state": state}).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_should_not_provision_when_provider_changes_during_exchange(api_client, db_session, seeded_db, monkeypatch):
+    from urllib.parse import parse_qs, urlparse
+
+    settings = await _configure_oidc(db_session)
+    monkeypatch.setattr(oidc_service, "get_discovery", AsyncMock(return_value=DISCOVERY))
+    async def exchange(*args):
+        settings.oidc_discovery_url = "https://different.example/discovery"
+        await db_session.commit()
+        return {"id_token": "t"}
+    monkeypatch.setattr(oidc_service, "exchange_code", exchange)
+    monkeypatch.setattr(oidc_service, "obtain_claims", AsyncMock(return_value={"sub": "new-sub", "email": "new@example.com"}))
+    state = parse_qs(urlparse(api_client.get(LOGIN_URL).json()["authorization_url"]).query)["state"][0]
+    response = api_client.post(CALLBACK_URL, json={"code": "c", "state": state})
+    assert response.status_code == 401
+    assert (await db_session.execute(select(User).where(User.oidc_sub == "new-sub"))).scalar_one_or_none() is None
+
+
+@pytest.mark.asyncio
+async def test_should_not_provision_when_local_only_temporarily_enabled_during_exchange(api_client, db_session, seeded_db, monkeypatch):
+    from urllib.parse import parse_qs, urlparse
+    from starlette.testclient import TestClient
+    from app.main import app
+
+    await _configure_oidc(db_session)
+    local = api_client.post("/api/v1/auth/token", data={"username": "admin", "password": "admin123"}).json()["access_token"]
+    headers = {"Authorization": f"Bearer {local}"}
+    monkeypatch.setattr(oidc_service, "get_discovery", AsyncMock(return_value=DISCOVERY))
+    async def exchange(*args):
+        client = TestClient(app, raise_server_exceptions=False)
+        assert client.put("/api/v1/settings/global", headers=headers, json={"auth_mode": "local_only"}).status_code == 200
+        assert client.put("/api/v1/settings/global", headers=headers, json={"auth_mode": "both"}).status_code == 200
+        return {"id_token": "t"}
+    monkeypatch.setattr(oidc_service, "exchange_code", exchange)
+    monkeypatch.setattr(oidc_service, "obtain_claims", AsyncMock(return_value={"sub": "new-sub", "email": "new@example.com"}))
+    state = parse_qs(urlparse(api_client.get(LOGIN_URL).json()["authorization_url"]).query)["state"][0]
+    assert api_client.post(CALLBACK_URL, json={"code": "c", "state": state}).status_code == 401
+    assert (await db_session.execute(select(User).where(User.oidc_sub == "new-sub"))).scalar_one_or_none() is None
+
+
+@pytest.mark.asyncio
+async def test_should_not_link_when_provider_changes_during_exchange(api_client, db_session, seeded_db, monkeypatch):
+    from urllib.parse import parse_qs, urlparse
+
+    settings = await _configure_oidc(db_session, oidc_admin_groups="admins")
+    token = api_client.post("/api/v1/auth/token", data={"username": "admin", "password": "admin123"}).json()["access_token"]
+    monkeypatch.setattr(oidc_service, "get_discovery", AsyncMock(return_value=DISCOVERY))
+    async def exchange(*args):
+        settings.oidc_discovery_url = "https://different.example/discovery"
+        await db_session.commit()
+        return {"id_token": "t"}
+    monkeypatch.setattr(oidc_service, "exchange_code", exchange)
+    monkeypatch.setattr(oidc_service, "obtain_claims", AsyncMock(return_value={"sub": "linked", "email": "admin@example.com", "email_verified": True, "groups": ["admins"]}))
+    state = parse_qs(urlparse(api_client.get(LOGIN_URL).json()["authorization_url"]).query)["state"][0]
+    response = api_client.post("/api/v1/auth/oidc/link", headers={"Authorization": f"Bearer {token}"}, json={"code": "c", "state": state, "password": "admin123"})
+    assert response.status_code == 401
+    admin = (await db_session.execute(select(User).where(User.username == "admin"))).scalar_one()
+    await db_session.refresh(admin)
+    assert admin.oidc_sub is None
+
+
+@pytest.mark.asyncio
+async def test_should_enable_oidc_only_after_successful_oidc_admin_login(api_client, db_session, seeded_db, monkeypatch):
+    settings = await _configure_oidc(db_session, oidc_admin_groups="admins")
+    monkeypatch.setattr(oidc_service, "pop_flow", lambda state: ("verifier", "http://testserver/oidc-callback", (oidc_configuration_fingerprint(settings), auth_generations(settings)[1])))
+    monkeypatch.setattr(oidc_service, "get_discovery", AsyncMock(return_value=DISCOVERY))
+    monkeypatch.setattr(oidc_service, "exchange_code", AsyncMock(return_value={"id_token": "t"}))
+    monkeypatch.setattr(oidc_service, "obtain_claims", AsyncMock(return_value={
+        "sub": "sso-admin", "email": "sso@example.com", "groups": ["admins"]
+    }))
+    login = api_client.post(CALLBACK_URL, json={"code": "c", "state": "s"})
+    assert login.status_code == 200
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    response = api_client.put("/api/v1/settings/global", headers=headers, json={"auth_mode": "oidc_only"})
+    assert response.status_code == 200
+    assert response.json()["auth_mode"] == "oidc_only"
+    assert api_client.post("/api/v1/auth/token", data={"username": "admin", "password": "admin123"}).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_should_link_local_admin_only_after_password_and_verified_oidc_identity(auth_client, db_session, monkeypatch):
+    settings = await _configure_oidc(db_session, oidc_admin_groups="admins", oidc_auto_provision=False)
+    monkeypatch.setattr(oidc_service, "pop_flow", lambda state: ("verifier", "http://testserver/oidc-callback", (oidc_configuration_fingerprint(settings), auth_generations(settings)[1])))
+    monkeypatch.setattr(oidc_service, "get_discovery", AsyncMock(return_value=DISCOVERY))
+    monkeypatch.setattr(oidc_service, "exchange_code", AsyncMock(return_value={"id_token": "t"}))
+    claims = {"sub": "linked-admin", "email": "admin@example.com", "email_verified": True, "groups": ["admins"]}
+    monkeypatch.setattr(oidc_service, "obtain_claims", AsyncMock(return_value=claims))
+    payload = {"code": "c", "state": "s", "password": "wrong"}
+    assert auth_client.post("/api/v1/auth/oidc/link", json=payload).status_code == 401
+    payload["password"] = "admin123"
+    claims["email_verified"] = False
+    assert auth_client.post("/api/v1/auth/oidc/link", json=payload).status_code == 401
+    claims["email_verified"] = True
+    assert auth_client.post("/api/v1/auth/oidc/link", json=payload).status_code == 200
+    admin = (await db_session.execute(select(User).where(User.username == "admin"))).scalar_one()
+    await db_session.refresh(admin)
+    assert admin.oidc_sub == "linked-admin"
+    login = auth_client.post(CALLBACK_URL, json={"code": "c", "state": "s"})
+    assert login.status_code == 200
+    response = auth_client.put("/api/v1/settings/global", headers={"Authorization": f"Bearer {login.json()['access_token']}"}, json={"auth_mode": "oidc_only"})
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_should_reject_stale_oidc_session_after_configuration_changes(api_client, db_session, seeded_db, monkeypatch):
+    settings = await _configure_oidc(db_session, oidc_admin_groups="admins")
+    monkeypatch.setattr(oidc_service, "pop_flow", lambda state: ("v", "http://testserver/oidc-callback", (oidc_configuration_fingerprint(settings), auth_generations(settings)[1])))
+    monkeypatch.setattr(oidc_service, "get_discovery", AsyncMock(return_value=DISCOVERY))
+    monkeypatch.setattr(oidc_service, "exchange_code", AsyncMock(return_value={"id_token": "t"}))
+    monkeypatch.setattr(oidc_service, "obtain_claims", AsyncMock(return_value={"sub": "sso", "email": "sso@example.com", "groups": ["admins"]}))
+    login = api_client.post(CALLBACK_URL, json={"code": "c", "state": "s"})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    assert api_client.put("/api/v1/settings/global", headers=headers, json={"oidc_admin_groups": "other"}).status_code == 200
+    assert api_client.get(PROFILE_URL, headers=headers).status_code == 401
+    assert api_client.put("/api/v1/settings/global", headers=headers, json={"auth_mode": "oidc_only"}).status_code == 401
+    await db_session.refresh(settings)
+    fresh_login = api_client.post(CALLBACK_URL, json={"code": "c", "state": "s"})
+    assert fresh_login.status_code == 200
+    fresh_headers = {"Authorization": f"Bearer {fresh_login.json()['access_token']}"}
+    assert api_client.get(PROFILE_URL, headers=fresh_headers).status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field,value", [
+    ("oidc_discovery_url", "https://other.example.com/discovery"),
+    ("oidc_client_id", "other-client"),
+    ("oidc_client_secret", "other-secret"),
+    ("oidc_scopes", "openid"),
+    ("oidc_admin_groups", "other-admins"),
+])
+async def test_should_revalidate_oidc_fingerprint_on_each_request(api_client, db_session, seeded_db, field, value):
+    from app.api.settings import oidc_configuration_fingerprint
+
+    settings = await _configure_oidc(db_session, oidc_admin_groups="admins")
+    token = jwt.encode({"sub": "admin", "auth_method": "oidc", "exp": 9999999999,
+                        "oidc_config": oidc_configuration_fingerprint(settings)}, settings.secret_key, algorithm=settings.algorithm)
+    headers = {"Authorization": f"Bearer {token}"}
+    assert api_client.get(PROFILE_URL, headers=headers).status_code == 200
+    setattr(settings, field, value)
+    await db_session.commit()
+    assert api_client.get(PROFILE_URL, headers=headers).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_should_not_revive_oidc_session_after_configuration_is_restored(api_client, auth_client, db_session):
+    from app.api.settings import oidc_configuration_fingerprint
+
+    settings = await _configure_oidc(db_session, oidc_admin_groups="admins")
+    token = jwt.encode({"sub": "admin", "auth_method": "oidc", "exp": 9999999999,
+                        "oidc_config": oidc_configuration_fingerprint(settings)}, settings.secret_key, algorithm=settings.algorithm)
+    headers = {"Authorization": f"Bearer {token}"}
+    assert api_client.get(PROFILE_URL, headers=headers).status_code == 200
+    local = api_client.post("/api/v1/auth/token", data={"username": "admin", "password": "admin123"}).json()["access_token"]
+    local_headers = {"Authorization": f"Bearer {local}"}
+    assert auth_client.put("/api/v1/settings/global", headers=local_headers, json={"oidc_admin_groups": "other"}).status_code == 200
+    assert auth_client.put("/api/v1/settings/global", headers=local_headers, json={"oidc_admin_groups": "admins"}).status_code == 200
+    assert api_client.get(PROFILE_URL, headers=headers).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_should_reject_missing_or_malformed_oidc_fingerprints(api_client, db_session, seeded_db):
+    settings = await _configure_oidc(db_session)
+    for fingerprint in (None, "", ["invalid"], "non-ascii-\u00e9"):
+        token = jwt.encode({"sub": "admin", "auth_method": "oidc", "oidc_config": fingerprint,
+                            "exp": 9999999999}, settings.secret_key, algorithm=settings.algorithm)
+        assert api_client.get(PROFILE_URL, headers={"Authorization": f"Bearer {token}"}).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_should_revoke_ambiguous_legacy_tokens_after_oidc_configuration_change(api_client, auth_client, db_session):
+    settings = await _configure_oidc(db_session, oidc_admin_groups="admins")
+    legacy = jwt.encode({"sub": "admin", "exp": 9999999999}, settings.secret_key, algorithm=settings.algorithm)
+    local = api_client.post("/api/v1/auth/token", data={"username": "admin", "password": "admin123"}).json()["access_token"]
+    headers = lambda token: {"Authorization": f"Bearer {token}"}
+    assert api_client.get(PROFILE_URL, headers=headers(legacy)).status_code == 200
+    assert auth_client.put("/api/v1/settings/global", headers=headers(local), json={"oidc_admin_groups": "other"}).status_code == 200
+    assert api_client.get(PROFILE_URL, headers=headers(legacy)).status_code == 401
+    assert api_client.get(PROFILE_URL, headers=headers(local)).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_should_keep_sessions_when_oidc_settings_are_unchanged(api_client, db_session, seeded_db):
+    from app.api.settings import oidc_configuration_fingerprint
+
+    settings = await _configure_oidc(db_session, oidc_admin_groups="admins")
+    token = jwt.encode({"sub": "admin", "auth_method": "oidc", "exp": 9999999999,
+                        "oidc_config": oidc_configuration_fingerprint(settings)}, settings.secret_key, algorithm=settings.algorithm)
+    headers = {"Authorization": f"Bearer {token}"}
+    assert api_client.put("/api/v1/settings/global", headers=headers, json={"oidc_admin_groups": "admins"}).status_code == 200
+    assert api_client.get(PROFILE_URL, headers=headers).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_should_revalidate_websocket_sessions_after_oidc_configuration_change(api_client, auth_client, db_session):
+    from app.api.settings import oidc_configuration_fingerprint
+    from app.api.ws import authenticate
+    from jose import JWTError
+
+    settings = await _configure_oidc(db_session, oidc_admin_groups="admins")
+    token = jwt.encode({"sub": "admin", "auth_method": "oidc", "exp": 9999999999,
+                        "oidc_config": oidc_configuration_fingerprint(settings)}, settings.secret_key, algorithm=settings.algorithm)
+    assert (await authenticate(token))[1] is not None
+    assert auth_client.put("/api/v1/settings/global", json={"oidc_admin_groups": "other"}).status_code == 200
+    with pytest.raises(JWTError):
+        await authenticate(token)
+
+
+@pytest.mark.asyncio
+async def test_should_permanently_revoke_local_sessions_on_oidc_only_transition(api_client, db_session, seeded_db, monkeypatch):
+    from app.api.ws import authenticate
+    from jose import JWTError
+
+    settings = await _configure_oidc(db_session, oidc_admin_groups="admins")
+    admin = (await db_session.execute(select(User).where(User.username == "admin"))).scalar_one()
+    admin.oidc_sub = "linked-admin"
+    await db_session.commit()
+    local = api_client.post("/api/v1/auth/token", data={"username": "admin", "password": "admin123"}).json()["access_token"]
+    legacy = jwt.encode({"sub": "admin", "exp": 9999999999}, settings.secret_key, algorithm=settings.algorithm)
+    monkeypatch.setattr(oidc_service, "pop_flow", lambda state: ("v", "http://testserver/oidc-callback", (oidc_configuration_fingerprint(settings), auth_generations(settings)[1])))
+    monkeypatch.setattr(oidc_service, "get_discovery", AsyncMock(return_value=DISCOVERY))
+    monkeypatch.setattr(oidc_service, "exchange_code", AsyncMock(return_value={"id_token": "t"}))
+    monkeypatch.setattr(oidc_service, "obtain_claims", AsyncMock(return_value={"sub": "linked-admin", "email": "admin@example.com", "groups": ["admins"]}))
+    oidc = api_client.post(CALLBACK_URL, json={"code": "c", "state": "s"}).json()["access_token"]
+    headers = lambda token: {"Authorization": f"Bearer {token}"}
+    original_key = settings.secret_key
+    assert api_client.put("/api/v1/settings/global", headers=headers(oidc), json={"auth_mode": "oidc_only", "secret_key": original_key}).status_code == 200
+    assert api_client.get(PROFILE_URL, headers=headers(oidc)).status_code == 200
+    assert api_client.put("/api/v1/settings/global", headers=headers(oidc), json={"auth_mode": "both", "secret_key": original_key}).status_code == 200
+    for token in (local, legacy):
+        assert api_client.get(PROFILE_URL, headers=headers(token)).status_code == 401
+        with pytest.raises(JWTError):
+            await authenticate(token)
+    new_local = api_client.post("/api/v1/auth/token", data={"username": "admin", "password": "admin123"}).json()["access_token"]
+    assert api_client.get(PROFILE_URL, headers=headers(new_local)).status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field,value", [("secret_key", "new-signing-secret"), ("algorithm", "HS384")])
+async def test_should_reject_signing_changes_when_enabling_oidc_only(api_client, db_session, seeded_db, field, value):
+    from app.api.settings import oidc_configuration_fingerprint
+
+    settings = await _configure_oidc(db_session)
+    admin = (await db_session.execute(select(User).where(User.username == "admin"))).scalar_one()
+    admin.oidc_sub = "admin-sub"
+    await db_session.commit()
+    token = jwt.encode({"sub": "admin", "auth_method": "oidc", "exp": 9999999999,
+                        "oidc_config": oidc_configuration_fingerprint(settings)}, settings.secret_key, algorithm=settings.algorithm)
+    headers = {"Authorization": f"Bearer {token}"}
+    response = api_client.put("/api/v1/settings/global", headers=headers, json={"auth_mode": "oidc_only", field: value})
+    assert response.status_code == 400
+    await db_session.refresh(settings)
+    assert settings.auth_mode == "both"
+    assert api_client.get(PROFILE_URL, headers=headers).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_should_not_enable_oidc_only_with_local_session_carrying_fingerprint(api_client, db_session, seeded_db):
+    from app.api.settings import oidc_configuration_fingerprint
+
+    settings = await _configure_oidc(db_session)
+    admin = (await db_session.execute(select(User).where(User.username == "admin"))).scalar_one()
+    admin.oidc_sub = "admin-sub"
+    await db_session.commit()
+    token = jwt.encode({"sub": "admin", "auth_method": "local", "exp": 9999999999,
+                        "oidc_config": oidc_configuration_fingerprint(settings)}, settings.secret_key, algorithm=settings.algorithm)
+    response = api_client.put("/api/v1/settings/global", headers={"Authorization": f"Bearer {token}"}, json={"auth_mode": "oidc_only"})
+    assert response.status_code == 400
 
 DISCOVERY = {
     "issuer": "https://authentik.example.com/application/o/linguard/",
@@ -35,6 +363,48 @@ async def _configure_oidc(session, **overrides):
         setattr(settings, key, value)
     await session.commit()
     return settings
+
+
+@pytest.mark.asyncio
+async def test_should_enforce_authentication_method_after_mode_changes(api_client, db_session, seeded_db, monkeypatch):
+    settings = await _configure_oidc(db_session, oidc_admin_groups="admins")
+    admin = (await db_session.execute(select(User).where(User.username == "admin"))).scalar_one()
+    admin.oidc_sub = "linked-admin"
+    await db_session.commit()
+    local = api_client.post("/api/v1/auth/token", data={"username": "admin", "password": "admin123"}).json()["access_token"]
+    assert jwt.decode(local, settings.secret_key, algorithms=[settings.algorithm])["auth_method"] == "local"
+    monkeypatch.setattr(oidc_service, "pop_flow", lambda state: ("v", "http://testserver/oidc-callback", (oidc_configuration_fingerprint(settings), auth_generations(settings)[1])))
+    monkeypatch.setattr(oidc_service, "get_discovery", AsyncMock(return_value=DISCOVERY))
+    monkeypatch.setattr(oidc_service, "exchange_code", AsyncMock(return_value={"id_token": "t"}))
+    monkeypatch.setattr(oidc_service, "obtain_claims", AsyncMock(return_value={"sub": "linked-admin", "email": "admin@example.com", "groups": ["admins"]}))
+    oidc = api_client.post(CALLBACK_URL, json={"code": "c", "state": "s"}).json()["access_token"]
+    claims = jwt.decode(oidc, settings.secret_key, algorithms=[settings.algorithm])
+    assert claims["auth_method"] == "oidc"
+    legacy_oidc = jwt.encode({k: v for k, v in claims.items() if k != "auth_method"}, settings.secret_key, algorithm=settings.algorithm)
+    legacy = jwt.encode({"sub": "admin", "exp": claims["exp"]}, settings.secret_key, algorithm=settings.algorithm)
+    headers = lambda token: {"Authorization": f"Bearer {token}"}
+    for token in (local, oidc, legacy, legacy_oidc):
+        assert api_client.get(PROFILE_URL, headers=headers(token)).status_code == 200
+    for method in (None, "unknown", ["oidc"]):
+        invalid = jwt.encode({**claims, "auth_method": method}, settings.secret_key, algorithm=settings.algorithm)
+        assert api_client.get(PROFILE_URL, headers=headers(invalid)).status_code == 401
+    local_with_fingerprint = jwt.encode({**claims, "auth_method": "local"}, settings.secret_key, algorithm=settings.algorithm)
+    assert api_client.put("/api/v1/settings/global", headers=headers(oidc), json={"auth_mode": "oidc_only"}).status_code == 200
+    for token in (local, legacy, local_with_fingerprint):
+        assert api_client.get(PROFILE_URL, headers=headers(token)).status_code == 401
+        assert api_client.get(f"/api/v1/logs/download?token={token}").status_code == 401
+    for token in (oidc, legacy_oidc):
+        assert api_client.get(PROFILE_URL, headers=headers(token)).status_code == 200
+    settings.auth_mode = "local_only"
+    await db_session.commit()
+    assert api_client.get(PROFILE_URL, headers=headers(oidc)).status_code == 401
+    assert api_client.get(PROFILE_URL, headers=headers(legacy_oidc)).status_code == 401
+    assert api_client.get(PROFILE_URL, headers=headers(local)).status_code == 401
+    assert api_client.get(PROFILE_URL, headers=headers(legacy)).status_code == 401
+    settings.auth_mode = "invalid"
+    await db_session.commit()
+    assert api_client.get(PROFILE_URL, headers=headers(local)).status_code == 401
+    assert api_client.get(PROFILE_URL, headers=headers(oidc)).status_code == 401
 
 
 # ---------------------------------------------------------------------------
@@ -268,8 +638,8 @@ async def test_should_return_401_and_audit_when_callback_state_is_invalid(
 async def test_should_provision_user_and_issue_token_when_callback_succeeds(
     api_client, db_session, seeded_db, monkeypatch
 ):
-    await _configure_oidc(db_session)
-    monkeypatch.setattr(oidc_service, "pop_flow", lambda state: ("verifier-1", "http://testserver/oidc-callback"))
+    settings = await _configure_oidc(db_session)
+    monkeypatch.setattr(oidc_service, "pop_flow", lambda state: ("verifier-1", "http://testserver/oidc-callback", (oidc_configuration_fingerprint(settings), auth_generations(settings)[1])))
     monkeypatch.setattr(oidc_service, "get_discovery", AsyncMock(return_value=DISCOVERY))
     monkeypatch.setattr(
         oidc_service,
@@ -320,8 +690,8 @@ async def test_should_provision_user_and_issue_token_when_callback_succeeds(
 async def test_should_propagate_http_error_when_auto_provisioning_is_disabled(
     api_client, db_session, seeded_db, monkeypatch
 ):
-    await _configure_oidc(db_session, oidc_auto_provision=False)
-    monkeypatch.setattr(oidc_service, "pop_flow", lambda state: ("verifier-1", "http://testserver/oidc-callback"))
+    settings = await _configure_oidc(db_session, oidc_auto_provision=False)
+    monkeypatch.setattr(oidc_service, "pop_flow", lambda state: ("verifier-1", "http://testserver/oidc-callback", (oidc_configuration_fingerprint(settings), auth_generations(settings)[1])))
     monkeypatch.setattr(oidc_service, "get_discovery", AsyncMock(return_value=DISCOVERY))
     monkeypatch.setattr(oidc_service, "exchange_code", AsyncMock(return_value={"id_token": "t"}))
     monkeypatch.setattr(
@@ -342,7 +712,7 @@ async def test_should_propagate_http_error_when_auto_provisioning_is_disabled(
 async def test_should_reuse_existing_oidc_user_when_callback_is_repeated(
     api_client, db_session, seeded_db, monkeypatch
 ):
-    await _configure_oidc(db_session)
+    settings = await _configure_oidc(db_session)
     user = User(
         username="returning",
         email="returning@example.com",
@@ -354,7 +724,7 @@ async def test_should_reuse_existing_oidc_user_when_callback_is_repeated(
     db_session.add(user)
     await db_session.commit()
 
-    monkeypatch.setattr(oidc_service, "pop_flow", lambda state: ("verifier", "http://testserver/oidc-callback"))
+    monkeypatch.setattr(oidc_service, "pop_flow", lambda state: ("verifier", "http://testserver/oidc-callback", (oidc_configuration_fingerprint(settings), auth_generations(settings)[1])))
     monkeypatch.setattr(oidc_service, "get_discovery", AsyncMock(return_value=DISCOVERY))
     monkeypatch.setattr(oidc_service, "exchange_code", AsyncMock(return_value={"id_token": "t"}))
     monkeypatch.setattr(

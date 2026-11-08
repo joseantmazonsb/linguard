@@ -230,9 +230,9 @@ class TestOIDCService:
         redirect_uri = "http://localhost/callback"
         expires_at = time.time() + 100
         
-        service._pending_flows["test-state"] = (verifier, redirect_uri, expires_at)
+        service._pending_flows["test-state"] = (verifier, redirect_uri, expires_at, ("fingerprint", ""))
         
-        verifier_out, redirect_uri_out = service.pop_flow("test-state")
+        verifier_out, redirect_uri_out, _ = service.pop_flow("test-state")
         
         assert verifier == verifier_out
         assert redirect_uri == redirect_uri_out
@@ -251,7 +251,7 @@ class TestOIDCService:
         redirect_uri = "http://localhost/callback"
         expires_at = time.time() - 100
         
-        service._pending_flows["test-state"] = (verifier, redirect_uri, expires_at)
+        service._pending_flows["test-state"] = (verifier, redirect_uri, expires_at, ("fingerprint", ""))
         
         with pytest.raises(OIDCError, match="Login flow expired"):
             service.pop_flow("test-state")
@@ -267,24 +267,24 @@ class TestOIDCService:
         assert result == "admin"
 
     def test_role_from_groups_without_admins(self):
-        """Test role assignment without admin groups."""
+        """No configured admin groups means no role synchronization."""
         claims = {
             "groups": ["users"],
             "sub": "123",
         }
         
         result = OIDCService._role_from_groups(claims, "")
-        assert result == "standard"
+        assert result is None
 
     def test_role_from_groups_empty_admin_groups(self):
-        """Test role assignment with empty admin groups."""
+        """An absent admin-group setting means no role synchronization."""
         claims = {
             "groups": ["admins"],
             "sub": "123",
         }
         
         result = OIDCService._role_from_groups(claims, None)
-        assert result == "standard"
+        assert result is None
 
     def test_role_from_groups_string_groups(self):
         """Test role assignment with string groups."""
@@ -305,8 +305,8 @@ class TestOIDCService:
             "sub": "123",
         }
         
-        result = OIDCService._role_from_groups(claims, "admins")
-        assert result == "standard"
+        with pytest.raises(OIDCError, match="valid groups"):
+            OIDCService._role_from_groups(claims, "admins")
 
     @pytest.mark.asyncio
     async def test_prune_flows(self, service):
