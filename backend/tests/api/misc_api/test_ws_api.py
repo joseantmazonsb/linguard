@@ -8,8 +8,10 @@ the connection manager is unit-tested with fake sockets.
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from jose import jwt
 from sqlalchemy import select
+from starlette.websockets import WebSocketDisconnect
 
 from app.api.ws import (
     ConnectionManager,
@@ -22,6 +24,7 @@ from app.api.ws import (
 )
 from app.models.settings import GlobalSettings
 from tests.conftest import TEST_SECRET_KEY
+from tests.api.misc_api.test_ws_security import ws_path
 
 
 def _token(subject, secret=TEST_SECRET_KEY, algorithm="HS256"):
@@ -53,13 +56,13 @@ class FakeWebSocket:
 # Endpoint
 # ---------------------------------------------------------------------------
 
-def test_should_connect_anonymously_and_answer_ping_when_no_token(api_client, seeded_db):
-    with api_client.websocket_connect("/ws") as websocket:
+def test_should_connect_and_answer_ping_when_token_is_valid(api_client, seeded_db):
+    with api_client.websocket_connect(ws_path(api_client, _token('admin'))) as websocket:
         welcome = websocket.receive_json()
         assert welcome == {
             "type": "connected",
             "message": "WebSocket connection established",
-            "authenticated": False,
+            "authenticated": True,
         }
 
         websocket.send_text("ping")
@@ -74,37 +77,34 @@ def test_should_mark_connection_authenticated_when_token_is_valid(
 ):
     token = _token("admin")
 
-    with api_client.websocket_connect(f"/ws?token={token}") as websocket:
+    with api_client.websocket_connect(ws_path(api_client, token)) as websocket:
         welcome = websocket.receive_json()
         assert welcome["authenticated"] is True
 
     assert manager.active_connections == set()
 
 
-def test_should_mark_connection_unauthenticated_when_token_is_invalid(api_client, seeded_db):
-    with api_client.websocket_connect("/ws?token=definitely-not-a-jwt") as websocket:
-        welcome = websocket.receive_json()
-
-    assert welcome["authenticated"] is False
+def test_should_reject_connection_when_token_is_invalid(api_client, seeded_db):
+    with pytest.raises(WebSocketDisconnect):
+        with api_client.websocket_connect("/ws?token=definitely-not-a-jwt"):
+            pass
     assert manager.active_connections == set()
 
 
-def test_should_mark_connection_unauthenticated_when_token_user_is_unknown(
+def test_should_reject_connection_when_token_user_is_unknown(
     api_client, seeded_db
 ):
-    with api_client.websocket_connect(f"/ws?token={_token('ghost')}") as websocket:
-        welcome = websocket.receive_json()
+    with pytest.raises(WebSocketDisconnect):
+        with api_client.websocket_connect(f"/ws?token={_token('ghost')}"):
+            pass
 
-    assert welcome["authenticated"] is False
 
-
-def test_should_mark_connection_unauthenticated_when_token_has_no_subject(api_client, seeded_db):
+def test_should_reject_connection_when_token_has_no_subject(api_client, seeded_db):
     token = jwt.encode({"exp": datetime.utcnow() + timedelta(minutes=5)}, TEST_SECRET_KEY, algorithm="HS256")
 
-    with api_client.websocket_connect(f"/ws?token={token}") as websocket:
-        welcome = websocket.receive_json()
-
-    assert welcome["authenticated"] is False
+    with pytest.raises(WebSocketDisconnect):
+        with api_client.websocket_connect(f"/ws?token={token}"):
+            pass
 
 
 async def test_should_mark_connection_unauthenticated_when_auth_is_disabled(
@@ -114,7 +114,7 @@ async def test_should_mark_connection_unauthenticated_when_auth_is_disabled(
     settings.disable_auth = True
     await db_session.commit()
 
-    with api_client.websocket_connect(f"/ws?token={_token('admin')}") as websocket:
+    with api_client.websocket_connect(ws_path(api_client)) as websocket:
         welcome = websocket.receive_json()
 
     assert welcome["authenticated"] is False
@@ -143,24 +143,26 @@ class ErroringReceiveSocket:
         raise ValueError("transport broken")
 
 
-async def test_should_ignore_socket_when_accept_fails():
+async def test_should_ignore_socket_when_accept_fails(api_client, seeded_db):
     socket = BrokenAcceptSocket()
 
-    await websocket_endpoint(socket, token=None)
+    ticket = ws_path(api_client, _token("admin")).split("=", 1)[1]
+    await websocket_endpoint(socket, ticket=ticket)
 
     assert manager.active_connections == set()
 
 
-async def test_should_stop_listening_when_receiving_fails():
+async def test_should_stop_listening_when_receiving_fails(api_client, seeded_db):
     socket = ErroringReceiveSocket()
 
-    await websocket_endpoint(socket, token=None)
+    ticket = ws_path(api_client, _token("admin")).split("=", 1)[1]
+    await websocket_endpoint(socket, ticket=ticket)
 
     assert socket.sent == [
         {
             "type": "connected",
             "message": "WebSocket connection established",
-            "authenticated": False,
+            "authenticated": True,
         }
     ]
     assert manager.active_connections == set()
@@ -178,27 +180,24 @@ class DisconnectingSocket:
     async def send_json(self, message):
         self.sent.append(message)
 
+    async def close(self, code):
+        self.closed = code
+
     async def receive_text(self):
         from starlette.websockets import WebSocketDisconnect
 
         raise WebSocketDisconnect()
 
 
-async def test_should_accept_unauthenticated_when_auth_lookup_fails():
+async def test_should_reject_when_auth_lookup_fails(api_client, seeded_db):
     socket = DisconnectingSocket()
 
-    # The database being unavailable during authentication must not take the
-    # endpoint down; the connection is accepted as unauthenticated.
+    ticket = ws_path(api_client, _token("admin")).split("=", 1)[1]
     with patch("app.api.ws._db.AsyncSessionLocal", side_effect=RuntimeError("db down")):
-        await websocket_endpoint(socket, token="some-token")
+        await websocket_endpoint(socket, ticket=ticket)
 
-    assert socket.sent == [
-        {
-            "type": "connected",
-            "message": "WebSocket connection established",
-            "authenticated": False,
-        }
-    ]
+    assert socket.sent == []
+    assert socket.closed == 1008
     assert manager.active_connections == set()
 
 
@@ -210,7 +209,7 @@ async def test_should_accept_and_track_socket_when_connected():
     manager = ConnectionManager()
     socket = FakeWebSocket()
 
-    await manager.connect(socket)
+    await manager.connect(socket, token=None, auth_disabled=True, user_id=None)
 
     assert socket.accepted is True
     assert manager.active_connections == {socket}
@@ -219,24 +218,24 @@ async def test_should_accept_and_track_socket_when_connected():
     assert manager.active_connections == set()
 
 
-async def test_should_broadcast_to_all_sockets_when_message_is_sent():
+async def test_should_broadcast_only_to_owner_when_notification_is_sent(seeded_db):
     manager = ConnectionManager()
     first, second = FakeWebSocket(), FakeWebSocket()
-    await manager.connect(first)
-    await manager.connect(second)
+    await manager.connect(first, token=_token("admin"), auth_disabled=False, user_id=seeded_db["admin_id"])
+    await manager.connect(second, token=_token("bob"), auth_disabled=False, user_id=seeded_db["user_id"])
 
-    await manager.broadcast({"type": "notification", "data": {"id": 1}})
+    await manager.broadcast({"type": "notification", "data": {"id": 1}}, user_id=seeded_db["admin_id"])
 
     assert first.messages == [{"type": "notification", "data": {"id": 1}}]
-    assert second.messages == first.messages
+    assert second.messages == []
 
 
-async def test_should_drop_socket_when_broadcast_fails():
+async def test_should_drop_socket_when_broadcast_fails(seeded_db):
     manager = ConnectionManager()
     healthy = FakeWebSocket()
     broken = FakeWebSocket(fail_on_send=True)
-    await manager.connect(healthy)
-    await manager.connect(broken)
+    await manager.connect(healthy, token=_token("admin"), auth_disabled=False, user_id=seeded_db["admin_id"])
+    await manager.connect(broken, token=_token("admin"), auth_disabled=False, user_id=seeded_db["admin_id"])
 
     await manager.broadcast({"type": "ping"})
 
@@ -256,7 +255,7 @@ async def test_should_send_personal_message_when_socket_is_alive():
 async def test_should_disconnect_socket_when_personal_message_fails():
     manager = ConnectionManager()
     socket = FakeWebSocket(fail_on_send=True)
-    await manager.connect(socket)
+    await manager.connect(socket, token=None, auth_disabled=True, user_id=None)
 
     await manager.send_personal({"type": "hello"}, socket)
 
@@ -276,10 +275,10 @@ async def test_should_broadcast_metrics_update_when_called():
 
 async def test_should_broadcast_notification_when_called():
     with patch.object(manager, "broadcast", AsyncMock()) as broadcast:
-        await broadcast_notification({"id": 3, "title": "hi"})
+        await broadcast_notification({"id": 3, "title": "hi"}, user_id=7)
 
     broadcast.assert_awaited_once_with(
-        {"type": "notification", "data": {"id": 3, "title": "hi"}}
+        {"type": "notification", "data": {"id": 3, "title": "hi"}}, user_id=7
     )
 
 

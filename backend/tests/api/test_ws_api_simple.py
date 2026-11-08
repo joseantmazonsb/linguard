@@ -1,25 +1,25 @@
 """
 Simple tests for ws.py API
-Tests basic functionality without database fixtures
+Tests basic authenticated WebSocket functionality.
 """
-from unittest.mock import MagicMock, patch
-import pytest
+from datetime import datetime, timedelta
 
-from fastapi.testclient import TestClient
-from app.main import app
+from jose import jwt
 
-client = TestClient(app)
+from tests.conftest import TEST_SECRET_KEY
+from tests.api.misc_api.test_ws_security import ws_path
 
 
 # ============================================================================
 # TESTS
 # ============================================================================
 
-def test_websocket_connection():
+def test_websocket_connection(api_client, seeded_db):
     """Test WebSocket connection."""
-    with client.websocket_connect("/ws") as websocket:
-        # In newer FastAPI versions, the context manager handles accept internally
-        # In older versions, call websocket.accept() explicitly
-        # For this test, we just verify the connection can be established
-        # The accept is handled automatically by the context manager
-        pass  # Connection established successfully
+    token = jwt.encode(
+        {"sub": "admin", "exp": datetime.utcnow() + timedelta(minutes=5)},
+        TEST_SECRET_KEY,
+        algorithm="HS256",
+    )
+    with api_client.websocket_connect(ws_path(api_client, token)) as websocket:
+        assert websocket.receive_json()["authenticated"] is True

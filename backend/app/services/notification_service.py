@@ -82,7 +82,7 @@ class NotificationService:
                 "link": notification.link,
                 "read": notification.read,
                 "created_at": notification.created_at.isoformat() if notification.created_at else None
-            })
+            }, user_id=notification.user_id)
         except Exception as e:
             # Don't fail notification creation if WebSocket broadcast fails
             print(f"Failed to broadcast notification via WebSocket: {e}")

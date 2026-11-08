@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuthStore } from '../store/auth';
+import { api } from '../services/apiClient';
 
 // Same-origin relative URL by default (works behind reverse proxies);
 // scheme derived from the page protocol (https -> wss).
@@ -99,12 +100,14 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const ws = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
   const reconnectTimeout = useRef<number | null>(null);
+  const generation = useRef(0);
+  const pending = useRef(false);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const token = useAuthStore((state) => state.token);
   
   const [isConnected, setIsConnected] = useState(false);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     // Don't connect if disabled or not authenticated
     if (!enabled || !isAuthenticated || !token) {
       console.log('WebSocket connection skipped:', { enabled, isAuthenticated, hasToken: !!token });
@@ -112,16 +115,27 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     }
 
     // Don't reconnect if already connected or connecting
-    if (ws.current?.readyState === WebSocket.OPEN || ws.current?.readyState === WebSocket.CONNECTING) {
+    if (pending.current || ws.current?.readyState === WebSocket.OPEN || ws.current?.readyState === WebSocket.CONNECTING) {
       return;
     }
 
+    const currentGeneration = generation.current;
+    pending.current = true;
+    const scheduleReconnect = () => {
+      if (currentGeneration !== generation.current) return;
+      if (reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttempts.current += 1;
+        reconnectTimeout.current = window.setTimeout(() => { void connect(); }, RECONNECT_INTERVAL);
+      }
+    };
     try {
       console.log('Connecting to WebSocket:', WS_URL);
-      
-      // Create WebSocket connection with token as query param
-      const wsUrl = `${WS_URL}?token=${encodeURIComponent(token)}`;
-      ws.current = new WebSocket(wsUrl);
+      const response = await api.post<{ ticket: string }>('/ws/ticket');
+      if (currentGeneration !== generation.current) return;
+      const wsUrl = new URL(WS_URL);
+      wsUrl.searchParams.delete('token');
+      wsUrl.searchParams.set('ticket', response.data.ticket);
+      ws.current = new WebSocket(wsUrl.toString());
 
       ws.current.onopen = () => {
         console.log('WebSocket connected');
@@ -178,30 +192,27 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         setIsConnected(false);
         onDisconnect?.();
 
-        // Attempt to reconnect
-        if (enabled && reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
-          reconnectAttempts.current += 1;
-          console.log(`Reconnecting... Attempt ${reconnectAttempts.current}/${MAX_RECONNECT_ATTEMPTS}`);
-          
-          reconnectTimeout.current = window.setTimeout(() => {
-            connect();
-          }, RECONNECT_INTERVAL);
-        } else if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
-          console.error('Max reconnection attempts reached. Giving up.');
-        }
+        ws.current = null;
+        scheduleReconnect();
       };
     } catch (error) {
       console.error('Failed to create WebSocket connection:', error);
+      scheduleReconnect();
+    } finally {
+      if (currentGeneration === generation.current) pending.current = false;
     }
   }, [enabled, isAuthenticated, token, onConnect, onDisconnect, onError, onMetricsUpdate, onNotification, onServerStatusChange, onHealthUpdate]);
 
   const disconnect = useCallback(() => {
+    generation.current += 1;
+    pending.current = false;
     if (reconnectTimeout.current) {
       clearTimeout(reconnectTimeout.current);
       reconnectTimeout.current = null;
     }
 
     if (ws.current) {
+      ws.current.onclose = null;
       ws.current.close();
       ws.current = null;
     }

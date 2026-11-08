@@ -67,6 +67,7 @@ async def test_should_persist_notification_when_created(service, seeded_db, db_s
     assert stored.read is False
 
     no_ws_broadcast.assert_awaited_once()
+    assert no_ws_broadcast.await_args.kwargs["user_id"] == seeded_db["admin_id"]
     payload = no_ws_broadcast.await_args.args[0]
     assert payload["id"] == notification.id
     assert payload["title"] == "Hello"
