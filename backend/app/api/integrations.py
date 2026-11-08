@@ -199,6 +199,12 @@ async def update_integration(
             status_code=status.HTTP_404_NOT_FOUND, detail="Integration not found"
         )
 
+    if integration.type == "script" and not integration.enabled and integration_data.enabled is True:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Script integrations are not supported",
+        )
+
     # Prevent modification of name and restrict events_subscribed for In-App Notifications
     if integration.name == "In-App Notifications":
         # Prevent name changes
@@ -436,26 +442,6 @@ async def get_available_integration_types(
                 }
             },
             "icon": "telegram",
-            "is_plugin": False,
-            "enabled": True,
-        },
-        {
-            "type": "script",
-            "name": "Custom Script",
-            "description": "Execute custom shell scripts",
-            "config_schema": {
-                "script_path": {
-                    "type": "string",
-                    "required": True,
-                    "description": "Path to executable script",
-                },
-                "args": {
-                    "type": "array",
-                    "required": False,
-                    "description": "Script arguments",
-                },
-            },
-            "icon": "code",
             "is_plugin": False,
             "enabled": True,
         },

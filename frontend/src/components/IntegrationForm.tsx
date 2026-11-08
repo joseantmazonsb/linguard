@@ -51,7 +51,7 @@ export default function IntegrationForm({
   // Get first available non-notification type for new integrations
   const defaultType =
     integration?.type ||
-    integrationTypes.find((t) => t.type !== "notification")?.type ||
+    integrationTypes.find((t) => t.enabled && t.type !== "notification" && t.type !== "script")?.type ||
     "webhook";
 
   const [formData, setFormData] = useState({
@@ -81,6 +81,7 @@ export default function IntegrationForm({
     "peer.disconnected",
   ];
 
+  const isScript = integration?.type === "script";
   const selectedType = integrationTypes.find((t) => t.type === formData.type);
 
   // Create mutation
@@ -450,7 +451,9 @@ export default function IntegrationForm({
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Type <span className="text-red-600 dark:text-red-400">*</span>
                 </label>
-                <CustomSelect
+                {isScript ? (
+                  <div className="text-sm text-gray-700 dark:text-gray-300">Script (unsupported)</div>
+                ) : <CustomSelect
                   value={formData.type}
                   onChange={(value) =>
                     setFormData({
@@ -462,7 +465,7 @@ export default function IntegrationForm({
                   options={integrationTypes
                     .filter(
                       (type) => 
-                        type.enabled && // Only show enabled integration types
+                        type.enabled && type.type !== "script" && // Only show supported, enabled types
                         (integration || type.type !== "notification") // Hide 'notification' type when creating new
                     )
                     .map((type) => ({
@@ -473,7 +476,7 @@ export default function IntegrationForm({
                   className={
                     integration ? "opacity-50 pointer-events-none" : ""
                   }
-                />
+                />}
                 {integration && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Type cannot be changed after creation
@@ -481,19 +484,25 @@ export default function IntegrationForm({
                 )}
               </div>
 
+              {isScript && (
+                <p className="text-sm text-amber-700 dark:text-amber-400">
+                  Script integrations are not supported and will not execute.
+                </p>
+              )}
+
               <ToggleSwitch
                 id="enabled"
                 enabled={formData.enabled}
                 onChange={(enabled) =>
                   setFormData({ ...formData, enabled: enabled })
                 }
-                disabled={isInAppNotifications}
+                disabled={isInAppNotifications || (isScript && !integration.enabled)}
                 label="Enabled"
               />
             </div>
 
             {/* Configuration */}
-            {!isInAppNotifications && (
+            {!isInAppNotifications && !isScript && (
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Configuration

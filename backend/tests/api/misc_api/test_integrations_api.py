@@ -478,13 +478,39 @@ async def test_should_list_builtin_and_plugin_types_when_plugins_exist(auth_clie
 
     assert response.status_code == 200
     types = {t["type"]: t for t in response.json()}
-    assert {"notification", "webhook", "email", "slack", "discord", "telegram", "script"} <= set(types)
+    assert {"notification", "webhook", "email", "slack", "discord", "telegram"} <= set(types)
+    assert "script" not in types
     plugin_type = types["plugin:demo_plugin"]
     assert plugin_type["name"] == "Demo Plugin"
     assert plugin_type["is_plugin"] is True
     assert plugin_type["plugin_author"] == "tester"
     assert plugin_type["plugin_version"] == "2.0.0"
     assert plugin_type["config_schema"] == {"api_key": {"type": "string"}}
+
+
+async def test_should_keep_existing_script_integrations_manageable(auth_client, db_session):
+    script = Integration(
+        name="Legacy script", type="script", config={"script_path": "/bin/false"},
+        events_subscribed=["server.created"], enabled=True,
+    )
+    db_session.add(script)
+    await db_session.commit()
+    await db_session.refresh(script)
+    script_id = script.id
+
+    assert any(item["id"] == script_id for item in auth_client.get("/api/v1/integrations/").json())
+    assert auth_client.get(f"/api/v1/integrations/{script_id}").json()["type"] == "script"
+    assert auth_client.put(f"/api/v1/integrations/{script_id}", json={"name": "Legacy", "enabled": True}).status_code == 200
+    response = auth_client.put(f"/api/v1/integrations/{script_id}", json={"name": "Archived", "enabled": False})
+    assert response.status_code == 200
+    assert response.json()["config"] == {"script_path": "/bin/false"}
+    assert response.json()["enabled"] is False
+    reenable = auth_client.put(f"/api/v1/integrations/{script_id}", json={"name": "Not saved", "enabled": True})
+    assert reenable.status_code in (400, 422)
+    assert "script" in str(reenable.json()["detail"]).lower()
+    assert auth_client.get(f"/api/v1/integrations/{script_id}").json()["enabled"] is False
+    assert auth_client.get(f"/api/v1/integrations/{script_id}").json()["name"] == "Archived"
+    assert auth_client.delete(f"/api/v1/integrations/{script_id}").status_code == 204
 
 
 async def test_should_require_authentication_when_listing_integrations(api_client, seeded_db):

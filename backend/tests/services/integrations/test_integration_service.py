@@ -251,7 +251,8 @@ async def test_should_skip_dispatch_when_no_integration_subscribed(service, api_
 
 
 async def test_should_update_trigger_statistics_when_integration_triggered(service, db_session):
-    integration = make_integration(type_="script")
+    integration = make_integration(type_="notification")
+    service.notification_service.notify_from_integration = AsyncMock()
 
     await service._trigger_integration(db_session, integration, EVENT)
 
@@ -290,16 +291,45 @@ async def test_should_delegate_to_each_transport_when_dispatched(service, db_ses
                 handler.assert_awaited_once_with(integration, NORMALIZED)
 
 
-async def test_should_do_nothing_when_integration_type_is_script(service, db_session):
-    integration = make_integration(type_="script")
-    service._trigger_webhook = AsyncMock()
-    service._trigger_slack = AsyncMock()
+async def test_should_reject_script_without_changing_persisted_statistics(service, db_session):
+    integration = await _persist(db_session, type="script", config={"script_path": "/bin/false"})
+    integration_id = integration.id
 
-    await service._trigger_integration(db_session, integration, EVENT)
+    with pytest.raises(ValueError, match="[Ss]cript.*(unsupported|not supported)"):
+        await service._trigger_integration(db_session, integration, EVENT)
 
-    service._trigger_webhook.assert_not_awaited()
-    service._trigger_slack.assert_not_awaited()
-    assert integration.total_triggered == 1
+    await db_session.commit()
+    db_session.expire_all()
+    stored = await service.get_integration(db_session, integration_id)
+    assert stored.total_triggered == 0
+    assert stored.last_triggered_at is None
+
+
+async def test_should_continue_dispatch_after_rejecting_stored_script(service, db_session, capsys):
+    script = await _persist(db_session, name="script", type="script")
+    notification = await _persist(db_session, name="notification", type="notification", config={})
+    service.notification_service.notify_from_integration = AsyncMock()
+
+    await service.dispatch_event_to_integrations(db_session, EventType.SERVER_CREATED, EVENT)
+    await db_session.commit()
+
+    assert script.total_triggered == 0
+    assert script.last_triggered_at is None
+    assert notification.total_triggered == 1
+    assert "Script integrations are not supported" in capsys.readouterr().out
+    service.notification_service.notify_from_integration.assert_awaited_once()
+
+
+async def test_should_report_failure_when_creating_script_integration(auth_client, db_session):
+    response = auth_client.post(
+        "/api/v1/integrations/",
+        json={"name": "script", "type": "script", "config": {"script_path": "/bin/true"},
+              "events_subscribed": ["server.created"]},
+    )
+
+    assert response.status_code in (400, 422)
+    assert "script" in str(response.json()["detail"]).lower()
+    assert (await db_session.execute(select(Integration).where(Integration.name == "script"))).scalar_one_or_none() is None
 
 
 async def test_should_ignore_unknown_integration_type_when_dispatching(service, db_session):

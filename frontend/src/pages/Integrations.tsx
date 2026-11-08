@@ -480,6 +480,7 @@ export default function Integrations() {
                     ) : (
                       <ToggleSwitch
                         enabled={integration.enabled}
+                        disabled={integration.type === "script" && !integration.enabled}
                         onChange={(enabled) =>
                           toggleEnabledMutation.mutate({
                             id: integration.id,
@@ -492,6 +493,11 @@ export default function Integrations() {
                   </div>
 
                   {/* Description */}
+                  {integration.type === "script" && (
+                    <p className="text-sm text-amber-700 dark:text-amber-400 mb-4">
+                      Script integrations are not supported and will not execute.
+                    </p>
+                  )}
                   {integration.description && (
                     <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
                       {integration.description}

@@ -1,5 +1,6 @@
 import aiosmtplib
 import httpx
+from fastapi import HTTPException, status
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from sqlalchemy import select
@@ -55,6 +56,11 @@ class IntegrationService:
         plugin_id: int | None = None
     ) -> Integration:
         """Create a new integration."""
+        if type == "script":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Script integrations are not supported",
+            )
         integration = Integration(
             name=name,
             description=description,
@@ -161,6 +167,9 @@ class IntegrationService:
         event_data: dict
     ):
         """Trigger a specific integration based on its type."""
+        if integration.type == "script":
+            raise ValueError("Script integrations are not supported")
+
         # Update statistics
         integration.total_triggered += 1
         from datetime import datetime
@@ -193,9 +202,6 @@ class IntegrationService:
             await self._trigger_discord(integration, normalized_event_data)
         elif integration.type == "telegram":
             await self._trigger_telegram(integration, normalized_event_data)
-        elif integration.type == "script":
-            # TODO: Implement script execution
-            pass
         elif integration.type.startswith("plugin:"):
             # Handle plugin-based integrations
             await self._trigger_plugin(db, integration, normalized_event_data)
