@@ -9,17 +9,9 @@ export default function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  // Fetch notifications (initial load only, no polling)
-  const { data: notifications = [] } = useQuery<Notification[]>({
-    queryKey: ['notifications'],
-    queryFn: () => notificationsAPI.list(false, 20, 0),
-  });
-
-  // Fetch unread count (initial load only, no polling)
-  const { data: unreadData } = useQuery<{ count: number }>({
-    queryKey: ['notifications', 'unread-count'],
-    queryFn: () => notificationsAPI.getUnreadCount(),
-  });
+  const refreshNotifications = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+  }, [queryClient]);
 
   // WebSocket: Handle real-time notifications
   const handleNewNotification = useCallback((data: NotificationData) => {
@@ -40,14 +32,27 @@ export default function NotificationCenter() {
     });
     
     // Invalidate queries to refresh the list
-    queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
-  }, [queryClient]);
+    refreshNotifications();
+  }, [refreshNotifications]);
 
   // Connect to WebSocket for real-time notifications
-  useWebSocket({
+  const { isConnected } = useWebSocket({
     enabled: true,
     onNotification: handleNewNotification,
+    onConnect: refreshNotifications,
+  });
+
+  // Poll both queries when events cannot be received.
+  const { data: notifications = [] } = useQuery<Notification[]>({
+    queryKey: ['notifications'],
+    queryFn: () => notificationsAPI.list(false, 20, 0),
+    refetchInterval: isConnected ? false : 300000,
+  });
+
+  const { data: unreadData } = useQuery<{ count: number }>({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: () => notificationsAPI.getUnreadCount(),
+    refetchInterval: isConnected ? false : 300000,
   });
 
   const unreadCount = unreadData?.count || 0;

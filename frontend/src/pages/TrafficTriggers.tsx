@@ -96,9 +96,9 @@ export default function TrafficTriggers() {
     queryFn: () => serversAPI.list(),
   });
 
-  const { data: peers = [] } = useQuery<Peer[]>({
-    queryKey: ["peers"],
-    queryFn: () => peersAPI.list(),
+  const { data: peers = [], isLoading: peersLoading, isError: peersError } = useQuery<Peer[]>({
+    queryKey: ["peers", "all"],
+    queryFn: peersAPI.listAll,
   });
 
   const { data: integrations = [] } = useQuery<Integration[]>({
@@ -304,6 +304,7 @@ export default function TrafficTriggers() {
 
   return (
     <div className="p-6">
+      {peersError && <p className="mb-4 text-red-600 dark:text-red-400">Unable to load peers. Please try again.</p>}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
@@ -317,6 +318,7 @@ export default function TrafficTriggers() {
         <button
           type="button"
           onClick={handleAddClick}
+          disabled={peersLoading || peersError}
           className="bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center gap-2 transition-colors text-sm sm:text-base self-start sm:self-auto"
         >
           <svg
@@ -572,6 +574,7 @@ export default function TrafficTriggers() {
               <button
                 type="button"
                 onClick={handleAddClick}
+                disabled={peersLoading || peersError}
                 className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition-colors"
               >
                 <svg
@@ -799,6 +802,7 @@ export default function TrafficTriggers() {
                   <button
                     type="button"
                     onClick={() => handleEditClick(trigger)}
+                    disabled={peersLoading || peersError}
                     className="flex-1 px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                   >
                     Edit

@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import {
   useQuery,
-  useInfiniteQuery,
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -87,30 +86,25 @@ export default function Peers() {
     };
   }, [showQRCode?.imageDataUrl]);
 
-  // Fetch peers with infinite scroll
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    error,
-  } = useInfiniteQuery({
-    queryKey: ["peers", selectedServerId],
-    queryFn: ({ pageParam = 0 }) =>
-      peersAPI.list(selectedServerId || undefined, pageParam, 50),
-    getNextPageParam: (lastPage, allPages) => {
-      // If last page has 50 items, there might be more
-      if (lastPage.length === 50) {
-        return allPages.length * 50; // skip = pages * limit
-      }
-      return undefined; // No more pages
-    },
-    initialPageParam: 0,
+  const { data: allPeers = [], isLoading, error } = useQuery({
+    queryKey: ["peers", "all"],
+    queryFn: peersAPI.listAll,
   });
+  const peers = selectedServerId
+    ? allPeers.filter((peer) => peer.server_id === selectedServerId)
+    : allPeers;
+  const filteredPeers = peers.filter((peer: Peer) => {
+    if (!searchQuery) return true;
 
-  // Flatten pages into single array
-  const peers = data?.pages.flat() || [];
+    const query = searchQuery.toLowerCase();
+    return [peer.name, peer.description, peer.ipv4_address, peer.ipv6_address, peer.allowed_ips]
+      .some((field) => field?.toLowerCase().includes(query));
+  });
+  const [visiblePage, setVisiblePage] = useState({ serverId: selectedServerId, search: searchQuery, count: 50 });
+  const visibleCount = visiblePage.serverId === selectedServerId && visiblePage.search === searchQuery
+    ? visiblePage.count
+    : 50;
+  const hasMore = visibleCount < filteredPeers.length;
 
   // Create ref for infinite scroll sentinel
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -121,8 +115,8 @@ export default function Peers() {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage();
+        if (entries[0].isIntersecting && hasMore) {
+          setVisiblePage({ serverId: selectedServerId, search: searchQuery, count: visibleCount + 50 });
         }
       },
       { threshold: 0.1 },
@@ -130,7 +124,7 @@ export default function Peers() {
 
     observer.observe(loadMoreRef.current);
     return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [activeTab, isLoading, hasMore, selectedServerId, searchQuery, visibleCount]);
 
   // Fetch servers for filtering
   const { data: servers = [] } = useQuery({
@@ -527,22 +521,6 @@ export default function Peers() {
     const server = servers.find((s: Server) => s.id === serverId);
     return server?.name || "Unknown";
   };
-
-  // Filter peers based on search query
-  const filteredPeers = peers.filter((peer: Peer) => {
-    if (!searchQuery) return true;
-
-    const query = searchQuery.toLowerCase();
-    const searchableFields = [
-      peer.name?.toLowerCase() || "",
-      peer.description?.toLowerCase() || "",
-      peer.ipv4_address?.toLowerCase() || "",
-      peer.ipv6_address?.toLowerCase() || "",
-      peer.allowed_ips?.toLowerCase() || "",
-    ];
-
-    return searchableFields.some((field) => field.includes(query));
-  });
 
   if (isLoading) {
     return (
@@ -1023,7 +1001,7 @@ export default function Peers() {
           ) : (
             <>
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredPeers.map((peer: Peer) => (
+                {filteredPeers.slice(0, visibleCount).map((peer: Peer) => (
                   <PeerCard
                     key={peer.id}
                     peer={peer}
@@ -1043,20 +1021,13 @@ export default function Peers() {
               </div>
 
               {/* Infinite Scroll Sentinel */}
-              {!searchQuery && peers.length > 0 && (
+              {filteredPeers.length > 0 && (
                 <div ref={loadMoreRef} className="py-8 text-center">
-                  {isFetchingNextPage ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                      <span className="text-gray-600 dark:text-gray-400">
-                        Loading more peers...
-                      </span>
-                    </div>
-                  ) : hasNextPage ? (
+                  {hasMore ? (
                     <span className="text-gray-500 dark:text-gray-400">
                       Scroll for more
                     </span>
-                  ) : peers.length >= 50 ? (
+                  ) : filteredPeers.length >= 50 ? (
                     <span className="text-gray-500 dark:text-gray-400">
                       No more peers
                     </span>

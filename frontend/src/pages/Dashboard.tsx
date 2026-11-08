@@ -15,47 +15,77 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { serversAPI, peersAPI, metricsAPI, healthAPI } from "../services/apiClient";
-import { useWebSocket, type MetricsData, type ServerStatusChangeData, type HealthData } from "../hooks/useWebSocket";
+import { useWebSocket, type ServerStatusChangeData, type HealthData } from "../hooks/useWebSocket";
 import type { Server, Peer } from "../types";
 
 type TimeRange = 24 | 168 | 720;
 
 export default function Dashboard() {
   const [timeRange, setTimeRange] = useState<TimeRange>(24);
-  const [realtimeMetrics, setRealtimeMetrics] = useState<MetricsData | null>(
-    null,
-  );
-  const [realtimeHealth, setRealtimeHealth] = useState<HealthData | null>(null);
   const [showHealthModal, setShowHealthModal] = useState(false);
   const queryClient = useQueryClient();
+
+  const refreshLiveQueries = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["health"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+    queryClient.invalidateQueries({ queryKey: ["peers", "all"] });
+    queryClient.invalidateQueries({ queryKey: ["servers"] });
+  }, [queryClient]);
+
+  const handleMetricsUpdate = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+    queryClient.invalidateQueries({ queryKey: ["peers", "all"] });
+  }, [queryClient]);
+
+  const handleServerStatusChange = useCallback((data: ServerStatusChangeData) => {
+    queryClient.invalidateQueries({ queryKey: ["servers"] });
+    if (data.detected) {
+      const statusText = data.status === 'running' ? 'started' : 'stopped';
+      toast.info(`Server "${data.name}" was detected as ${statusText}`, { autoClose: 5000 });
+    }
+  }, [queryClient]);
+
+  const handleHealthUpdate = useCallback((data: HealthData) => {
+    queryClient.cancelQueries({ queryKey: ["health"] });
+    queryClient.setQueryData(["health"], data);
+  }, [queryClient]);
+
+  const { isConnected } = useWebSocket({
+    enabled: true,
+    onMetricsUpdate: handleMetricsUpdate,
+    onServerStatusChange: handleServerStatusChange,
+    onHealthUpdate: handleHealthUpdate,
+    onConnect: refreshLiveQueries,
+    onDisconnect: refreshLiveQueries,
+  });
 
   // Fetch servers
   const { data: servers = [], isLoading: serversLoading } = useQuery({
     queryKey: ["servers"],
     queryFn: serversAPI.list,
+    refetchInterval: isConnected ? false : 300000,
   });
 
   // Fetch peers
-  const { data: peers = [], isLoading: peersLoading } = useQuery({
-    queryKey: ["peers"],
-    queryFn: () => peersAPI.list(),
+  const { data: peers = [], isLoading: peersLoading, isError: peersError } = useQuery({
+    queryKey: ["peers", "all"],
+    queryFn: peersAPI.listAll,
+    refetchInterval: isConnected ? false : 300000,
   });
 
-  // Fetch dashboard metrics (no polling, just initial load)
+  // WebSocket events refresh the active range; poll when disconnected.
   const { data: dashboardMetrics, isLoading: metricsLoading } = useQuery({
     queryKey: ["dashboard-metrics", timeRange],
     queryFn: () => metricsAPI.getDashboardMetrics(timeRange),
+    refetchInterval: isConnected ? false : 300000,
   });
 
   // Fetch health status (fallback polling every 5 minutes if WebSocket disconnected)
-  const { data: healthData, isLoading: healthLoading, isFetching: healthFetching, refetch: refetchHealth } = useQuery<HealthData>({
+  const { data: currentHealthData, isLoading: healthLoading, isFetching: healthFetching, refetch: refetchHealth } = useQuery<HealthData>({
     queryKey: ["health"],
     queryFn: healthAPI.check,
-    refetchInterval: 300000, // Refetch every 5 minutes as fallback
+    refetchInterval: isConnected ? false : 300000,
   });
-
-  // Use realtime health data from WebSocket if available, otherwise fall back to HTTP polling
-  const currentHealthData = realtimeHealth || healthData;
 
   // Start server mutation
   const startServerMutation = useMutation({
@@ -95,11 +125,7 @@ export default function Dashboard() {
 
   // Test health on demand
   const handleTestHealth = async () => {
-    const result = await refetchHealth();
-    // Update realtime health state to show the fresh data immediately
-    if (result.data) {
-      setRealtimeHealth(result.data);
-    }
+    await refetchHealth();
   };
 
   // Count warnings in health checks
@@ -107,45 +133,6 @@ export default function Dashboard() {
     if (!currentHealthData?.checks) return 0;
     return Object.values(currentHealthData.checks).filter(check => check.status === 'warning').length;
   };
-
-  // WebSocket: Handle real-time metrics updates
-  const handleMetricsUpdate = useCallback((data: MetricsData) => {
-    console.log("Realtime metrics update:", data);
-    setRealtimeMetrics(data);
-  }, []);
-
-  // WebSocket: Handle server status changes
-  const handleServerStatusChange = useCallback((data: ServerStatusChangeData) => {
-    console.log("Server status change:", data);
-    
-    // Invalidate servers query to refresh the list
-    queryClient.invalidateQueries({ queryKey: ["servers"] });
-    
-    // Show toast notification if auto-detected
-    if (data.detected) {
-      const statusText = data.status === 'running' ? 'started' : 'stopped';
-      toast.info(`Server "${data.name}" was detected as ${statusText}`, {
-        autoClose: 5000,
-      });
-    }
-  }, [queryClient]);
-
-  // WebSocket: Handle health status updates
-  const handleHealthUpdate = useCallback((data: HealthData) => {
-    console.log("Realtime health update:", data);
-    setRealtimeHealth(data);
-    
-    // Also update the query cache to keep it in sync
-    queryClient.setQueryData(["health"], data);
-  }, [queryClient]);
-
-  // Connect to WebSocket for real-time updates
-  useWebSocket({
-    enabled: true,
-    onMetricsUpdate: handleMetricsUpdate,
-    onServerStatusChange: handleServerStatusChange,
-    onHealthUpdate: handleHealthUpdate,
-  });
 
   const activeServers = servers.filter((s: Server) => s.status === 'running').length;
   const enabledPeers = peers.filter((p: Peer) => p.enabled).length;
@@ -279,10 +266,10 @@ export default function Dashboard() {
             </svg>
           </div>
           <p className="text-3xl font-bold text-gray-900 dark:text-white">
-            {isLoading ? "-" : totalPeers}
+            {isLoading || peersError ? "-" : totalPeers}
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {isLoading ? "Loading..." : `${connectedPeers} connected`}
+            {isLoading ? "Loading..." : peersError ? "Unable to load peers" : `${connectedPeers} connected`}
           </p>
         </Link>
 
@@ -300,7 +287,7 @@ export default function Dashboard() {
             </svg>
           </div>
           <p className="text-3xl font-bold text-gray-900 dark:text-white">
-            {isLoading ? "-" : connectedPeers}
+            {isLoading || peersError ? "-" : connectedPeers}
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Live connections
