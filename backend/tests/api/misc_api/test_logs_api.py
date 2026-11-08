@@ -14,7 +14,6 @@ from fastapi import HTTPException
 from sqlalchemy import select
 
 from app.api.logs import (
-    admin_from_query_token,
     format_bytes,
     get_log_file_path,
     stream_logs,
@@ -110,14 +109,15 @@ async def test_should_resolve_relative_log_path_when_configuring_logs(
 
 
 # ---------------------------------------------------------------------------
-# /download (query-token authentication)
+# /download authentication
 # ---------------------------------------------------------------------------
 
 async def test_should_download_log_file_when_token_is_valid(api_client, seeded_db, log_file, admin_headers):
-    response = api_client.get(BASE + "/download", params={"token": _token(admin_headers)})
+    response = api_client.get(BASE + "/download", headers=admin_headers)
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/plain")
+    assert response.headers["cache-control"] == "no-store"
     assert "linguard.log" in response.headers["content-disposition"]
     assert response.text == LOG_TEXT
 
@@ -129,7 +129,7 @@ async def test_should_accept_any_token_when_auth_is_disabled(
     settings.disable_auth = True
     await db_session.commit()
 
-    response = api_client.get(BASE + "/download", params={"token": "not-a-jwt"})
+    response = api_client.get(BASE + "/download")
 
     assert response.status_code == 200
     assert response.text == LOG_TEXT
@@ -139,11 +139,11 @@ async def test_should_reject_download_when_token_is_missing(api_client, seeded_d
     response = api_client.get(BASE + "/download")
 
     assert response.status_code == 401
-    assert response.json()["detail"] == "Authentication token required"
+    assert response.json()["detail"] == "Could not validate credentials"
 
 
 async def test_should_reject_download_when_token_is_invalid(api_client, seeded_db, log_file):
-    response = api_client.get(BASE + "/download", params={"token": "garbage"})
+    response = api_client.get(BASE + "/download", headers={"Authorization": "Bearer garbage"})
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Could not validate credentials"
@@ -164,7 +164,7 @@ async def test_should_reject_download_when_token_user_is_unknown(
         algorithm="HS256",
     )
 
-    response = api_client.get(BASE + "/download", params={"token": token})
+    response = api_client.get(BASE + "/download", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Could not validate credentials"
@@ -185,7 +185,7 @@ async def test_should_reject_download_when_token_has_no_subject(
         algorithm="HS256",
     )
 
-    response = api_client.get(BASE + "/download", params={"token": token})
+    response = api_client.get(BASE + "/download", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Could not validate credentials"
@@ -194,7 +194,7 @@ async def test_should_reject_download_when_token_has_no_subject(
 async def test_should_reject_download_when_user_is_not_admin(
     api_client, seeded_db, log_file, user_headers
 ):
-    response = api_client.get(BASE + "/download", params={"token": _token(user_headers)})
+    response = api_client.get(BASE + "/download", headers=user_headers)
 
     assert response.status_code == 403
     assert response.json()["detail"] == "Administrator privileges required"
@@ -205,7 +205,7 @@ async def test_should_return_404_when_downloading_missing_log_file(
 ):
     log_file.unlink()
 
-    response = api_client.get(BASE + "/download", params={"token": _token(admin_headers)})
+    response = api_client.get(BASE + "/download", headers=admin_headers)
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Log file not found"
@@ -224,18 +224,43 @@ async def test_should_reject_stream_when_token_is_missing(api_client, seeded_db)
 async def test_should_reject_stream_when_user_is_not_admin(
     api_client, seeded_db, user_headers
 ):
-    response = api_client.get(BASE + "/stream", params={"token": _token(user_headers)})
+    response = api_client.get(BASE + "/stream", headers=user_headers)
 
     assert response.status_code == 403
 
 
-async def test_should_build_event_stream_response_when_called(seeded_db, db_session, log_file):
-    settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+async def test_should_accept_header_for_stream(api_client, seeded_db, log_file, admin_headers):
+    log_file.unlink()
+    response = api_client.get(BASE + "/stream", headers=admin_headers)
+    assert response.status_code == 200
+    assert "Log file not found" in response.text
 
-    response = await stream_logs(lines=10, log_path=str(log_file), current_user=None)
+
+async def test_should_not_stream_with_unexpiring_token(seeded_db, db_session, log_file):
+    from fastapi.security import HTTPAuthorizationCredentials
+    from jose import jwt
+    from app.models.user import User
+    from tests.conftest import TEST_SECRET_KEY
+
+    user = (await db_session.execute(select(User).where(User.username == "admin"))).scalar_one()
+    token = jwt.encode({"sub": "admin"}, TEST_SECRET_KEY, algorithm="HS256")
+    response = await stream_logs(lines=1, log_path=str(log_file), current_user=user,
+                                 credentials=HTTPAuthorizationCredentials(scheme="Bearer", credentials=token), db=db_session)
+    with pytest.raises(StopAsyncIteration):
+        await anext(response.body_iterator)
+
+
+async def test_should_build_event_stream_response_when_called(seeded_db, db_session, log_file, admin_headers):
+    from fastapi.security import HTTPAuthorizationCredentials
+    from app.models.user import User
+    settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+    user = (await db_session.execute(select(User).where(User.username == "admin"))).scalar_one()
+
+    response = await stream_logs(lines=10, log_path=str(log_file), current_user=user,
+                                 credentials=HTTPAuthorizationCredentials(scheme="Bearer", credentials=_token(admin_headers)), db=db_session)
 
     assert response.media_type == "text/event-stream"
-    assert response.headers["cache-control"] == "no-cache"
+    assert response.headers["cache-control"] == "no-store"
     assert response.headers["x-accel-buffering"] == "no"
     await response.body_iterator.aclose()
     assert settings.log_path == str(log_file)
@@ -322,18 +347,79 @@ async def test_should_raise_404_when_log_path_setting_is_absent(db_session):
     assert excinfo.value.status_code == 404
 
 
-async def test_should_raise_503_when_settings_are_not_configured(db_session):
-    with pytest.raises(HTTPException) as excinfo:
-        await admin_from_query_token(token="anything", db=db_session)
+@pytest.mark.parametrize("endpoint", ["download", "stream"])
+async def test_should_reject_query_only_bearer(api_client, seeded_db, log_file, admin_headers, endpoint):
+    response = api_client.get(f"{BASE}/{endpoint}", params={"token": _token(admin_headers)})
+    assert response.status_code == 401
 
-    assert excinfo.value.status_code == 503
+
+@pytest.mark.parametrize("change", ["role", "key", "auth_mode", "disable_auth", "expired", "deleted"])
+async def test_should_stop_stream_when_authorization_changes(change, seeded_db, db_session, log_file, admin_headers):
+    from datetime import datetime, timedelta
+    from jose import jwt
+    from fastapi.security import HTTPAuthorizationCredentials
+    from app.models.user import User
+    from tests.conftest import TEST_SECRET_KEY
+
+    token = _token(admin_headers)
+    if change == "expired":
+        token = jwt.encode({"sub": "admin", "exp": datetime.utcnow() + timedelta(seconds=1)}, TEST_SECRET_KEY, algorithm="HS256")
+    user = (await db_session.execute(select(User).where(User.username == "admin"))).scalar_one()
+    response = await stream_logs(lines=3, log_path=str(log_file), current_user=user,
+                                 credentials=HTTPAuthorizationCredentials(scheme="Bearer", credentials=token), db=db_session)
+    stream = response.body_iterator
+    assert await anext(stream) == "data: line one\n\n"
+    settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+    if change == "role":
+        user.role = "standard"
+    elif change == "key":
+        settings.secret_key = "rotated-key"
+    elif change == "auth_mode":
+        settings.auth_mode = "oidc_only"
+    elif change == "disable_auth":
+        settings.disable_auth = True
+    elif change == "deleted":
+        await db_session.delete(user)
+    else:
+        import asyncio
+        await asyncio.sleep(2)
+    await db_session.commit()
+    with pytest.raises(StopAsyncIteration):
+        await anext(stream)
 
 
-async def test_should_raise_401_when_query_token_is_missing(db_session):
-    with pytest.raises(HTTPException) as excinfo:
-        await admin_from_query_token(token=None, db=db_session)
+async def test_should_stop_idle_stream_after_role_revocation(seeded_db, db_session, log_file, admin_headers):
+    import asyncio
+    from fastapi.security import HTTPAuthorizationCredentials
+    from app.models.user import User
 
-    assert excinfo.value.status_code == 401
+    user = (await db_session.execute(select(User).where(User.username == "admin"))).scalar_one()
+    response = await stream_logs(lines=1, log_path=str(log_file), current_user=user,
+                                 credentials=HTTPAuthorizationCredentials(scheme="Bearer", credentials=_token(admin_headers)), db=db_session)
+    stream = response.body_iterator
+    assert await anext(stream) == "data: line three\n\n"
+    pending = asyncio.create_task(anext(stream))
+    await asyncio.sleep(0.1)
+    user.role = "standard"
+    await db_session.commit()
+    with pytest.raises(StopAsyncIteration):
+        await asyncio.wait_for(pending, 2)
+
+
+async def test_should_stop_stream_when_auth_is_enabled_after_bypass(seeded_db, db_session, log_file):
+    from app.models.user import User
+
+    settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+    settings.disable_auth = True
+    await db_session.commit()
+    user = (await db_session.execute(select(User).where(User.username == "admin"))).scalar_one()
+    response = await stream_logs(lines=3, log_path=str(log_file), current_user=user, credentials=None, db=db_session)
+    stream = response.body_iterator
+    assert await anext(stream) == "data: line one\n\n"
+    settings.disable_auth = False
+    await db_session.commit()
+    with pytest.raises(StopAsyncIteration):
+        await anext(stream)
 
 
 @pytest.mark.parametrize(

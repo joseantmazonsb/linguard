@@ -1,16 +1,17 @@
 import asyncio
 import os
-from pathlib import Path
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Awaitable, Callable, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
-from jose import JWTError, jwt
+from fastapi.security import HTTPAuthorizationCredentials
+from jose import jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..core import database
 from ..core.database import get_db
-from ..core.security import get_current_admin, get_settings_for_auth
+from ..core.security import get_current_admin, get_current_user, get_settings_for_auth, security
 from ..models.settings import GlobalSettings
 from ..models.user import User
 
@@ -36,66 +37,16 @@ async def get_log_file_path(db: AsyncSession = Depends(get_db)) -> str:
     return log_path
 
 
-async def admin_from_query_token(
-    token: str | None = None,
-    db: AsyncSession = Depends(get_db),
-) -> User:
-    """
-    Authenticate an admin via ?token= query parameter.
-
-    EventSource and window.open cannot send Authorization headers, so the
-    SSE stream and download endpoints accept the Linguard JWT in the query
-    string instead (same approach as the WebSocket endpoint).
-    """
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication token required",
-        )
-
-    settings = await get_settings_for_auth(db)
-    if not settings:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Application not configured. Please complete setup first."
-        )
-
-    if settings.disable_auth:
-        result = await db.execute(select(User).limit(1))
-        user = result.scalar_one_or_none()
-        if user:
-            return user
-
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-    )
-    try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-        username: str | None = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception from None
-
-    result = await db.execute(select(User).where(User.username == username))
-    user = result.scalar_one_or_none()
-    if user is None:
-        raise credentials_exception
-
-    if user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Administrator privileges required",
-        )
-    return user
-
-
-async def tail_log_file(file_path: str, lines: int = 100) -> AsyncGenerator[str, None]:
+async def tail_log_file(
+    file_path: str, lines: int = 100,
+    authorized: Optional[Callable[[], Awaitable[bool]]] = None,
+) -> AsyncGenerator[str, None]:
     """
     Stream log file contents with live updates.
     First sends the last N lines, then streams new lines as they appear.
     """
+    if authorized and not await authorized():
+        return
     if not os.path.exists(file_path):
         yield f"data: Log file not found: {file_path}\n\n"
         return
@@ -108,6 +59,8 @@ async def tail_log_file(file_path: str, lines: int = 100) -> AsyncGenerator[str,
             initial_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
             
             for line in initial_lines:
+                if authorized and not await authorized():
+                    return
                 yield f"data: {line.rstrip()}\n\n"
         
         # Now stream new lines as they appear
@@ -116,6 +69,8 @@ async def tail_log_file(file_path: str, lines: int = 100) -> AsyncGenerator[str,
             f.seek(0, os.SEEK_END)
             
             while True:
+                if authorized and not await authorized():
+                    return
                 line = f.readline()
                 if line:
                     yield f"data: {line.rstrip()}\n\n"
@@ -131,7 +86,9 @@ async def tail_log_file(file_path: str, lines: int = 100) -> AsyncGenerator[str,
 async def stream_logs(
     lines: int = 100,
     log_path: str = Depends(get_log_file_path),
-    current_user: User = Depends(admin_from_query_token),
+    current_user: User = Depends(get_current_admin),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Stream log file contents with Server-Sent Events (SSE).
@@ -142,11 +99,34 @@ async def stream_logs(
     Returns:
         StreamingResponse with text/event-stream content type
     """
+    settings = await get_settings_for_auth(db)
+    if not settings:
+        raise HTTPException(status_code=503, detail="Application not configured")
+    initial = (settings.setup_completed, settings.disable_auth, settings.auth_mode,
+               settings.secret_key, settings.algorithm, current_user.id)
+
+    async def authorized() -> bool:
+        try:
+            async with database.AsyncSessionLocal() as session:
+                current = await get_settings_for_auth(session)
+                if not current or (current.setup_completed, current.disable_auth, current.auth_mode,
+                                   current.secret_key, current.algorithm) != initial[:5]:
+                    return False
+                if not (current.setup_completed and current.disable_auth):
+                    if not credentials:
+                        return False
+                    jwt.decode(credentials.credentials, current.secret_key,
+                               algorithms=[current.algorithm], options={"require_exp": True})
+                user = await get_current_user(credentials, session)
+                return user.id == initial[5] and user.role == "admin"
+        except Exception:
+            return False
+
     return StreamingResponse(
-        tail_log_file(log_path, lines),
+        tail_log_file(log_path, lines, authorized),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-store",
             "X-Accel-Buffering": "no",  # Disable nginx buffering
         }
     )
@@ -155,7 +135,7 @@ async def stream_logs(
 @router.get("/download")
 async def download_log_file(
     log_path: str = Depends(get_log_file_path),
-    current_user: User = Depends(admin_from_query_token),
+    current_user: User = Depends(get_current_admin),
 ):
     """
     Download the complete log file.
@@ -170,6 +150,7 @@ async def download_log_file(
         path=log_path,
         filename="linguard.log",
         media_type="text/plain",
+        headers={"Cache-Control": "no-store"},
     )
 
 

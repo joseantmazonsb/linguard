@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
-import { logsAPI } from '../services/apiClient';
+import { api, logsAPI } from '../services/apiClient';
 import { useAuthStore } from '../store/auth';
 import CustomSelect from '../components/CustomSelect';
 import ToggleSwitch from '../components/ToggleSwitch';
@@ -23,7 +23,7 @@ export default function Logs() {
   const [showPathTooltip, setShowPathTooltip] = useState(false);
   const [isPathTruncated, setIsPathTruncated] = useState(false);
   const logsContainerRef = useRef<HTMLDivElement>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const streamRef = useRef<AbortController | null>(null);
   const pathRef = useRef<HTMLDivElement>(null);
 
   // Fetch log file info
@@ -48,38 +48,50 @@ export default function Logs() {
     }
   }, [logs, autoScroll]);
 
-  const startTailing = () => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
-
+  const startTailing = async () => {
+    streamRef.current?.abort();
+    const controller = new AbortController();
+    streamRef.current = controller;
     setLogs([]); // Clear existing logs
     setIsTailing(true);
 
     const token = useAuthStore.getState().token;
-    const eventSource = new EventSource(
-      `${location.origin}/api/v1/logs/stream?lines=${initialLines}&token=${encodeURIComponent(token ?? '')}`
-    );
-
-    eventSource.onmessage = (event) => {
-      const logLine = event.data;
-      setLogs((prev) => [...prev, logLine]);
-    };
-
-    eventSource.onerror = (error) => {
-      console.error('EventSource error:', error);
-      eventSource.close();
-      setIsTailing(false);
-    };
-
-    eventSourceRef.current = eventSource;
+    try {
+      const response = await fetch(`${api.defaults.baseURL}/logs/stream?lines=${initialLines}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        signal: controller.signal,
+      });
+      if (!response.ok || !response.body) throw new Error('Unable to stream logs');
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done || controller.signal.aborted) break;
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split(/\r?\n\r?\n/);
+        buffer = events.pop() ?? '';
+        for (const event of events) {
+          const fields = event.split(/\r?\n/).filter(line => line === 'data' || line.startsWith('data:'));
+          if (fields.length) {
+            const data = fields.map(line => line.slice(5).replace(/^ /, '')).join('\n');
+            setLogs(prev => [...prev, data]);
+          }
+        }
+      }
+    } catch {
+      if (!controller.signal.aborted) toast.error('Unable to stream logs');
+    } finally {
+      if (streamRef.current === controller) {
+        streamRef.current = null;
+        setIsTailing(false);
+      }
+    }
   };
 
   const stopTailing = () => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
+    streamRef.current?.abort();
+    streamRef.current = null;
     setIsTailing(false);
   };
 
@@ -87,12 +99,22 @@ export default function Logs() {
     setLogs([]);
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     const token = useAuthStore.getState().token;
-    window.open(
-      `${location.origin}/api/v1/logs/download?token=${encodeURIComponent(token ?? '')}`,
-      '_blank'
-    );
+    try {
+      const response = await fetch(`${api.defaults.baseURL}/logs/download`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error('Unable to download logs');
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'linguard.log';
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Unable to download logs');
+    }
   };
 
   const handleCopyPath = () => {
@@ -106,9 +128,8 @@ export default function Logs() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
+      streamRef.current?.abort();
+      streamRef.current = null;
     };
   }, []);
 
