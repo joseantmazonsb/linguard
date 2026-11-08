@@ -24,9 +24,7 @@ export interface SetupState {
     auth?: {
       skipped?: boolean;
       auth_mode?: string;
-      oidc_discovery_url?: string;
       oidc_client_id?: string;
-      oidc_client_secret?: string;
       oidc_scopes?: string;
       oidc_auto_provision?: boolean;
       oidc_admin_groups?: string;
@@ -51,6 +49,20 @@ export interface SetupState {
 
 const STORAGE_KEY = 'linguard_setup_state';
 
+// Persist only fields needed to resume setup, never credentials or connection strings.
+const PERSISTED_FIELDS = [
+  'currentStep', 'lastUpdated', 'data', 'database', 'account', 'globals', 'auth', 'server', 'peer',
+  'database_type', 'username', 'email', 'userId', 'dns_primary', 'dns_secondary',
+  'default_ipv4_pool', 'default_ipv6_pool', 'algorithm', 'access_token_expire_minutes',
+  'disable_auth', 'log_level', 'log_path', 'backup_dir', 'backup_retention_days',
+  'backup_auto_cleanup_enabled', 'backup_periodic_enabled', 'backup_schedule_frequency',
+  'backup_schedule_hour', 'backup_schedule_minute', 'skipped', 'auth_mode',
+  'oidc_client_id', 'oidc_scopes', 'oidc_auto_provision',
+  'oidc_admin_groups', 'server_id', 'serverId', 'serverName', 'peer_id', 'peerId',
+  'peerName', 'name', 'endpoint', 'listen_port', 'ipv4_address', 'ipv6_address',
+  'wireguardMissing', 'skipPeer',
+];
+
 /**
  * Save current setup state to localStorage
  */
@@ -60,7 +72,7 @@ export function saveSetupState(state: SetupState): void {
       ...state,
       lastUpdated: new Date().toISOString(),
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave, PERSISTED_FIELDS));
   } catch (error) {
     console.error('Failed to save setup state:', error);
   }
@@ -81,15 +93,18 @@ export function loadSetupState(): SetupState | null {
     const now = new Date();
     const hoursDiff = (now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60);
     
-    if (hoursDiff > 24) {
+    if (!state.data || !state.currentStep || !Number.isFinite(hoursDiff) || hoursDiff > 24) {
       // State is too old, clear it
       clearSetupState();
       return null;
     }
 
-    return state;
+    const sanitized = JSON.stringify(state, PERSISTED_FIELDS);
+    if (sanitized !== stored) localStorage.setItem(STORAGE_KEY, sanitized);
+    return JSON.parse(sanitized) as SetupState;
   } catch (error) {
     console.error('Failed to load setup state:', error);
+    clearSetupState();
     return null;
   }
 }

@@ -34,7 +34,8 @@ export default function AccountStep({ onNext, onBack }: AccountStepProps) {
     onSuccess: async (data) => {
       // Auto-login the user
       try {
-        const loginResponse = await authAPI.login(formData.username, formData.password);
+        const loginResponse = await authAPI.setupLogin(formData.username, formData.password);
+        if (loginResponse.user?.role !== 'admin') throw new Error('Administrator privileges required');
         // Update auth store with token and role
         login(loginResponse.access_token, loginResponse.user?.role);
         // Pass username and password to setupData so GlobalSettingsStep can re-login after secret key change

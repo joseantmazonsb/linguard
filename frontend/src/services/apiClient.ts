@@ -1,4 +1,10 @@
 import axios from 'axios';
+import type { Peer } from '../types';
+import { clearSetupState, loadSetupState } from '../utils/setupStorage';
+import { useAuthStore } from '../store/auth';
+
+// The wizard may never mount on installations that have already completed setup.
+loadSetupState();
 
 // Empty base URL = same origin (works behind reverse proxies like nginx).
 // Set VITE_API_URL to override (e.g. direct backend access during development).
@@ -28,8 +34,17 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('role');
+      if (['/auth/token', '/auth/oidc/callback', '/setup/status'].includes(error.config?.url)) {
+        return Promise.reject(error);
+      }
+      if (error.config?.url?.startsWith('/setup/') || window.location.pathname === '/setup') {
+        window.dispatchEvent(new Event('setup-auth-required'));
+        return Promise.reject(error);
+      }
+      if (error.config?.headers?.Authorization !== `Bearer ${localStorage.getItem('token')}`) {
+        return Promise.reject(error);
+      }
+      useAuthStore.getState().logout();
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -44,6 +59,13 @@ export const authAPI = {
     const response = await api.post('/auth/token', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    return response.data;
+  },
+  setupLogin: async (username: string, password: string) => {
+    const formData = new FormData();
+    formData.append('username', username);
+    formData.append('password', password);
+    const response = await axios.post(`${api.defaults.baseURL}/auth/token`, formData);
     return response.data;
   },
   getProfile: async () => {
@@ -146,6 +168,17 @@ export const peersAPI = {
     if (limit !== undefined) params.limit = limit;
     const response = await api.get('/peers', { params });
     return response.data;
+  },
+  listAll: async (): Promise<Peer[]> => {
+    const peers: Peer[] = [];
+    const limit = 100;
+    let page: Peer[];
+    do {
+      const response = await api.get<Peer[]>('/peers', { params: { skip: peers.length, limit } });
+      page = response.data;
+      peers.push(...page);
+    } while (page.length === limit);
+    return peers;
   },
   count: async (serverId?: number) => {
     const params: any = {};
@@ -312,6 +345,7 @@ export const systemAPI = {
 export const setupAPI = {
   getStatus: async () => {
     const response = await api.get('/setup/status');
+    if (response.data.setup_completed && !response.data.requires_setup) clearSetupState();
     return response.data;
   },
   reset: async () => {

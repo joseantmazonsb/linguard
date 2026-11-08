@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authAPI } from '../services/apiClient';
+import { useLocation } from 'react-router-dom';
+import axios from 'axios';
+import { authAPI, oidcAPI } from '../services/apiClient';
+import { tokenFingerprint } from '../utils/oidcLink';
 import type { FieldErrors } from '../utils/errorUtils';
 import {
   parseValidationErrors,
@@ -24,13 +27,48 @@ export default function Profile() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [linking, setLinking] = useState(false);
   const queryClient = useQueryClient();
+  const location = useLocation();
 
   // Fetch user profile
   const { data: profile, isLoading } = useQuery({
     queryKey: ['user-profile'],
     queryFn: authAPI.getProfile,
   });
+  const { data: oidcConfig } = useQuery({
+    queryKey: ['oidc-config'],
+    queryFn: oidcAPI.getConfig,
+  });
+
+  const handleLink = async () => {
+    setLinking(true);
+    setError(null);
+    try {
+      sessionStorage.removeItem('oidc-link');
+      sessionStorage.removeItem('oidc-login');
+      if (!window.isSecureContext) {
+        throw new Error('Account linking requires a secure connection. Open this site using HTTPS, or use localhost on the server.');
+      }
+      if (typeof window.crypto?.subtle?.digest !== 'function') {
+        throw new Error('Account linking requires Web Crypto. Use an up-to-date browser that supports it.');
+      }
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+      const { authorization_url } = await oidcAPI.getLogin();
+      const url = new URL(authorization_url);
+      const states = url.searchParams.getAll('state');
+      if (!['https:', 'http:'].includes(url.protocol) || states.length !== 1 || !states[0]) throw new Error('Invalid Single Sign-On authorization URL.');
+      const fingerprint = await tokenFingerprint(token);
+      if (localStorage.getItem('token') !== token) throw new Error('Your session changed. Please try again.');
+      sessionStorage.setItem('oidc-link', JSON.stringify({ state: states[0], fingerprint }));
+      window.location.assign(url.href);
+    } catch (err: unknown) {
+      sessionStorage.removeItem('oidc-link');
+      setError((axios.isAxiosError(err) && err.response?.data?.detail) || (err instanceof Error && err.message) || 'Could not start account linking.');
+      setLinking(false);
+    }
+  };
 
   // Update profile mutation
   const updateProfileMutation = useMutation({
@@ -42,8 +80,8 @@ export default function Profile() {
       setError(null);
       setTimeout(() => setSuccess(null), 3000);
     },
-    onError: (error: any) => {
-      setError(error.response?.data?.detail || 'Failed to update profile');
+    onError: (error: unknown) => {
+      setError((axios.isAxiosError(error) && error.response?.data?.detail) || 'Failed to update profile');
       setSuccess(null);
     },
   });
@@ -59,7 +97,7 @@ export default function Profile() {
       setError(null);
       setTimeout(() => setSuccess(null), 3000);
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       if (isValidationError(error)) {
         const errors = parseValidationErrors(error);
         setFieldErrors(errors);
@@ -140,9 +178,9 @@ export default function Profile() {
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">User Profile</h1>
 
       {/* Success Message */}
-      {success && (
+      {(success || location.state?.oidcLinked) && (
         <div className="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 px-4 py-3 rounded-lg">
-          {success}
+          {success || 'Single Sign-On account linked successfully'}
         </div>
       )}
 
@@ -251,6 +289,19 @@ export default function Profile() {
           </form>
         </div>
       </div>
+
+      {!isOidcUser && oidcConfig?.oidc_enabled && oidcConfig.auth_mode === 'both' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:border dark:border-gray-700 mb-6 p-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Single Sign-On</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 mb-4">
+            Link your local account to {oidcConfig.provider_name || 'your identity provider'}. The provider must verify the same email address as your profile. Administrators must also belong to an authorized administrator group. You will confirm your local password after signing in.
+          </p>
+          <button type="button" onClick={handleLink} disabled={linking}
+            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg">
+            {linking ? 'Redirecting...' : 'Link Single Sign-On'}
+          </button>
+        </div>
+      )}
 
       {/* Change Password (local accounts only) */}
       {!isOidcUser && (

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { setupAPI } from '../../services/apiClient';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { serversAPI, setupAPI } from '../../services/apiClient';
 import ToggleSwitch from '../../components/ToggleSwitch';
 import type { FieldErrors } from '../../utils/errorUtils';
 import {
@@ -26,6 +26,14 @@ export default function PeerStep({ onNext, onBack, setupData }: PeerStepProps) {
   });
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [selectedServerId, setSelectedServerId] = useState('');
+  const servers = useQuery({
+    queryKey: ['setup-servers'],
+    queryFn: serversAPI.list,
+    enabled: !setupData.serverId,
+    retry: false,
+  });
+  const serverId = setupData.serverId ?? (selectedServerId ? Number(selectedServerId) : servers.data?.length === 1 ? servers.data[0].id : undefined);
 
   const createPeerMutation = useMutation({
     mutationFn: setupAPI.createPeer,
@@ -46,7 +54,7 @@ export default function PeerStep({ onNext, onBack, setupData }: PeerStepProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createPeerMutation.mutate({
-      server_id: setupData.serverId,
+      server_id: serverId,
       name: formData.name,
       preshared_key: formData.preshared_key,
     });
@@ -66,6 +74,21 @@ export default function PeerStep({ onNext, onBack, setupData }: PeerStepProps) {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {!setupData.serverId && (
+          <div>
+            {servers.isLoading && <p className="text-gray-600 dark:text-gray-300">Loading existing servers...</p>}
+            {servers.isError && <p role="alert" className="text-red-700 dark:text-red-400">Could not load servers. <button type="button" onClick={() => servers.refetch()} className="underline">Retry</button></p>}
+            {servers.data?.length === 0 && <div className="space-y-2"><p role="alert" className="text-red-700 dark:text-red-400">No server was found. Go back to create one, or continue without one.</p><button type="button" onClick={() => onNext({ wireguardMissing: true })} className="rounded-lg bg-blue-600 dark:bg-blue-500 px-4 py-2 text-white">Continue without server</button></div>}
+            {servers.data?.length > 1 && (
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Server
+                <select required value={selectedServerId} onChange={(e) => setSelectedServerId(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white">
+                  <option value="">Select a server</option>
+                  {servers.data.map((server: { id: number; name: string }) => <option key={server.id} value={server.id}>{server.name}</option>)}
+                </select>
+              </label>
+            )}
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Peer Name *</label>
           <input
@@ -108,7 +131,7 @@ export default function PeerStep({ onNext, onBack, setupData }: PeerStepProps) {
           <button type="button" onClick={onBack} className="px-6 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50">
             Back
           </button>
-          <button type="submit" disabled={createPeerMutation.isPending} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 disabled:bg-blue-400 dark:disabled:bg-blue-700 text-white rounded-lg font-medium">
+          <button type="submit" disabled={createPeerMutation.isPending || !serverId} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 disabled:bg-blue-400 dark:disabled:bg-blue-700 text-white rounded-lg font-medium">
             {createPeerMutation.isPending ? 'Creating...' : 'Create Peer'}
           </button>
         </div>

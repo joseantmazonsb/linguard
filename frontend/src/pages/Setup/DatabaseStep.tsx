@@ -20,7 +20,6 @@ export default function DatabaseStep({ onNext }: DatabaseStepProps) {
     onSuccess: () => {
       onNext({
         database_type: selectedDatabase,
-        connection_string: connectionString,
       });
     },
     onError: (err: any) => {

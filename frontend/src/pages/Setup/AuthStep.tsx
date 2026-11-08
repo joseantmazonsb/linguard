@@ -37,7 +37,15 @@ export default function AuthStep({ onNext, onBack }: AuthStepProps) {
   const configureAuthMutation = useMutation({
     mutationFn: setupAPI.configureAuth,
     onSuccess: () => {
-      onNext({ auth: mode === 'skip' ? { skipped: true } : { ...formData, auth_mode: authMode, skipped: false } });
+      onNext({ auth: mode === 'skip' ? { skipped: true } : {
+        oidc_discovery_url: formData.oidc_discovery_url,
+        oidc_client_id: formData.oidc_client_id,
+        oidc_scopes: formData.oidc_scopes,
+        oidc_auto_provision: formData.oidc_auto_provision,
+        oidc_admin_groups: formData.oidc_admin_groups,
+        auth_mode: authMode,
+        skipped: false,
+      } });
     },
     onError: (err: any) => {
       if (isValidationError(err)) {
@@ -187,8 +195,9 @@ export default function AuthStep({ onNext, onBack }: AuthStepProps) {
                 >
                   <option value="both">Local + OIDC (both)</option>
                   <option value="local_only">Local Authentication Only</option>
-                  <option value="oidc_only">OIDC Only</option>
+                  <option value="oidc_only" disabled>OIDC Only</option>
                 </select>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">OIDC-only mode can be enabled after setup, once an OIDC administrator has signed in.</p>
               </div>
 
               {/* Discovery URL */}

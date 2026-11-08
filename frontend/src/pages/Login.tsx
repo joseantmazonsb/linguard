@@ -64,10 +64,17 @@ export default function Login() {
     setSsoLoading(true);
     setError(null);
     try {
+      sessionStorage.removeItem('oidc-login');
+      sessionStorage.removeItem('oidc-link');
       const { authorization_url } = await oidcAPI.getLogin();
-      window.location.href = authorization_url;
+      const url = new URL(authorization_url);
+      const states = url.searchParams.getAll('state');
+      if (!['https:', 'http:'].includes(url.protocol) || states.length !== 1 || !states[0]) throw new Error('Invalid Single Sign-On authorization URL.');
+      sessionStorage.setItem('oidc-login', states[0]);
+      window.location.assign(url.href);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Could not start Single Sign-On');
+      try { sessionStorage.removeItem('oidc-login'); } catch { /* Storage is unavailable. */ }
+      setError(err.response?.data?.detail || err.message || 'Could not start Single Sign-On');
       setSsoLoading(false);
     }
   };

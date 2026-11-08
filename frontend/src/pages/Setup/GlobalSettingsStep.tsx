@@ -26,6 +26,7 @@ export default function GlobalSettingsStep({
   setupData,
 }: GlobalSettingsStepProps) {
   const login = useAuthStore((state) => state.login);
+  const logout = useAuthStore((state) => state.logout);
 
   // Generate a random secret key on mount
   const generateSecretKey = () => {
@@ -64,24 +65,22 @@ export default function GlobalSettingsStep({
     mutationFn: setupAPI.configureGlobals,
     onSuccess: async () => {
       setFieldErrors({}); // Clear errors on success
-      // The secret key just changed, so we need to re-login to get a new valid token
+      // The previous token is invalid as soon as the signing key changes.
+      logout();
       if (setupData?.username && setupData?.password) {
         try {
-          console.log(
-            "[GlobalSettingsStep] Re-authenticating after secret key change...",
-          );
-          const loginResponse = await authAPI.login(
+          const loginResponse = await authAPI.setupLogin(
             setupData.username,
             setupData.password,
           );
+          if (loginResponse.user?.role !== "admin") throw new Error("Administrator privileges required");
           login(loginResponse.access_token, loginResponse.user?.role);
-          console.log("[GlobalSettingsStep] Re-authentication successful");
         } catch (err) {
           console.error("[GlobalSettingsStep] Re-authentication failed:", err);
-          // Continue anyway - user can re-login later if needed
         }
       }
-      onNext(formData);
+      const { secret_key: _secretKey, ...settings } = formData;
+      onNext(settings);
     },
     onError: (err: any) => {
       if (isValidationError(err)) {

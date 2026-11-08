@@ -11,7 +11,9 @@ export default function CompleteStep({
   setupData,
   onComplete,
 }: CompleteStepProps) {
-  const [isCompleting, setIsCompleting] = useState(false);
+  const [status, setStatus] = useState<"pending" | "success" | "error">("pending");
+  const [completionError, setCompletionError] = useState("");
+  const [needsLocalAuth, setNeedsLocalAuth] = useState(false);
   const [backupId, setBackupId] = useState<number | null>(null);
   const hasCompleted = useRef(false);
 
@@ -19,11 +21,23 @@ export default function CompleteStep({
     mutationFn: setupAPI.complete,
     onSuccess: (data) => {
       setBackupId(data.backup_id);
-      setIsCompleting(false);
+      setStatus("success");
     },
-    onError: () => {
-      setIsCompleting(false);
+    onError: (error: any) => {
+      const detail = error.response?.status === 400 && typeof error.response?.data?.detail === "string" ? error.response.data.detail : "";
+      setCompletionError(detail);
+      setNeedsLocalAuth(detail === "Enable local login before completing setup.");
+      setStatus("error");
     },
+  });
+
+  const recoverAuthMutation = useMutation({
+    mutationFn: () => setupAPI.configureAuth({ skip: true }),
+    onSuccess: () => {
+      setStatus("pending");
+      completeMutation.mutate();
+    },
+    onError: () => setCompletionError("Failed to enable local login. Please try again."),
   });
 
   useEffect(() => {
@@ -32,13 +46,12 @@ export default function CompleteStep({
     hasCompleted.current = true;
 
     // Auto-trigger completion
-    setIsCompleting(true);
     completeMutation.mutate();
   }, []);
 
   return (
     <div className="space-y-6 text-center">
-      {isCompleting ? (
+      {status === "pending" ? (
         <>
           <div className="mx-auto w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-4">
             <svg
@@ -62,6 +75,14 @@ export default function CompleteStep({
             Creating initial backup and finalizing configuration.
           </p>
         </>
+      ) : status === "error" ? (
+        <div className="space-y-4">
+          <p role="alert" className="text-red-700 dark:text-red-400">{completionError || "Failed to complete setup. Please try again."}</p>
+          {needsLocalAuth && (
+            <button type="button" disabled={recoverAuthMutation.isPending} onClick={() => recoverAuthMutation.mutate()} className="rounded-lg bg-blue-600 dark:bg-blue-500 px-6 py-2 text-white disabled:opacity-50">Enable local login</button>
+          )}
+          <button type="button" onClick={() => { setStatus("pending"); completeMutation.mutate(); }} className="rounded-lg bg-blue-600 dark:bg-blue-500 px-6 py-2 text-white">Retry</button>
+        </div>
       ) : (
         <>
           <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-4">
