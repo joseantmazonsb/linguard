@@ -1,69 +1,57 @@
-# This will only deploy docker images to GHCR
-name: latest-deploy
+name: Publish Development Image
 on:
-  pull_request:
-    types: [closed]
-    branches:
-      - dev
-    paths-ignore:
-      - "docs/**"
-      - "*.md"
-      - "*-test.yaml"
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [dev]
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-development
+  cancel-in-progress: false
 
 jobs:
-  deploy:
-    if: github.event.pull_request.merged
+  publish:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v2
+      - uses: actions/checkout@v4
         with:
-          python-version: 3.9
-
-      - name: Upgrade pip
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Check tested commit is still current
+        id: current
         run: |
-          pip install --upgrade pip
-
-      - name: Set up virtual environment using poetry
-        run: |
-          wget https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py
-          python3 install-poetry.py
-          poetry config virtualenvs.create false
-          poetry install --no-interaction
-
-      - name: Get version
-        id: get_version
-        run: |
-          echo "::set-output name=version::$(poetry version -s)"
-
-      - name: Build artifacts
-        run: |
-          ./build.sh
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-
-      - name: Log in to the Container registry
-        uses: docker/login-action@v1
+          git fetch origin dev
+          if [ "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping stale CI run."
+          fi
+      - uses: docker/metadata-action@v5
+        id: meta
+        if: steps.current.outputs.publish == 'true'
         with:
-          registry: ${{ env.REGISTRY }}
+          images: ghcr.io/${{ github.repository }}
+          tags: type=raw,value=dev
+      - uses: docker/setup-qemu-action@v3
+        if: steps.current.outputs.publish == 'true'
+      - uses: docker/setup-buildx-action@v3
+        if: steps.current.outputs.publish == 'true'
+      - uses: docker/login-action@v3
+        if: steps.current.outputs.publish == 'true'
+        with:
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v2
+      - uses: docker/build-push-action@v6
+        if: steps.current.outputs.publish == 'true'
         with:
           context: .
-          file: docker/Dockerfile
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          platforms: "linux/amd64, linux/arm64"
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

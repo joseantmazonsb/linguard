@@ -1,73 +1,60 @@
-name: latest-test
+name: CI
 on:
   pull_request:
-    branches:
-      - dev
-    paths-ignore:
-      - "*.md"
-      - "*-deploy.yaml"
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+permissions:
+  contents: read
 
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        python-version: [3.7, 3.8, 3.9]
-        os: [ ubuntu-20.04 ]
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v2
-
-      - name: Set permissions
-        run: |
-          chmod +x linguard/core/tools/*
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Upgrade pip
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: pip install uv==0.12.5
+      - name: Check dependency locks
         run: |
-          pip install --upgrade pip
+          uv pip compile --python-version 3.12 --universal requirements.txt -o requirements.lock.txt
+          uv pip compile --python-version 3.12 --universal -c requirements.lock.txt requirements-test.txt -o requirements-test.lock.txt
+          git diff --exit-code -- requirements.lock.txt requirements-test.lock.txt
+      - run: pip install -r requirements.lock.txt -r requirements-test.lock.txt
+      - run: pytest
 
-      - name: Set up virtual environment using poetry
-        run: |
-          wget https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py
-          python3 install-poetry.py
-          poetry config virtualenvs.create false
-          poetry install --no-interaction
-
-      - name: Install linux dependencies
-        run: |
-          sudo apt-get -qq install wireguard iptables
-
-      - name: Run tests
-        run: |
-          poetry run coverage run -m pytest && poetry run coverage xml --fail-under=80
-
-      - name: Check docs are compiled successfully
-        run: |
-          cd docs && make html && cd ..
-
-      - name: Upload coverage report to Codecov
-        uses: codecov/codecov-action@v2.1.0
-        if: always()
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          files: coverage.xml
-
-      - name: Build release
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: node --experimental-strip-types --test e2e/setup-storage.test.mjs
+      - run: npx playwright install --with-deps chromium
+      - name: Run mocked browser regressions
         run: |
-          ./build.sh
-
-      - name: Install release
-        run: |
-          cd dist
-          tar -xf *.tar.gz
-          sudo ./install.sh
-
-      - name: Briefly test uwgsi (can't use service here)
-        run: |
-          sudo -u linguard /usr/bin/uwsgi --yaml /var/www/linguard/data/uwsgi.yaml &
-          sleep 2s
-          sudo pkill -f uwsgi
+          npm run dev -- --host 0.0.0.0 > "$RUNNER_TEMP/linguard-vite.log" 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:5173/ > /dev/null; then break; fi
+            if ! kill -0 "$server" 2>/dev/null; then cat "$RUNNER_TEMP/linguard-vite.log"; exit 1; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:5173/ > /dev/null
+          npx playwright test e2e/setup-secrets.spec.ts e2e/setup-lifecycle.spec.ts e2e/dashboard-live-pagination.spec.ts e2e/integration-script-unsupported.spec.ts e2e/auth-regressions.spec.ts e2e/websocket-ticket.spec.ts e2e/oidc-link.spec.ts e2e/setup-resume-server.spec.ts e2e/peers-pagination.spec.ts e2e/notification-center-live.spec.ts e2e/logs-security.spec.ts
