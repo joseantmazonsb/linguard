@@ -20,6 +20,11 @@ from ..services.backup_service import BackupService
 router = APIRouter()
 
 
+class BackupCreateRequest(BackupCreate):
+    encrypt: bool = False
+    passphrase: str | None = None
+
+
 @router.get("/")
 async def list_backups(
     skip: int = 0,
@@ -74,7 +79,7 @@ async def get_backup(
 @router.post("/", status_code=status.HTTP_201_CREATED)
 @inject
 async def create_backup(
-    backup_data: BackupCreate,
+    backup_data: BackupCreateRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -95,6 +100,8 @@ async def create_backup(
             db=db,
             user_id=current_user.id,
             description=backup_data.description,
+            encrypt=backup_data.encrypt,
+            passphrase=backup_data.passphrase,
         )
 
         # Log audit event
@@ -126,6 +133,8 @@ async def create_backup(
             "created_at": backup.created_at.isoformat(),
         }
 
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

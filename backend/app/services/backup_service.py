@@ -16,6 +16,9 @@ from ..models.traffic_trigger import TrafficTrigger
 from ..models.plugin import Plugin
 
 
+BACKUP_GLOBAL_SETTINGS_FIELDS = frozenset({"dns_primary", "dns_secondary"})
+
+
 # ============================================================================
 # HELPER METHODS
 # ============================================================================
@@ -148,6 +151,29 @@ class BackupService:
         )
         return result.scalar_one_or_none() is not None
 
+    async def _write_backup_file(self, db, backup_dir, stem, json_data):
+        os.makedirs(backup_dir, exist_ok=True)
+        counter = 0
+        while True:
+            suffix = f"_{counter}" if counter else ""
+            filename = f"{stem}{suffix}.json"
+            filepath = os.path.join(backup_dir, filename)
+            if await self._filename_exists_in_db(db, filename):
+                counter += 1
+                continue
+            try:
+                fd = os.open(filepath, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            except FileExistsError:
+                counter += 1
+                continue
+            try:
+                with os.fdopen(fd, "w") as f:
+                    f.write(json_data)
+            except BaseException:
+                os.unlink(filepath)
+                raise
+            return filename, filepath
+
     async def create_backup(
         self,
         db: AsyncSession,
@@ -163,14 +189,14 @@ class BackupService:
             db: Database session
             user_id: User creating the backup
             description: Optional backup description
-            encrypt: Whether to encrypt the backup (not implemented, defaults to False)
-            passphrase: Encryption passphrase (not implemented, ignored)
+            encrypt: Whether to encrypt the backup (not supported)
+            passphrase: Reserved for future encryption support
 
         Returns:
             Backup model instance
         """
-        # Note: Encryption is not currently implemented
-        encrypt = False
+        if encrypt:
+            raise ValueError("Backup encryption is not supported; create an unencrypted backup and secure it externally")
         
         # Gather all data
         backup_data = {
@@ -189,8 +215,7 @@ class BackupService:
         global_settings = result.scalar_one_or_none()
         if global_settings:
             backup_data["global_settings"] = {
-                "dns_primary": global_settings.dns_primary,
-                "dns_secondary": global_settings.dns_secondary,
+                key: getattr(global_settings, key) for key in sorted(BACKUP_GLOBAL_SETTINGS_FIELDS)
             }
 
         # Servers
@@ -294,40 +319,18 @@ class BackupService:
         # Convert to JSON
         json_data = json.dumps(backup_data, indent=2)
 
-        # Encrypt if requested
-        if encrypt:
-            if not passphrase:
-                raise ValueError("Passphrase required for encryption")
-            # TODO: Implement encryption
-            # For now, just encode as base64
-            import base64
-            json_data = base64.b64encode(json_data.encode()).decode()
-
         # Get backup directory from settings (or use default)
         if self.settings_service:
             backup_dir = await self.settings_service.get_backup_dir(db)
         else:
             backup_dir = "backups"  # Fallback for tests or before setup
         
-        # Save to file with unique filename
-        os.makedirs(backup_dir, exist_ok=True)
-        
         # Generate unique filename with microseconds for uniqueness
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         microseconds = datetime.utcnow().strftime("%f")[:3]  # Get first 3 digits of microseconds (milliseconds)
-        base_filename = f"wireguard_backup_{timestamp}_{microseconds}.json"
-        filename = base_filename
-        filepath = os.path.join(backup_dir, filename)
-        
-        # Additional safety: If file exists on disk OR filename exists in database, add counter
-        counter = 1
-        while os.path.exists(filepath) or await self._filename_exists_in_db(db, filename):
-            filename = f"wireguard_backup_{timestamp}_{microseconds}_{counter}.json"
-            filepath = os.path.join(backup_dir, filename)
-            counter += 1
-
-        with open(filepath, 'w') as f:
-            f.write(json_data)
+        filename, filepath = await self._write_backup_file(
+            db, backup_dir, f"wireguard_backup_{timestamp}_{microseconds}", json_data
+        )
 
         # Get file size
         file_size = os.path.getsize(filepath)
@@ -346,9 +349,13 @@ class BackupService:
             created_by_user_id=user_id
         )
 
-        db.add(backup)
-        await db.flush()
-        await db.refresh(backup)
+        try:
+            db.add(backup)
+            await db.flush()
+            await db.refresh(backup)
+        except BaseException:
+            os.unlink(filepath)
+            raise
 
         # Publish event
         await event_bus.publish(
@@ -423,6 +430,26 @@ class BackupService:
         # Parse JSON
         backup_data = json.loads(json_data)
 
+        gs_data = backup_data.get("global_settings", {})
+        if not isinstance(gs_data, dict):
+            raise ValueError("Invalid global_settings: expected an object")
+        unexpected_settings = gs_data.keys() - BACKUP_GLOBAL_SETTINGS_FIELDS
+        if unexpected_settings:
+            raise ValueError(f"Unsupported global_settings fields: {', '.join(sorted(unexpected_settings))}")
+
+        server_data_list = backup_data.get("servers", [])
+        backup_server_ids = {server_data["id"] for server_data in server_data_list}
+        existing_servers = {}
+        if not clear_existing:
+            result = await db.execute(select(Server))
+            existing_servers = {server.name: server for server in result.scalars().all()}
+        for server_data in server_data_list:
+            if server_data["name"] in existing_servers:
+                continue
+            bounce_id = server_data.get("bounce_via_server_id")
+            if bounce_id is not None and bounce_id not in backup_server_ids:
+                raise ValueError(f"Missing bounce target server {bounce_id} in backup")
+
         # Clear existing data if requested
         if clear_existing:
             await db.execute(TrafficTrigger.__table__.delete())
@@ -433,7 +460,6 @@ class BackupService:
 
         # Restore global settings
         if "global_settings" in backup_data:
-            gs_data = backup_data["global_settings"]
             result = await db.execute(select(GlobalSettings))
             global_settings = result.scalar_one_or_none()
 
@@ -446,14 +472,13 @@ class BackupService:
 
         # Restore servers
         server_id_map = {}
-        for server_data in backup_data.get("servers", []):
+        restored_servers = {}
+        for original_server_data in server_data_list:
+            server_data = original_server_data.copy()
             old_id = server_data.pop("id")
+            server_data.pop("bounce_via_server_id", None)
             
-            # Check if server with same name already exists
-            result = await db.execute(
-                select(Server).where(Server.name == server_data["name"])
-            )
-            existing_server = result.scalar_one_or_none()
+            existing_server = existing_servers.get(server_data["name"])
             
             if existing_server:
                 # Skip this server and map old ID to existing ID
@@ -465,6 +490,17 @@ class BackupService:
                 await db.flush()
                 await db.refresh(server)
                 server_id_map[old_id] = server.id
+                restored_servers[old_id] = server
+
+        for server_data in server_data_list:
+            if server_data["id"] not in restored_servers:
+                continue
+            bounce_id = server_data.get("bounce_via_server_id")
+            restored_servers[server_data["id"]].bounce_via_server_id = (
+                server_id_map[bounce_id] if bounce_id is not None else None
+            )
+
+        await db.flush()
 
         # Restore peers
         peer_id_map = {}
@@ -641,15 +677,11 @@ class BackupService:
         else:
             backup_dir = "backups"  # Fallback
 
-        # Copy to backup directory
-        os.makedirs(backup_dir, exist_ok=True)
+        # Store without overwriting an existing file or backup record.
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        filename = f"wireguard_backup_{timestamp}_imported.json"
-        dest_path = os.path.join(backup_dir, filename)
-
-        # Copy file
-        import shutil
-        shutil.copy(file_path, dest_path)
+        filename, dest_path = await self._write_backup_file(
+            db, backup_dir, f"wireguard_backup_{timestamp}_imported", json_data
+        )
 
         # Get file size
         file_size = os.path.getsize(dest_path)
@@ -668,8 +700,12 @@ class BackupService:
             created_by_user_id=user_id
         )
 
-        db.add(backup)
-        await db.commit()
+        try:
+            db.add(backup)
+            await db.commit()
+        except BaseException:
+            os.unlink(dest_path)
+            raise
         await db.refresh(backup)
 
         return backup

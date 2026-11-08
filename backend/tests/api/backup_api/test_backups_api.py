@@ -26,6 +26,12 @@ async def _audit_actions(db_session):
 # Create
 # ---------------------------------------------------------------------------
 
+async def test_should_reject_requested_encryption(auth_client, backup_dir):
+    response = auth_client.post("/api/v1/backups/", json={"encrypt": True, "passphrase": "pw"})
+    assert response.status_code == 400
+    assert "encryption" in response.json()["detail"].lower()
+    assert not backup_dir.exists() or list(backup_dir.iterdir()) == []
+
 async def test_should_create_backup_when_configuration_exists(
     auth_client, backup_dir, seeded_server_and_peer, db_session
 ):
@@ -246,6 +252,37 @@ async def test_should_return_500_when_upload_cannot_write_backup_file(
 # ---------------------------------------------------------------------------
 # Restore
 # ---------------------------------------------------------------------------
+
+async def test_should_reject_malicious_imported_settings_without_overwriting_configuration(
+    auth_client, backup_dir, db_session, seeded_server_and_peer
+):
+    from app.models.server import Server
+
+    payload = make_backup_payload()
+    payload["global_settings"].update({
+        "setup_completed": False, "disable_auth": True, "secret_key": "attacker-secret"
+    })
+    uploaded = auth_client.post("/api/v1/backups/upload", files=as_upload(payload)).json()
+    settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+    original = (settings.setup_completed, settings.disable_auth, settings.secret_key,
+                settings.dns_primary)
+    response = auth_client.post(f"/api/v1/backups/{uploaded['id']}/restore", params={"overwrite": "true"})
+    assert response.status_code == 400
+    assert "global_settings" in response.json()["detail"]
+    await db_session.refresh(settings)
+    assert (settings.setup_completed, settings.disable_auth, settings.secret_key,
+            settings.dns_primary) == original
+    names = (await db_session.execute(select(Server.name))).scalars().all()
+    assert names == ["srv-main"]
+
+async def test_should_return_400_for_missing_bounce_target(auth_client, backup_dir):
+    payload = make_backup_payload()
+    payload["servers"][0]["bounce_via_server_id"] = 999
+    uploaded = auth_client.post("/api/v1/backups/upload", files=as_upload(payload)).json()
+    response = auth_client.post(f"/api/v1/backups/{uploaded['id']}/restore")
+    assert response.status_code == 400
+    assert "bounce" in response.json()["detail"]
+    assert "999" in response.json()["detail"]
 
 async def test_should_restore_backup_when_file_is_valid(auth_client, backup_dir, db_session):
     uploaded = auth_client.post(

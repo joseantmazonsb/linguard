@@ -6,6 +6,8 @@ database work runs against the real per-test SQLite database.
 
 import base64
 import json
+import os
+import stat
 from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
@@ -188,13 +190,29 @@ class TestCreateBackup:
 
         assert backup.filename == "wireguard_backup_20260102_030405_678_1.json"
 
-    async def test_should_never_encrypt_even_when_encryption_is_requested(
+    async def test_should_reject_encryption_when_requested(
             self, service, db_session, backup_dir, populated):
-        backup = await service.create_backup(db_session, user_id=1, encrypt=True, passphrase="pw")
+        with pytest.raises(ValueError, match="[Ee]ncryption.*not.*supported"):
+            await service.create_backup(db_session, user_id=1, encrypt=True, passphrase="pw")
+        assert list(backup_dir.iterdir()) == []
+        assert (await db_session.execute(select(Backup))).scalars().all() == []
 
-        assert backup.is_encrypted is False
-        # The JSON is still plain text (encryption is not implemented yet)
-        assert "servers" in (backup_dir / backup.filename).read_text()
+    async def test_should_create_private_file_under_permissive_umask(
+            self, service, db_session, backup_dir, populated):
+        previous = os.umask(0)
+        try:
+            backup = await service.create_backup(db_session, user_id=1)
+        finally:
+            os.umask(previous)
+        assert stat.S_IMODE((backup_dir / backup.filename).stat().st_mode) == 0o600
+
+    async def test_should_remove_file_when_backup_record_flush_fails(
+            self, service, db_session, backup_dir, seeded_db):
+        from sqlalchemy.exc import IntegrityError
+
+        with pytest.raises(IntegrityError):
+            await service.create_backup(db_session, user_id=99999)
+        assert list(backup_dir.iterdir()) == []
 
     async def test_should_use_default_directory_without_settings_service(
             self, db_session, populated, tmp_path, monkeypatch):
@@ -210,6 +228,158 @@ class TestCreateBackup:
 # ===========================================================================
 
 class TestRestoreBackup:
+    @pytest.mark.parametrize("field,value", [
+        ("setup_completed", False),
+        ("disable_auth", True),
+        ("secret_key", "attacker-secret"),
+        ("auth_mode", "oidc_only"),
+        ("unexpected_field", "value"),
+    ])
+    @pytest.mark.parametrize("clear_existing", [False, True])
+    async def test_should_reject_unsafe_imported_settings_before_any_mutation(
+            self, service, db_session, backup_dir, populated, tmp_path, field, value, clear_existing):
+        source = tmp_path / "malicious.json"
+        source.write_text(json.dumps({"version": "1.0", "global_settings": {
+            "dns_primary": "192.0.2.1", field: value,
+        }}))
+        backup = await service.import_backup(db_session, str(source), user_id=1)
+        settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+        original = (settings.dns_primary, settings.setup_completed, settings.disable_auth,
+                    settings.secret_key, settings.auth_mode)
+
+        with pytest.raises(ValueError, match="global_settings"):
+            await service.restore_backup(db_session, backup.id, user_id=1, clear_existing=clear_existing)
+
+        await db_session.flush()
+        await db_session.refresh(settings)
+        assert (settings.dns_primary, settings.setup_completed, settings.disable_auth,
+                settings.secret_key, settings.auth_mode) == original
+        assert (await db_session.execute(select(Server))).scalars().one().name == "Tokyo"
+        assert len((await db_session.execute(select(Peer))).scalars().all()) == 2
+
+    @pytest.mark.parametrize("global_settings", [None, {}, {"dns_primary": "9.9.9.9"},
+                          {"dns_primary": "9.9.9.9", "dns_secondary": "1.1.1.1"}])
+    async def test_should_restore_legacy_import_with_safe_settings(
+            self, service, db_session, seeded_db, tmp_path, global_settings):
+        payload = {"version": "1.0"}
+        if global_settings is not None:
+            payload["global_settings"] = global_settings
+        source = tmp_path / "legacy.json"
+        source.write_text(json.dumps(payload))
+        backup = await service.import_backup(db_session, str(source), user_id=1)
+        settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+        original_secret = settings.secret_key
+        await service.restore_backup(db_session, backup.id, user_id=1)
+        await db_session.refresh(settings)
+        assert settings.secret_key == original_secret
+        if global_settings and "dns_primary" in global_settings:
+            assert settings.dns_primary == global_settings["dns_primary"]
+        if global_settings and "dns_secondary" in global_settings:
+            assert settings.dns_secondary == global_settings["dns_secondary"]
+
+    @pytest.mark.parametrize("existing", ["none", "both", "destination", "source"])
+    async def test_should_remap_bounce_targets_in_reverse_order(
+            self, service, db_session, backup_dir, seeded_db, existing):
+        unrelated = Server(id=50, name="unrelated", interface="wg50", public_key="u",
+                           private_key="u", listen_port=51820)
+        db_session.add(unrelated)
+        if existing in ("both", "destination"):
+            db_session.add(Server(id=70, name="destination", interface="wg70", public_key="d",
+                                  private_key="d", listen_port=51821))
+        if existing in ("both", "source"):
+            db_session.add(Server(id=80, name="source", interface="wg80", public_key="s",
+                                  private_key="s", listen_port=51822))
+        await db_session.commit()
+        path = backup_dir / "bounce.json"
+        path.write_text(json.dumps({"version": "1.0", "servers": [
+            {"id": 90, "name": "source", "interface": "wg1", "public_key": "s",
+             "private_key": "s", "listen_port": 51822, "bounce_via_server_id": 50},
+            {"id": 50, "name": "destination", "interface": "wg2", "public_key": "d",
+             "private_key": "d", "listen_port": 51821, "bounce_via_server_id": None},
+        ]}))
+        backup = Backup(filename=path.name, size_bytes=path.stat().st_size, created_by_user_id=1)
+        db_session.add(backup)
+        await db_session.commit()
+
+        await service.restore_backup(db_session, backup.id, user_id=1)
+        servers = (await db_session.execute(select(Server))).scalars().all()
+        by_name = {server.name: server for server in servers}
+        if existing in ("both", "source"):
+            assert by_name["source"].bounce_via_server_id is None
+        else:
+            assert by_name["source"].bounce_via_server_id == by_name["destination"].id
+            assert by_name["source"].bounce_via_server_id != unrelated.id
+
+    @pytest.mark.parametrize("archived_bounce", [None, 2, 999])
+    async def test_should_preserve_skipped_server_bounce_with_legacy_references(
+            self, service, db_session, backup_dir, seeded_db, archived_bounce):
+        current_target = Server(name="current-target", public_key="t", private_key="t", listen_port=1)
+        db_session.add(current_target)
+        await db_session.flush()
+        source = Server(name="source", public_key="s", private_key="s", listen_port=2,
+                        bounce_via_server_id=current_target.id)
+        db_session.add(source)
+        await db_session.commit()
+        path = backup_dir / "legacy.json"
+        path.write_text(json.dumps({"version": "1.0", "servers": [
+            {"id": 1, "name": "source", "public_key": "old", "private_key": "old",
+             "listen_port": 3, "bounce_via_server_id": archived_bounce},
+            {"id": 2, "name": "archived-target", "public_key": "a", "private_key": "a",
+             "listen_port": 4},
+            {"id": 3, "name": "new-source", "public_key": "n", "private_key": "n",
+             "listen_port": 5, "bounce_via_server_id": 1},
+        ]}))
+        backup = Backup(filename=path.name, size_bytes=path.stat().st_size, created_by_user_id=1)
+        db_session.add(backup)
+        await db_session.commit()
+        await service.restore_backup(db_session, backup.id, user_id=1)
+        await db_session.refresh(source)
+        new_source = (await db_session.execute(select(Server).where(Server.name == "new-source"))).scalar_one()
+        assert source.bounce_via_server_id == current_target.id
+        assert source.public_key == "s"
+        assert new_source.bounce_via_server_id == source.id
+
+    async def test_should_restore_forward_bounce_reference_with_foreign_keys_enabled(
+            self, service, db_session, backup_dir, seeded_db):
+        path = backup_dir / "forward.json"
+        path.write_text(json.dumps({"version": "1.0", "servers": [
+            {"id": 200, "name": "source", "public_key": "s", "private_key": "s",
+             "listen_port": 51820, "bounce_via_server_id": 100},
+            {"id": 100, "name": "destination", "public_key": "d", "private_key": "d",
+             "listen_port": 51821},
+        ]}))
+        backup = Backup(filename=path.name, size_bytes=path.stat().st_size, created_by_user_id=1)
+        db_session.add(backup)
+        await db_session.commit()
+        await service.restore_backup(db_session, backup.id, user_id=1)
+        servers = {s.name: s for s in (await db_session.execute(select(Server))).scalars()}
+        assert servers["source"].bounce_via_server_id == servers["destination"].id
+
+    async def test_should_overwrite_servers_with_existing_bounce_reference(
+            self, service, db_session, seeded_db):
+        destination = Server(name="destination", public_key="d", private_key="d", listen_port=51821)
+        db_session.add(destination)
+        await db_session.flush()
+        db_session.add(Server(name="source", public_key="s", private_key="s", listen_port=51820,
+                              bounce_via_server_id=destination.id))
+        await db_session.commit()
+        backup = await service.create_backup(db_session, user_id=1)
+        await service.restore_backup(db_session, backup.id, user_id=1, clear_existing=True)
+        servers = {s.name: s for s in (await db_session.execute(select(Server))).scalars()}
+        assert servers["source"].bounce_via_server_id == servers["destination"].id
+
+    async def test_should_reject_missing_bounce_target(self, service, db_session, backup_dir, seeded_db):
+        path = backup_dir / "missing.json"
+        path.write_text(json.dumps({"version": "1.0", "servers": [
+            {"id": 1, "name": "source", "public_key": "s", "private_key": "s",
+             "listen_port": 51820, "bounce_via_server_id": 999},
+        ]}))
+        backup = Backup(filename=path.name, size_bytes=path.stat().st_size, created_by_user_id=1)
+        db_session.add(backup)
+        await db_session.commit()
+        with pytest.raises(ValueError, match="bounce.*999"):
+            await service.restore_backup(db_session, backup.id, user_id=1)
+
     async def test_should_recreate_missing_entities(self, service, db_session, populated):
         backup = await service.create_backup(db_session, user_id=1)
 
@@ -370,6 +540,46 @@ class TestRestoreBackup:
 # ===========================================================================
 
 class TestImportBackup:
+    async def test_should_remove_imported_file_when_commit_fails(
+            self, service, db_session, backup_dir, seeded_db, tmp_path):
+        from sqlalchemy.exc import IntegrityError
+
+        source = tmp_path / "upload.json"
+        source.write_text('{"version": "1.0", "private_key": "secret"}')
+        with pytest.raises(IntegrityError):
+            await service.import_backup(db_session, str(source), user_id=99999)
+        assert list(backup_dir.iterdir()) == []
+
+    async def test_should_keep_imports_private_and_avoid_disk_and_db_collisions(
+            self, service, db_session, backup_dir, seeded_db, tmp_path, monkeypatch):
+        class FrozenDatetime(datetime):
+            @classmethod
+            def utcnow(cls):
+                return datetime(2026, 1, 2, 3, 4, 5)
+
+        monkeypatch.setattr("app.services.backup_service.datetime", FrozenDatetime)
+        first_path = backup_dir / "wireguard_backup_20260102_030405_imported.json"
+        first_path.write_text("existing")
+        db_session.add(Backup(filename="wireguard_backup_20260102_030405_imported_1.json",
+                              size_bytes=2, created_by_user_id=1))
+        await db_session.commit()
+        source = tmp_path / "upload.json"
+        source.write_text('{"version": "1.0", "private_key": "secret"}')
+        source.chmod(0o644)
+        previous = os.umask(0)
+        try:
+            first = await service.import_backup(db_session, str(source), user_id=1)
+            source.write_text('{"version": "1.0", "private_key": "another"}')
+            second = await service.import_backup(db_session, str(source), user_id=1)
+        finally:
+            os.umask(previous)
+        assert first.filename != second.filename
+        assert first_path.read_text() == "existing"
+        assert json.loads((backup_dir / first.filename).read_text())["private_key"] == "secret"
+        assert json.loads((backup_dir / second.filename).read_text())["private_key"] == "another"
+        assert stat.S_IMODE((backup_dir / first.filename).stat().st_mode) == 0o600
+        assert stat.S_IMODE((backup_dir / second.filename).stat().st_mode) == 0o600
+
     async def test_should_copy_file_and_record_counts(self, service, db_session, backup_dir, populated, tmp_path):
         source = tmp_path / "upload.json"
         source.write_text(json.dumps({
