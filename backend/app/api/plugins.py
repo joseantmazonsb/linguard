@@ -1,5 +1,7 @@
 from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from jsonschema import exceptions, validators
+from referencing import Registry
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -234,8 +236,33 @@ async def update_plugin_config(
             detail=f"Plugin with id {plugin_id} not found"
         )
     
-    # TODO: Validate config against config_schema (JSON Schema validation)
-    # For now, just update the config
+    schema = plugin.config_schema
+    if schema:
+        # Older plugins declare a map of field names to field definitions.
+        schema_keywords = set(validators.Draft202012Validator.VALIDATORS) | {
+            "$schema", "$id", "$defs", "title", "description", "default", "examples"
+        }
+        if not any(key in schema_keywords for key in schema):
+            properties = {}
+            required = []
+            for name, field in schema.items():
+                if not isinstance(field, dict):
+                    raise HTTPException(status_code=400, detail="Invalid plugin configuration schema")
+                properties[name] = {key: value for key, value in field.items() if key != "required"}
+                if field.get("required") is True:
+                    required.append(name)
+            schema = {"type": "object", "properties": properties, "required": required}
+
+        try:
+            validator_class = validators.validator_for(schema)
+            validator_class.check_schema(schema)
+            validator_class(schema, registry=Registry()).validate(config_update.config)
+        except exceptions.ValidationError as exc:
+            path = ".".join(str(part) for part in exc.absolute_path)
+            detail = f"Invalid plugin configuration{f' at {path}' if path else ''}: {exc.message}"
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail) from exc
+        except (exceptions.SchemaError, exceptions.RefResolutionError) as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plugin configuration schema") from exc
     
     plugin.config = config_update.config
     await db.commit()

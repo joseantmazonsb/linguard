@@ -319,6 +319,118 @@ async def test_should_update_plugin_config_when_plugin_exists(
     assert "UPDATE_CONFIG" in await _audit_actions(db_session)
 
 
+async def test_should_reject_invalid_legacy_field_map_config(auth_client, plugins_dir, db_session):
+    await _discover(auth_client)
+    plugin_id = await _plugin_id(db_session)
+
+    for config in ({}, {"api_key": 123}):
+        response = auth_client.put(f"{BASE}/{plugin_id}/config", json={"config": config})
+        assert response.status_code in (400, 422)
+        assert "api_key" in str(response.json()["detail"])
+
+    assert (await _stored_plugin(db_session, plugin_id)).config == {}
+    assert "UPDATE_CONFIG" not in await _audit_actions(db_session)
+
+
+async def test_should_validate_standard_json_schema_before_persisting(auth_client, plugins_dir, db_session):
+    await _discover(auth_client)
+    plugin_id = await _plugin_id(db_session)
+    plugin = await _stored_plugin(db_session, plugin_id)
+    plugin.config_schema = {
+        "type": "object",
+        "properties": {"settings": {"type": "object", "properties": {"port": {"type": "integer", "minimum": 1}}, "required": ["port"]}},
+        "required": ["settings"],
+        "additionalProperties": False,
+    }
+    plugin.config = {"settings": {"port": 42}}
+    await db_session.commit()
+
+    for config in ({}, {"settings": {"port": 0}}, {"settings": {"port": 4}, "extra": True}):
+        response = auth_client.put(f"{BASE}/{plugin_id}/config", json={"config": config})
+        assert response.status_code in (400, 422)
+        assert response.json()["detail"]
+        assert (await _stored_plugin(db_session, plugin_id)).config == {"settings": {"port": 42}}
+
+    response = auth_client.put(f"{BASE}/{plugin_id}/config", json={"config": {"settings": {"port": 80}}})
+    assert response.status_code == 200
+    assert (await _stored_plugin(db_session, plugin_id)).config == {"settings": {"port": 80}}
+
+
+async def test_should_reject_invalid_declared_schema_without_persisting(auth_client, plugins_dir, db_session):
+    await _discover(auth_client)
+    plugin_id = await _plugin_id(db_session)
+    plugin = await _stored_plugin(db_session, plugin_id)
+    plugin.config_schema = {"type": "not-a-real-type"}
+    await db_session.commit()
+
+    response = auth_client.put(f"{BASE}/{plugin_id}/config", json={"config": {}})
+
+    assert response.status_code in (400, 422)
+    assert "schema" in str(response.json()["detail"]).lower()
+    assert (await _stored_plugin(db_session, plugin_id)).config == {}
+
+
+async def test_should_validate_schema_without_type_keyword(auth_client, plugins_dir, db_session):
+    await _discover(auth_client)
+    plugin_id = await _plugin_id(db_session)
+    plugin = await _stored_plugin(db_session, plugin_id)
+    plugin.config_schema = {"minProperties": 1}
+    await db_session.commit()
+
+    response = auth_client.put(f"{BASE}/{plugin_id}/config", json={"config": {}})
+
+    assert response.status_code in (400, 422)
+    assert (await _stored_plugin(db_session, plugin_id)).config == {}
+    response = auth_client.put(f"{BASE}/{plugin_id}/config", json={"config": {"enabled": True}})
+    assert response.status_code == 200
+
+
+async def test_should_reject_remote_schema_reference_without_fetching(auth_client, plugins_dir, db_session):
+    await _discover(auth_client)
+    plugin_id = await _plugin_id(db_session)
+    plugin = await _stored_plugin(db_session, plugin_id)
+    plugin.config_schema = {"$ref": "https://example.test/schema.json"}
+    await db_session.commit()
+
+    response = auth_client.put(f"{BASE}/{plugin_id}/config", json={"config": {}})
+
+    assert response.status_code in (400, 422)
+    assert "schema" in str(response.json()["detail"]).lower()
+    assert (await _stored_plugin(db_session, plugin_id)).config == {}
+
+
+async def test_should_validate_local_schema_references(auth_client, plugins_dir, db_session):
+    await _discover(auth_client)
+    plugin_id = await _plugin_id(db_session)
+    plugin = await _stored_plugin(db_session, plugin_id)
+    plugin.config_schema = {
+        "$defs": {"token": {"type": "string", "minLength": 3}},
+        "type": "object",
+        "properties": {"token": {"$ref": "#/$defs/token"}},
+        "required": ["token"],
+    }
+    await db_session.commit()
+
+    response = auth_client.put(f"{BASE}/{plugin_id}/config", json={"config": {"token": "x"}})
+    assert response.status_code == 422
+    assert "token" in response.json()["detail"]
+    response = auth_client.put(f"{BASE}/{plugin_id}/config", json={"config": {"token": "abc"}})
+    assert response.status_code == 200
+
+
+async def test_should_allow_config_when_no_schema_declared(auth_client, plugins_dir, db_session):
+    await _discover(auth_client)
+    plugin_id = await _plugin_id(db_session)
+    plugin = await _stored_plugin(db_session, plugin_id)
+    plugin.config_schema = None
+    await db_session.commit()
+
+    response = auth_client.put(f"{BASE}/{plugin_id}/config", json={"config": {"value": 123}})
+
+    assert response.status_code == 200
+    assert (await _stored_plugin(db_session, plugin_id)).config == {"value": 123}
+
+
 async def test_should_delete_plugin_and_unload_it_when_loaded(
     auth_client, plugins_dir, db_session
 ):

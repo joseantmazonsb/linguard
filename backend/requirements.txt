@@ -4,7 +4,7 @@ uvicorn[standard]==0.27.0
 python-multipart==0.0.6
 
 # Database
-sqlalchemy==2.0.25
+sqlalchemy[asyncio]==2.0.25
 alembic==1.13.1
 # PostgreSQL
 asyncpg==0.29.0
@@ -30,8 +30,10 @@ qrcode[pil]==7.4.2
 # Utilities
 pydantic==2.5.3
 pydantic-settings==2.1.0
+email-validator==2.3.0
 httpx==0.26.0
 packaging==23.2
+jsonschema==4.22.0
 aiosmtplib==3.0.1
 psutil==5.9.0  # System monitoring (CPU, memory usage)
 
