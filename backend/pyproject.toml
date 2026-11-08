@@ -58,12 +58,9 @@ source = [
 # modes, every statement after an ``await db.execute(...)`` is reported as
 # uncovered even though the tests execute it.
 concurrency = ["thread", "greenlet"]
-exclude = [
-    ".venv",
-    "venv",
-    "__pycache__",
-    "alembic/versions",
-    "scripts",
+omit = [
+    "*/src/linguard_cli/test_*.py",
+    "*/src/linguard_cli/setup.py",
 ]
 
 [tool.coverage.report]

@@ -18,7 +18,7 @@ Commands:
 import click
 import subprocess
 import sys
-import json
+import json as json_module
 import os
 from pathlib import Path
 from typing import Optional
@@ -364,7 +364,7 @@ def list_servers(ctx, json: bool):
             data = response.json()
             
             if json:
-                click.echo(json.dumps(data, indent=2))
+                click.echo(json_module.dumps(data, indent=2))
             else:
                 servers = extract_items(data)
                 if servers:
@@ -585,7 +585,7 @@ def list_peers(ctx, json: bool):
             data = response.json()
             
             if json:
-                click.echo(json.dumps(data, indent=2))
+                click.echo(json_module.dumps(data, indent=2))
             else:
                 peers = extract_items(data)
                 if peers:
@@ -893,7 +893,7 @@ def list_triggers(ctx, json: bool):
             data = response.json()
             
             if json:
-                click.echo(json.dumps(data, indent=2))
+                click.echo(json_module.dumps(data, indent=2))
             else:
                 click.echo(f"Found {len(extract_items(data))} trigger(s):\n")
                 for trigger in extract_items(data):
@@ -1069,7 +1069,7 @@ def list_integrations(ctx, json: bool):
             data = response.json()
             
             if json:
-                click.echo(json.dumps(data, indent=2))
+                click.echo(json_module.dumps(data, indent=2))
             else:
                 click.echo(f"Found {len(extract_items(data))} integration(s):\n")
                 for integration in extract_items(data):
@@ -1191,7 +1191,7 @@ def list_notifications(ctx, json: bool):
             data = response.json()
             
             if json:
-                click.echo(json.dumps(data, indent=2))
+                click.echo(json_module.dumps(data, indent=2))
             else:
                 unread = len([n for n in extract_items(data) if not n.get('read')])
                 click.echo(f"Found {len(extract_items(data))} notification(s) ({unread} unread)\n")
@@ -1306,7 +1306,7 @@ def get_traffic_metrics(ctx, scope: str, server_id: Optional[int], peer_id: Opti
             data = response.json()
 
             if json:
-                click.echo(json.dumps(data, indent=2))
+                click.echo(json_module.dumps(data, indent=2))
                 return
 
             click.echo("Traffic Metrics:")
@@ -1536,7 +1536,7 @@ def suggest_dns(provider: Optional[str]):
     from linguard_cli.completers import IPCompleter
     
     if provider:
-        dns_servers = IPCompleter.suggest_dns(provider=provider)
+        dns_servers = [(provider, IPCompleter.suggest_dns(provider=provider))]
     else:
         dns_servers = IPCompleter.suggest_all_dns()
     

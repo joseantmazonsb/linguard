@@ -5,6 +5,7 @@ Provides IP suggestions based on server configuration and network ranges.
 
 import click
 import ipaddress
+from itertools import islice
 from typing import List, Optional, Tuple
 
 
@@ -60,7 +61,7 @@ class IPCompleter:
             try:
                 # Add common subnet masks
                 for mask in cls.COMMON_SUBNETS:
-                    ip_str = f"{prefix}/{mask}"
+                    ip_str = f"{prefix}{mask}"
                     if cls._is_valid_ip(ip_str):
                         suggestions.append(ip_str)
             except ValueError:
@@ -125,13 +126,9 @@ class IPCompleter:
             base_ip = ipaddress.IPv4Address(prefix)
             
             # Generate sequential IPs
-            for i in range(1, 10):
+            for i in range(1, 6):
                 next_ip = base_ip + i
-                ip_str = str(next_ip)
-                if len(ip_str) >= len(prefix):
-                    suggestions.append(ip_str)
-                    if len(suggestions) >= 5:
-                        break
+                suggestions.append(str(next_ip))
         except ValueError:
             pass
         
@@ -283,7 +280,7 @@ def ip_command(prefix: str, count: int):
 
 @click.command(name="subnet")
 @click.argument("network", required=False, default="")
-@click.option("--class", "-t", type=click.Choice(["A", "B", "C"]), default="C", help="Network class")
+@click.option("--class", "-t", "class_", type=click.Choice(["A", "B", "C"]), default="C", help="Network class")
 def subnet_command(network: str, class_: str):
     """Generate subnet suggestions."""
     if network:
@@ -297,14 +294,16 @@ def subnet_command(network: str, class_: str):
             # Suggest subnets
             suggestions = []
             for cidr in range(24, 32, 2):
-                try:
-                    subnet = base_network.subnet(new_prefix=cidr)
-                    suggestions.append(str(subnet))
-                except ValueError:
-                    break
-                
+                if cidr < base_network.prefixlen:
+                    continue
+                suggestions.extend(
+                    str(subnet)
+                    for subnet in islice(base_network.subnets(new_prefix=cidr), 10 - len(suggestions))
+                )
                 if len(suggestions) >= 10:
                     break
+            if not suggestions:
+                suggestions.append(str(base_network))
             
             click.echo("Subnet suggestions:")
             for i, subnet in enumerate(suggestions, 1):
@@ -326,8 +325,8 @@ def subnet_command(network: str, class_: str):
 
 
 @click.command(name="port")
-@click.option("--range", "-r", default="51820-65535", help="Port range")
-def port_command(range: str):
+@click.option("--range", "-r", "port_range", default="51820-65535", help="Port range")
+def port_command(port_range: str):
     """Suggest common WireGuard ports."""
     # Common WireGuard ports
     common_ports = [
@@ -344,8 +343,8 @@ def port_command(range: str):
         click.echo(f"  {port}")
     
     # If range provided, show some from range
-    if "-" in range:
-        start, end = map(int, range.split("-"))
+    if "-" in port_range:
+        start, end = map(int, port_range.split("-"))
         suggested = list(range(start, min(end + 1, start + 10)))
         click.echo("\nFrom range:")
         for port in suggested:
