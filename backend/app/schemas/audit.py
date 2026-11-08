@@ -18,7 +18,9 @@ class AuditLogBase(BaseModel):
 class AuditLogResponse(AuditLogBase):
     """Audit log response schema"""
     id: int
+    resource_id: int | None = None  # anonymous/global entries have no resource
     user_id: int | None = None
+    username: str = "Unknown"
     status: str = "success"
     error_message: str | None = None
     timestamp: datetime
@@ -28,12 +30,6 @@ class AuditLogResponse(AuditLogBase):
     def created_at(self) -> str:
         """Alias timestamp as created_at for frontend compatibility"""
         return self.timestamp.isoformat()
-    
-    @computed_field
-    @property
-    def username(self) -> str:
-        """Get username from user relationship"""
-        return getattr(self, '_username', 'Unknown')
 
     class Config:
         from_attributes = True

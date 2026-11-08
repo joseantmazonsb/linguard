@@ -187,7 +187,7 @@ def get_autofill_rules() -> list[AutofillRule]:
         rows = result.fetchall()
         rules = []
         for row in rows:
-            rule_dict = dict(row)
+            rule_dict = dict(row._mapping)
             rule_dict["default"] = rule_dict.get("default")
             rules.append(AutofillRule(**rule_dict))
         return rules
@@ -200,7 +200,7 @@ def add_autofill_rule(rule: dict) -> int:
     try:
         rule_obj = AutofillRule(**rule)
         db.execute(text(
-            "INSERT INTO autofill_rule (field, default, required, pattern, placeholder, label, description) "
+            'INSERT INTO autofill_rule (field, "default", required, pattern, placeholder, label, description) '
             "VALUES (:field, :default, :required, :pattern, :placeholder, :label, :description)"
         ), {
             "field": rule_obj.field,
@@ -232,7 +232,7 @@ def update_autofill_rule(rule_id: int, rule: dict) -> int:
     try:
         rule_obj = AutofillRule(**rule)
         db.execute(text(
-            "UPDATE autofill_rule SET field = :field, default = :default, required = :required, "
+            'UPDATE autofill_rule SET field = :field, "default" = :default, required = :required, '
             "pattern = :pattern, placeholder = :placeholder, label = :label, description = :description "
             "WHERE id = :id"
         ), {

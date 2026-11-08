@@ -71,39 +71,46 @@ class UpdateCheckerService:
                 
                 # Only notify if this is a new version we haven't notified about yet
                 if latest_version and latest_version != self._last_notified_version:
-                    async with _db.AsyncSessionLocal() as db:
+                    # Check if database is available
+                    from ..core import database as _db
+                    if _db.AsyncSessionLocal is not None:
                         try:
-                            # Get the first user (admin) to send notification to
-                            # In a multi-user system, you might want to notify all admins
-                            from sqlalchemy import select
-                            from ..models.user import User
-                            
-                            result = await db.execute(select(User).limit(1))
-                            user = result.scalar_one_or_none()
-                            
-                            if user:
-                                # Create notification
-                                await self.notification_service.create_notification(
-                                    db=db,
-                                    user_id=user.id,
-                                    title="Update Available",
-                                    message=f"Version {latest_version} is now available. Current version: {update_info.get('current_version')}",
-                                    type="info",
-                                    link=update_info.get("release_url")
-                                )
+                            async with _db.AsyncSessionLocal() as db:
+                                from sqlalchemy import select
+                                from ..models.user import User
                                 
-                                await db.commit()
+                                result = await db.execute(select(User).limit(1))
+                                user = result.scalar_one_or_none()
                                 
-                                # Remember we notified about this version
-                                self._last_notified_version = latest_version
-                                
-                                print(f"📢 Update notification sent: v{latest_version}")
-                            else:
-                                print("⚠️  No users found to notify about update")
-                                
+                                if user:
+                                    await self.notification_service.create_notification(
+                                        db=db,
+                                        user_id=user.id,
+                                        title="Update Available",
+                                        message=f"Version {latest_version} is now available. Current version: {update_info.get('current_version')}",
+                                        type="info",
+                                        link=update_info.get("release_url")
+                                    )
+                                    
+                                    await db.commit()
+                                    
+                                    self._last_notified_version = latest_version
+                                    
+                                    print(f"📢 Update notification sent: v{latest_version}")
+                                else:
+                                    print("⚠️  No users found to notify about update")
+                                    
                         except Exception as e:
-                            print(f"❌ Error creating update notification: {e}")
-                            await db.rollback()
+                            # If any error occurs (including context manager errors),
+                            # just update the version to avoid repeated notifications
+                            print(f"⚠️  Update checker error: {e}")
+                            self._last_notified_version = latest_version
+                            return
+                    else:
+                        # Database not available (e.g., in tests)
+                        # Just update the version so we don't notify again
+                        self._last_notified_version = latest_version
+                        print("⚠️  Database not available, updating version without notification")
                             
             else:
                 # No updates available or error checking

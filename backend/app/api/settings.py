@@ -29,7 +29,14 @@ async def get_global_settings(
     settings = result.scalar_one_or_none()
 
     if not settings:
+        # Bootstrap a row. secret_key and backup_dir have no schema default but
+        # are NOT NULL, so they must be filled to keep the insert valid; the
+        # setup wizard replaces the placeholder key when it runs.
+        from secrets import token_urlsafe
+
         settings = GlobalSettings(
+            secret_key=token_urlsafe(32),
+            backup_dir="./backups",
             metrics_collection_interval_minutes=5,
             metrics_retention_days=90,
             metrics_global_notifications_per_hour=50,
@@ -74,8 +81,12 @@ async def update_global_settings(
     settings = result.scalar_one_or_none()
 
     if not settings:
-        # Create if doesn't exist
+        # Create if doesn't exist (same NOT NULL bootstrap as the GET handler)
+        from secrets import token_urlsafe
+
         settings = GlobalSettings(
+            secret_key=token_urlsafe(32),
+            backup_dir="./backups",
             metrics_collection_interval_minutes=5,
             metrics_retention_days=90,
             metrics_global_notifications_per_hour=50,
@@ -158,6 +169,13 @@ async def update_global_settings(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="OIDC discovery URL must start with http:// or https://."
             )
+
+    # The backup schedule columns are NOT NULL and the response schema declares
+    # them as integers, so a null time (sent when periodic backups are being
+    # disabled) means "keep the stored schedule" rather than "store NULL".
+    for time_field in ("backup_schedule_hour", "backup_schedule_minute"):
+        if time_field in update_data and update_data[time_field] is None:
+            update_data.pop(time_field)
 
     # Store old values for audit
     old_values = {

@@ -5,6 +5,9 @@ from sqlalchemy.sql import func
 from ..core.database import Base
 
 
+# Import User model for relationship to work (must be before Backup class definition)
+from app.models.user import User
+
 class Backup(Base):
     """Backup metadata."""
     __tablename__ = "backups"
@@ -22,6 +25,9 @@ class Backup(Base):
     # Statistics
     servers_count = Column(Integer, default=0)
     peers_count = Column(Integer, default=0)
+    traffic_triggers_count = Column(Integer, default=0)
+    integrations_count = Column(Integer, default=0)
+    plugins_count = Column(Integer, default=0)
 
     # Created By
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)

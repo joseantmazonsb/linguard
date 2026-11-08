@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List
 
 from dependency_injector.wiring import Provide, inject
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,7 +48,9 @@ async def get_server_metrics(
     server = result.scalar_one_or_none()
     
     if not server:
-        return {"error": "Server not found"}, 404
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Server not found"
+        )
     
     # Get historical metrics
     cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
@@ -102,7 +104,9 @@ async def get_peer_metrics(
     peer = result.scalar_one_or_none()
     
     if not peer:
-        return {"error": "Peer not found"}, 404
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Peer not found"
+        )
     
     # Get historical metrics
     cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)

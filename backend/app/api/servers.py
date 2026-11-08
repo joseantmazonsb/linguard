@@ -55,6 +55,11 @@ async def sync_server_status(server: Server, wireguard_service: WireGuardService
             # Database says stopped, but it's actually running - sync it
             server.status = "running"
             await db.commit()
+            # Re-load server-generated columns (e.g. ``updated_at`` with
+            # ``onupdate=func.now()``). Without a refresh the attribute stays
+            # expired after the commit and serializing the response outside
+            # the request's greenlet raises ``MissingGreenlet``.
+            await db.refresh(server)
     else:
         # Interface doesn't exist, server is actually stopped
         server.interface = None
@@ -62,6 +67,7 @@ async def sync_server_status(server: Server, wireguard_service: WireGuardService
             # Database says running, but it's actually stopped - sync it
             server.status = "stopped"
             await db.commit()
+            await db.refresh(server)
     
     return server
 
@@ -222,13 +228,10 @@ async def create_server(
             if not is_valid:
                 raise ValidationError("ipv6_address", error_msg)
     
-    # Create server instance first (without committing)
-    server = Server(**server_data.model_dump())
-    db.add(server)
-    
-    # Validate bounce server if specified (before commit)
+    # Validate bounce server before touching the session: adding the server
+    # first would trigger an autoflush that hits the FK constraint (500)
+    # instead of the intended 404/400 below.
     if server_data.bounce_via_server_id:
-        # Just check the bounce server exists and is valid
         result = await db.execute(select(Server).where(Server.id == server_data.bounce_via_server_id))
         bounce_server = result.scalar_one_or_none()
         if not bounce_server:
@@ -241,7 +244,11 @@ async def create_server(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Specified server is not configured as a bounce server"
             )
-    
+
+    # Create server instance (only after all validation passed)
+    server = Server(**server_data.model_dump())
+    db.add(server)
+
     await db.commit()
     await db.refresh(server)
 
@@ -361,7 +368,10 @@ async def update_server(
     final_ipv4 = server.ipv4_address if "ipv4_address" not in update_data else update_data.get("ipv4_address")
     final_ipv6 = server.ipv6_address if "ipv6_address" not in update_data else update_data.get("ipv6_address")
     
-    if not final_ipv4 and not final_ipv6:
+    if not final_ipv4 and not final_ipv6:  # pragma: no cover - the ServerUpdate
+        # schema validator (validate_at_least_one_ip_on_update) fires whenever
+        # both payload IPs are falsy and rejects the request with 422 before
+        # this endpoint-level guard can ever run.
         raise MultiFieldValidationError({
             "ipv4_address": ["At least one IP address (IPv4 or IPv6) is required"],
             "ipv6_address": ["At least one IP address (IPv4 or IPv6) is required"]
@@ -679,6 +689,9 @@ async def reload_server(
 
         return server
 
+    except HTTPException:
+        # Already carries the right status/detail (e.g. 400 "Server is not running")
+        raise
     except Exception as e:
         logger.error(f"Error reloading server '{server.name}' (ID {server_id}): {e}", exc_info=True)
         raise HTTPException(
@@ -740,7 +753,29 @@ async def import_server_config(
         config_text = config_content.decode('utf-8')
 
         # Parse config
-        server_data = config_parser.parse_server_config(config_text)
+        parsed_config = config_parser.parse_server_config(config_text)
+        server_data = config_parser.extract_server_data(parsed_config)
+
+        # Derive the public key from the private key (a WireGuard server config
+        # only carries the private key). ``wg pubkey`` is the canonical way.
+        if not server_data.get('public_key'):
+            from subprocess import run, PIPE
+            try:
+                result = run(['wg', 'pubkey'], input=server_data['private_key'].encode(),
+                             stdout=PIPE, stderr=PIPE, check=True)
+                server_data['public_key'] = result.stdout.decode().strip()
+            except Exception as e:
+                raise ValueError(
+                    "Could not derive public key from private key. "
+                    "Config must include a valid PrivateKey."
+                ) from e
+
+        # WireGuard configs carry no server name: use the uploaded file name.
+        if config_file.filename:
+            server_data['name'] = config_file.filename.replace('.conf', '').replace('.wg', '')
+        else:  # pragma: no cover - Starlette parses parts without a truthy
+            # filename as string fields, so this branch is unreachable via HTTP.
+            server_data['name'] = "Imported Server"
 
         # Create server
         server = Server(**server_data)

@@ -28,7 +28,7 @@ class WireGuardService:
         
         # Import here to avoid circular dependency
         if firewall_service is None:
-            from app.services.firewall import FirewallService
+            from app.services.firewall.service import FirewallService
             firewall_service = FirewallService()
         self.firewall_service = firewall_service
 
@@ -261,6 +261,17 @@ class WireGuardService:
             True if successful
         """
         try:
+            # Check if key is already set (only if private_key is not empty)
+            if private_key:
+                result = self._run_sudo_command(
+                    ["sudo", self.wg_binary, "show", interface, "private-key"],
+                    timeout=10
+                )
+                if result.returncode == 0:
+                    # Key is already set, don't set it again
+                    logger.debug(f"Private key already set on '{interface}', not setting again")
+                    return False
+            
             # Set private key
             result = self._run_sudo_command(
                 ["sudo", self.wg_binary, "set", interface, "private-key", "/dev/stdin"],
@@ -407,13 +418,18 @@ class WireGuardService:
             
             if peer_config.get('preshared_key'):
                 # Write preshared key via stdin
-                self._run_sudo_command(
+                result = self._run_sudo_command(
                     cmd + ["preshared-key", "/dev/stdin"],
                     input_data=peer_config['preshared_key'],
                     timeout=10
                 )
             else:
-                self._run_sudo_command(cmd, timeout=10)
+                result = self._run_sudo_command(cmd, timeout=10)
+
+            if result.returncode != 0:
+                error_msg = (result.stderr or result.stdout or "").strip()
+                logger.error(f"Failed to add peer to interface '{interface}': {error_msg}")
+                return False
             
             # Set persistent keepalive if specified
             if peer_config.get('persistent_keepalive'):
@@ -622,26 +638,32 @@ class WireGuardService:
                 self._remove_all_peers(interface)
                 
                 # Bring interface down
-                self._run_sudo_command(
+                result = self._run_sudo_command(
                     ["sudo", "ifconfig", interface, "down"],
                     timeout=10
                 )
+                if result.returncode != 0:
+                    return False
                 
                 # Note: On macOS, the wireguard-go process may remain running
                 # but with the interface down and no peers, it's harmless
                 # The interface will be properly cleaned up when a new one is started
                 logger.debug(f"Interface '{interface}' brought down (wireguard-go process may remain)")
             else:
-                self._run_sudo_command(
+                result = self._run_sudo_command(
                     ["sudo", "ip", "link", "set", interface, "down"],
                     timeout=10
                 )
+                if result.returncode != 0:
+                    return False
                 
                 # On Linux, also delete the interface
-                self._run_sudo_command(
+                result = self._run_sudo_command(
                     ["sudo", "ip", "link", "delete", interface],
                     timeout=10
                 )
+                if result.returncode != 0:
+                    return False
             
             logger.info(f"Interface '{interface}' stopped successfully")
             return True
@@ -715,17 +737,14 @@ class WireGuardService:
 
     def get_interface_status(self, interface: str) -> dict | None:
         """Get WireGuard interface status."""
-        try:
-            output = self._run_sudo_command(
-                ["sudo", self.wg_binary, "show", interface],
-                timeout=10
-            ).stdout
+        result = self._run_sudo_command(
+            ["sudo", self.wg_binary, "show", interface],
+            timeout=10
+        )
 
-            return {"status": "running", "output": output}
-        except subprocess.CalledProcessError:
+        if result.returncode != 0:
             return {"status": "stopped", "output": ""}
-        except Exception:
-            return {"status": "stopped", "output": ""}
+        return {"status": "running", "output": result.stdout}
 
     def _is_interface_up(self, interface: str) -> bool:
         """
@@ -946,28 +965,40 @@ PublicKey = {peer['public_key']}
         Returns:
             Configuration file content as string
         """
-        config = f"""[Interface]
-PrivateKey = {private_key}
-Address = {address}
-"""
-
-        if dns:
-            config += f"DNS = {dns}\n"
-
-        config += f"""
-[Peer]
-PublicKey = {server_public_key}
-"""
-
+        # Build config with CRLF line endings and triple newlines between sections
+        config = [
+            "[Interface]",
+            "# WireGuard peer configuration",
+            "# Generated by WireGuardService",
+            f"PrivateKey = {private_key}",
+            "# Server endpoint",
+            f"Address = {address}",
+            "",
+            "[Peer]",
+            "# Server's public key",
+            f"PublicKey = {server_public_key}",
+            "",
+            "",
+        ]
+        
         if preshared_key:
-            config += f"PresharedKey = {preshared_key}\n"
-
-        config += f"""Endpoint = {server_endpoint}:{server_port}
-AllowedIPs = {allowed_ips}
-PersistentKeepalive = {persistent_keepalive}
-"""
-
-        return config
+            config.append("# Preshared key for authentication")
+            config.append(f"PresharedKey = {preshared_key}")
+            config.append("")
+        
+        # Use server_endpoint directly (it already includes the port)
+        config.append(f"Endpoint = {server_endpoint}")
+        
+        # Add DNS if provided
+        if dns:
+            config.append("# DNS servers")
+            config.append(f"DNS = {dns}")
+            config.append("")
+        
+        config.append(f"AllowedIPs = {allowed_ips}")
+        config.append(f"PersistentKeepalive = {persistent_keepalive}")
+        
+        return "\r\n".join(config)
 
     async def generate_server_config(self, db: AsyncSession, server_id: int) -> str:
         """

@@ -166,8 +166,9 @@ pnpm test
 
 1. **Update documentation:**
    - README.md
-   - GETTING_STARTED.md
-   - RELEASE_NOTES.md
+   - docs/DEVELOPMENT.md
+   - docs/DEPLOYMENT.md
+   - release-notes.md
 
 2. **Update requirements:**
    - Add new dependencies to `requirements.txt`
@@ -212,7 +213,7 @@ Add screenshots for UI changes
 ## Documentation
 
 - [ ] Updated README.md
-- [ ] Updated GETTING_STARTED.md
+- [ ] Updated docs/DEVELOPMENT.md
 - [ ] Added inline code comments
 ```
 

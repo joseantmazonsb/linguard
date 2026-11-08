@@ -162,6 +162,10 @@ class ServerUpdate(BaseModel):
         For updates, we only validate if both IPs are explicitly set to None/empty.
         This allows partial updates without requiring all fields.
         """
+        # Skip validation for ServerResponse - it always includes ipv4_address and ipv6_address
+        if self.__class__.__name__ == 'ServerResponse':
+            return self
+        
         # Only validate if both fields are present in the update and both are empty
         # If neither field is in the update dict, skip validation (partial update)
         if hasattr(self, 'ipv4_address') and hasattr(self, 'ipv6_address'):
@@ -184,6 +188,8 @@ class ServerResponse(ServerBase):
     updated_at: datetime | None
     last_started_at: datetime | None
     last_stopped_at: datetime | None
+    ipv4_address: str | None = None
+    ipv6_address: str | None = None
 
     @field_serializer('created_at', 'updated_at', 'last_started_at', 'last_stopped_at')
     def serialize_datetime(self, dt: datetime | None, _info):

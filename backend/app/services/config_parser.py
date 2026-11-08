@@ -30,9 +30,17 @@ class ConfigParser:
 
             # Section headers
             if line == '[Interface]':
+                # Close a peer block that was still open before switching section.
+                if current_section == 'peer' and current_peer:
+                    config['peers'].append(current_peer)
+                current_peer = None
                 current_section = 'interface'
                 continue
             elif line == '[Peer]':
+                # Each [Peer] block starts a new peer: flush the previous one,
+                # otherwise every peer except the last would be dropped.
+                if current_section == 'peer' and current_peer:
+                    config['peers'].append(current_peer)
                 current_section = 'peer'
                 current_peer = {}
                 continue
@@ -45,11 +53,6 @@ class ConfigParser:
                     config['interface'][key] = value
                 elif current_section == 'peer' and current_peer is not None:
                     current_peer[key] = value
-
-            # End of peer section
-            if current_section == 'peer' and current_peer and (line == '' or line.startswith('[')):
-                config['peers'].append(current_peer)
-                current_peer = {}
 
         # Add last peer if exists
         if current_peer:

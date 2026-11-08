@@ -34,9 +34,15 @@ class DatabaseManager:
             
         if db_type == "sqlite":
             path = sqlite_path or DatabaseManager.DEFAULT_SQLITE_PATH
-            # Ensure directory exists
-            db_dir = Path(path).parent
-            db_dir.mkdir(parents=True, exist_ok=True)
+            # Best effort: create the parent directory so a fresh install can
+            # open the database. This must never make URL construction fail —
+            # the directory may legitimately be unavailable to this process
+            # (e.g. running outside the container, or a read-only mount), and
+            # the caller reports the real connection error when it opens it.
+            try:
+                Path(path).parent.mkdir(parents=True, exist_ok=True)
+            except OSError:
+                pass
             return f"sqlite+aiosqlite:///{path}"
             
         elif db_type == "postgresql":
@@ -71,6 +77,10 @@ class DatabaseManager:
         Returns:
             True if valid, False otherwise
         """
+        # Handle None and empty string
+        if not db_url:
+            return False
+        
         valid_prefixes = [
             "postgresql+asyncpg://",
             "sqlite+aiosqlite://",

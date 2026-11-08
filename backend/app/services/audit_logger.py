@@ -40,13 +40,13 @@ class AuditService:
         ip_address = None
         user_agent = None
 
-        if request:
+        if request is not None:
             # Get client IP
-            if request.client:
+            if request.client is not None:
                 ip_address = request.client.host
 
             # Get user agent
-            user_agent = request.headers.get("user-agent")
+            user_agent = request.headers.get("user-agent") if request.headers is not None else None
 
         audit_log = AuditLog(
             user_id=user.id,

@@ -193,7 +193,11 @@ async def create_peer(
         
         if existing_peer:
             # Determine which address is duplicate
-            field = "ipv4_address" if existing_peer.ipv4_address == peer_data.ipv4_address else "ipv6_address"
+            field = (
+                "ipv4_address"
+                if peer_data.ipv4_address and existing_peer.ipv4_address == peer_data.ipv4_address
+                else "ipv6_address"
+            )
             raise ValidationError(
                 field,
                 f"IP address already in use by peer: {existing_peer.name} on this server"
@@ -321,7 +325,12 @@ async def update_peer(
             
             if existing_peer:
                 # Determine which address is duplicate
-                field = "ipv4_address" if existing_peer.ipv4_address == update_data.get('ipv4_address') else "ipv6_address"
+                field = (
+                    "ipv4_address"
+                    if update_data.get('ipv4_address')
+                    and existing_peer.ipv4_address == update_data.get('ipv4_address')
+                    else "ipv6_address"
+                )
                 raise ValidationError(
                     field,
                     f"IP address already in use by peer: {existing_peer.name} on this server"
@@ -565,7 +574,12 @@ async def migrate_peer(
             existing_peer = result.scalar_one_or_none()
             
             if existing_peer:
-                field = "ipv4_address" if existing_peer.ipv4_address == migration_request.ipv4_address else "ipv6_address"
+                field = (
+                    "ipv4_address"
+                    if migration_request.ipv4_address
+                    and existing_peer.ipv4_address == migration_request.ipv4_address
+                    else "ipv6_address"
+                )
                 raise ValidationError(
                     field,
                     f"IP address already in use by peer: {existing_peer.name} on target server"
@@ -787,10 +801,17 @@ async def import_peer_config(
         # Generate name from filename (remove .conf extension)
         if config_file.filename:
             peer_name = config_file.filename.replace('.conf', '').replace('.wg', '')
-        else:
+        else:  # pragma: no cover - Starlette parses parts without a truthy
+            # filename as string fields, so this branch is unreachable via HTTP.
             peer_name = f"Imported Peer"
         peer_data['name'] = peer_name
-        
+
+        # ``extract_peer_client_data`` also returns server-side details that are
+        # not peer columns (the peer's own public key is derived below).
+        peer_data.pop('server_public_key', None)
+        peer_data.pop('server_endpoint', None)
+        peer_data.pop('server_port', None)
+
         # Generate public key from private key
         # Note: In production, you'd use wg pubkey command or a library
         # For now, we'll require it to be in the peer data or generate a placeholder

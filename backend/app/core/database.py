@@ -1,4 +1,4 @@
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -12,8 +12,9 @@ Base = declarative_base()
 # Engine and session factory start as None.
 # They are initialised by init_engine() (called from the lifespan on an existing install)
 # or by reinit_engine() (called from the configure_database setup endpoint on a fresh install).
-engine = None
-AsyncSessionLocal = None
+# For testing, tests can set these directly.
+engine: Optional[create_async_engine] = None
+AsyncSessionLocal: Optional[async_sessionmaker] = None
 
 
 def _build_engine(database_url: str):

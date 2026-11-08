@@ -2,7 +2,7 @@ import os
 import tempfile
 
 from dependency_injector.wiring import Provide, inject
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -253,7 +253,7 @@ async def download_backup(
 async def upload_backup(
     file: UploadFile,
     request: Request,
-    description: str | None = None,
+    description: str | None = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     backup_service: BackupService = Depends(Provide[Container.backup_service]),

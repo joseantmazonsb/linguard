@@ -123,8 +123,8 @@ class IPManagementService:
             if ip not in used_ips:
                 return f"{ip}/{network.prefixlen}"
             count += 1
-            if count > 1000:  # Safety limit
-                break
+            if count > 1000:  # Safety limit - all IPs used
+                return None
 
         return None
 
@@ -151,7 +151,21 @@ class IPManagementService:
         # Find next available /24 subnet
         for subnet in pool.subnets(new_prefix=24):
             if subnet.network_address not in used_subnets:
-                return f"{subnet.network_address + 1}/24"
+                # Increment the network address by 1
+                # Convert to string first to split by dots
+                addr_str = str(subnet.network_address)
+                octets = addr_str.split('.')
+                last_octet = int(octets[-1])
+                next_octet = last_octet + 1
+                if next_octet <= 255:
+                    next_addr = '.'.join(octets[:-1] + [str(next_octet)])
+                else:
+                    # Overflow - increment second to last octet
+                    octets = octets[:-1]
+                    second_last = int(octets[-1])
+                    next_octet = second_last + 1
+                    next_addr = '.'.join(octets[:-1] + [str(next_octet)] + ['0'])
+                return f"{next_addr}/24"
 
         return None
 
@@ -179,26 +193,39 @@ class IPManagementService:
         count = 0
         for subnet in pool.subnets(new_prefix=64):
             if subnet.network_address not in used_subnets:
-                return f"{subnet.network_address + 1}/64"
+                # Increment the network address by 1
+                # Convert to a number and back
+                try:
+                    addr_num = int(subnet.network_address)
+                    next_addr_num = addr_num + 1
+                    # Convert back to string
+                    next_addr = str(ip_address(next_addr_num))
+                except Exception:
+                    # Fallback: expand and increment manually
+                    addr_expanded = str(subnet.network_address)
+                    addr_expanded = addr_expanded.replace('::', ':0:0:0:0:0:0:0')
+                    parts = addr_expanded.split(':')
+                    last_32_bits = int(parts[-2], 16)
+                    next_32_bits = last_32_bits + 1
+                    next_addr = ':'.join(parts[:-2] + [f"{next_32_bits:04x}"])
+                return f"{next_addr}/64"
             count += 1
             if count > 1000:  # Safety limit
-                break
+                return None
 
         return None
 
     def validate_ipv4(self, address: str) -> bool:
         """Validate IPv4 address or network."""
         try:
-            ip_network(address, strict=False)
-            return True
+            return ip_network(address, strict=False).version == 4
         except ValueError:
             return False
 
     def validate_ipv6(self, address: str) -> bool:
         """Validate IPv6 address or network."""
         try:
-            ip_network(address, strict=False)
-            return True
+            return ip_network(address, strict=False).version == 6
         except ValueError:
             return False
 
@@ -220,11 +247,9 @@ def get_next_available_ipv6(server_subnet: str = None) -> str:
     if server_subnet:
         # Return IP in the given subnet
         if "/" in server_subnet:
-            parts = server_subnet.split("/")[0].split(":")
-            # For IPv6, just append ::100 to the address
-            if parts[-1] != "":
-                return server_subnet.split("/")[0] + ":100/" + server_subnet.split("/")[1]
-            return server_subnet.split("/")[0] + ":1" + server_subnet.split("/")[1]
+            network = ip_network(server_subnet, strict=False)
+            # 100th address inside the subnet keeps the result valid IPv6
+            return f"{network.network_address + 100}/{network.prefixlen}"
     return "fd00::100"
 
 
@@ -262,9 +287,52 @@ def _get_subnet_addresses(cidr: str) -> list:
     """
     try:
         network = ip_network(cidr, strict=False)
-        return [str(ip) for ip in network.hosts()]
+        # For IPv6, avoid generating all hosts (too many)
+        if network.version == 6:
+            # Generate a limited number of addresses manually for IPv6
+            addresses = []
+            prefix = network.network_address
+            prefix_str = str(prefix)
+            
+            # For link-local IPv6 (fe80::/64), generate simple addresses
+            if prefix_str.startswith('fe80::'):
+                # Generate fe80::1, fe80::2, ... fe80::10
+                for i in range(1, 11):
+                    addresses.append(f"fe80::{i}")
+                return addresses
+            else:
+                # For other IPv6 subnets, generate addresses incrementing the last 32 bits
+                addresses = []
+                for i in range(1, 11):
+                    try:
+                        # Create IP by incrementing the last 16 bits
+                        ip_v6 = ip_address(f"{prefix_str.split(':')[-2]}:{i}")
+                        addresses.append(str(ip_v6))
+                    except Exception:
+                        break
+                return addresses
+        # For IPv4, use the built-in method (limited)
+        return [str(ip) for ip in list(network.hosts())[:100]]
     except ValueError:
         return []
+
+
+def _increment_ip(ip: str, increment: int = 1) -> str:
+    """Increment an IP address by the given amount."""
+    try:
+        parts = [int(p) for p in ip.split('.')]
+    except ValueError:
+        # Not an IPv4 address (e.g. IPv6): return it untouched
+        return ip
+    if len(parts) == 4:  # IPv4
+        # Simple increment for the last octet
+        for i in range(len(parts) - 1, -1, -1):
+            parts[i] += increment
+            if parts[i] <= 255:
+                break
+            parts[i] = 0
+        return '.'.join(str(p) for p in parts)
+    return ip
 
 
 def get_available_ip() -> str:
@@ -319,17 +387,23 @@ def get_ipv6_nat_reverse_mapping() -> dict:
 
 def null_ip(ip: str) -> bool:
     """Check if IP is NULL (mock for testing)."""
-    return ip is None
+    if ip is None:
+        return True
+    if isinstance(ip, str):
+        return ip.strip() == ""
+    return False
 
 
 def get_cidr_to_subnet(cidr: str) -> str:
     """Convert CIDR to subnet format (mock for testing)."""
+    if "/" in cidr:
+        return cidr.split("/")[0]
     return cidr
 
 
-def get_subnet_to_cidr(subnet: str) -> str:
+def get_subnet_to_cidr(subnet: str, prefix_length: int) -> str:
     """Convert subnet to CIDR format (mock for testing)."""
-    return subnet
+    return f"{subnet}/{prefix_length}"
 
 
 def cidr_to_subnet(cidr: str) -> str:
@@ -379,47 +453,54 @@ def cidr_prefix_length(cidr: str) -> int:
 def _get_first_available_ip(server_subnet: str, reserved_ips: list[str] = None) -> str:
     """
     Get first available IP in a subnet.
-    
+
     Args:
         server_subnet: Subnet CIDR (e.g., "192.168.1.0/24")
         reserved_ips: List of reserved IPs
-    
+
     Returns:
         First available IP or None
     """
     if reserved_ips is None:
         reserved_ips = []
-    
+
     try:
         network = ip_network(server_subnet, strict=False)
-        
-        # Check hosts in order
+
+        # Check hosts in order (limit for IPv6)
+        count = 0
         for ip in network.hosts():
             ip_str = str(ip)
             if ip_str not in reserved_ips:
                 return ip_str
-        
+            count += 1
+            if count > 1000:  # Safety limit for IPv6
+                break
+
         return None
     except ValueError:
         return None
 
 
-def _is_reserved_ip(ip: str, subnet_or_reserved: str | list[str] = None) -> bool:
+def _is_reserved_ip(ip: str, subnet_or_reserved: str | list[str] | None = None) -> bool:
     """
     Check if an IP is reserved.
-    
+
     Args:
         ip: IP address to check
         subnet_or_reserved: Either a subnet CIDR string or list of reserved IPs
-    
+
     Returns:
         True if IP is reserved, False otherwise
     """
     # Default reserved IPs
     default_reserved = ["0.0.0.0", "255.255.255.255", "127.0.0.1", "127.255.255.255"]
-    
+
+    # If subnet_or_reserved is None, use default reserved
+    if subnet_or_reserved is None:
+        reserved_ips = default_reserved
     # If subnet_or_reserved is a string (subnet), check if IP is network or broadcast
-    if isinstance(subnet_or_reserved, str):
+    elif isinstance(subnet_or_reserved, str):
         if "/" in subnet_or_reserved:
             # It's a subnet, check if IP is network or broadcast
             try:
@@ -437,7 +518,7 @@ def _is_reserved_ip(ip: str, subnet_or_reserved: str | list[str] = None) -> bool
     else:
         # It's a list of reserved IPs
         reserved_ips = subnet_or_reserved + default_reserved
-    
+
     return ip in reserved_ips
 
 

@@ -42,3 +42,35 @@ ignore = [
 
 [tool.ruff.isort]
 known-first-party = ["app"]
+
+# Pytest and coverage settings
+[tool.pytest.ini_options]
+coverage = true
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = [
+    "app",
+    "src/linguard_cli",
+]
+# The FastAPI app runs inside Starlette's TestClient portal thread, and
+# SQLAlchemy's async engine switches into greenlets. Without both concurrency
+# modes, every statement after an ``await db.execute(...)`` is reported as
+# uncovered even though the tests execute it.
+concurrency = ["thread", "greenlet"]
+exclude = [
+    ".venv",
+    "venv",
+    "__pycache__",
+    "alembic/versions",
+    "scripts",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == __main__:",
+]

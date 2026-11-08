@@ -12,7 +12,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core import database as _db
@@ -195,7 +195,6 @@ class MetricsMonitorService:
             logger.info("Starting metrics cleanup...")
             
             # Get retention days from settings
-            from sqlalchemy import select
             result = await db.execute(select(GlobalSettings))
             settings = result.scalar_one_or_none()
             
@@ -207,9 +206,12 @@ class MetricsMonitorService:
             cutoff_date = now - timedelta(days=retention_days)
             
             # Delete old metrics
+            # synchronize_session=False: the cutoff is timezone-aware while SQLite
+            # returns naive datetimes, which makes the ORM "evaluate" strategy
+            # raise TypeError. No loaded row needs syncing here.
             delete_stmt = delete(TrafficMetric).where(
                 TrafficMetric.recorded_at < cutoff_date
-            )
+            ).execution_options(synchronize_session=False)
             result = await db.execute(delete_stmt)
             await db.commit()
             

@@ -4,10 +4,7 @@
     {
       "label": "Setup: Install All Dependencies",
       "type": "shell",
-      "command": "${workspaceFolder}/scripts/setup-dependencies.sh",
-      "windows": {
-        "command": "${workspaceFolder}\\scripts\\setup-dependencies.bat"
-      },
+      "command": "${workspaceFolder}/scripts/setup.sh",
       "presentation": {
         "echo": true,
         "reveal": "always",
@@ -25,10 +22,7 @@
     {
       "label": "Reset: Clean Environment",
       "type": "shell",
-      "command": "${workspaceFolder}/scripts/reset-environment.sh",
-      "windows": {
-        "command": "${workspaceFolder}\\scripts\\reset-environment.bat"
-      },
+      "command": "${workspaceFolder}/scripts/reset.sh",
       "presentation": {
         "echo": true,
         "reveal": "always",
@@ -118,5 +112,29 @@
         "isDefault": false
       }
     },
+    {
+      "label": "Coverage: Generate HTML Report",
+      "type": "shell",
+      "command": "cd backend && source .venv/bin/activate && rm -rf coverage_report && python -m pytest --cov=app --cov-report=html:coverage_report && echo \"Report generated at backend/coverage_report/index.html\"",
+      "windows": {
+        "command": "cd backend && .\\.venv\\Scripts\\activate && if exist coverage_report rmdir /s /q coverage_report && python -m pytest --cov=app --cov-report=html:coverage_report && echo Report saved to coverage_report\\index.html"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "test",
+        "isDefault": false
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    }
   ]
 }

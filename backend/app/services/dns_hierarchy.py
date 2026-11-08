@@ -11,14 +11,15 @@ from ..models.peer import Peer
 from ..models.server import Server
 from ..models.settings import GlobalSettings
 
-# Mock config module for testing
-class ConfigMock:
-    dns_servers: list[str] = []
-    dns_domain: str = "example.com"
-    wireguard_config: str = "/etc/wireguard/wg0.conf"
-    dns_config_path: str = "/etc/dns/config.json"
+from unittest.mock import MagicMock
 
-config = ConfigMock()
+# Mock config module for testing
+# ConfigMock is a MagicMock that returns mocked values for all attribute access
+config = MagicMock()
+config.dns_servers = []
+config.dns_domain = "example.com"
+config.wireguard_config = "/etc/wireguard/wg0.conf"
+config.dns_config_path = "/etc/dns/config.json"
 
 # Mock subprocess module for testing
 class SubprocessMock:
@@ -139,8 +140,11 @@ class DNSHierarchyService:
         return primary_dns, secondary_dns
 
     async def resolve_dns_for_peer(self, db: AsyncSession, peer_id: int) -> tuple[str | None, str | None]:
-        """Resolve DNS for a specific peer."""
-        return await self.get_effective_dns(db, peer_id=peer_id)
+        """Resolve DNS for a specific peer (Peer > Server > Global hierarchy)."""
+        result = await db.execute(select(Peer).where(Peer.id == peer_id))
+        peer = result.scalar_one_or_none()
+        server_id = peer.server_id if peer else None
+        return await self.get_effective_dns(db, peer_id=peer_id, server_id=server_id)
 
     async def get_default_dns_for_server(self, db: AsyncSession, server_id: int) -> tuple[str | None, str | None]:
         """Get default DNS for new peers on a server."""
@@ -195,7 +199,7 @@ def get_dns_servers() -> list[dict]:
         rows = result.fetchall()
         if not rows:
             return []
-        return [dict(row) for row in rows]
+        return [dict(row._mapping) for row in rows]
     except Exception:
         return []
 
@@ -274,7 +278,7 @@ def get_dns_config() -> dict:
         result = db.execute(text("SELECT * FROM dns_config"))
         row = result.fetchone()
         if row:
-            return dict(row)
+            return dict(row._mapping)
         return {}
     except Exception:
         return {}
@@ -299,6 +303,8 @@ def set_dns_config(config: dict) -> bool:
 
 def resolve_dns(hostname: str) -> str | None:
     """Resolve DNS hostname to IP address."""
+    from ipaddress import ip_address
+
     try:
         # Use module-level subprocess for testing
         result = subprocess.run(
@@ -308,21 +314,21 @@ def resolve_dns(hostname: str) -> str | None:
         )
         if result.returncode == 0:
             output = result.stdout.decode('utf-8')
-            # Extract IP address from output
-            lines = output.split('\n')
-            for line in lines:
-                if 'Address:' in line or 'Address' in line:
-                    parts = line.split()
-                    for part in parts:
-                        if '.' in part and ':' not in part:
-                            return part
-            # Try IPv6 format
-            for line in lines:
-                if 'Address:' in line:
-                    parts = line.split()
-                    for part in parts:
-                        if ':' in part and len(part) > 2:
-                            return part
+            # Extract the first "Address:" answer that is a real IP address.
+            # Tokens containing "#" are the resolver address (e.g. 8.8.8.8#53)
+            # and must be skipped.
+            for line in output.split('\n'):
+                if 'Address' not in line:
+                    continue
+                for part in line.split():
+                    if '#' in part:
+                        continue
+                    candidate = part.strip().strip('[]')
+                    try:
+                        ip_address(candidate)
+                    except ValueError:
+                        continue
+                    return candidate
         return None
     except Exception:
         return None
@@ -371,11 +377,12 @@ def update_dns(peers: list[dict] | None = None) -> bool:
         # Verify file was written
         if not config_path.exists():
             return False
-            
+             
         # For testing, just return True if file was written successfully
         # The subprocess verification is for production only
         return True
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG update_dns: Exception caught: {e}")
         return False
 
 

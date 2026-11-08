@@ -183,7 +183,7 @@ class MetricsCollectorService:
             
             return stats
             
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError) as e:
+        except Exception as e:
             print(f"Error getting stats for {interface}: {e}")
             return None
 

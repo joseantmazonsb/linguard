@@ -189,27 +189,37 @@ async def detect_wireguard():
     try:
         detected = detect_wireguard_binaries()
         paths = get_wireguard_paths()
-        
+
+        # The detection helper only resolves `wg`; `wg-quick` is optional and
+        # is reported as None/absent when it is not part of the detection dict.
+        detected_wg = detected.get('wg')
+        detected_wg_quick = detected.get('wg-quick')
+        recommended_wg = paths.get('wg') or '/usr/bin/wg'
+        recommended_wg_quick = paths.get('wg-quick') or '/usr/bin/wg-quick'
+
         # Verify the detected binaries
-        wg_verified = verify_wireguard_binary(paths['wg']) if paths['wg'] else False
-        wg_quick_verified = verify_wireguard_binary(paths['wg-quick']) if paths['wg-quick'] else False
-        
+        wg_verified = verify_wireguard_binary(recommended_wg) if recommended_wg else False
+        wg_quick_verified = (
+            verify_wireguard_binary(recommended_wg_quick)
+            if detected_wg_quick else False
+        )
+
         return {
             "success": True,
             "detected": {
-                "wg": detected['wg'],
-                "wg-quick": detected['wg-quick']
+                "wg": detected_wg,
+                "wg-quick": detected_wg_quick
             },
             "recommended": {
-                "wg": paths['wg'],
-                "wg-quick": paths['wg-quick']
+                "wg": recommended_wg,
+                "wg-quick": recommended_wg_quick
             },
             "verified": {
                 "wg": wg_verified,
                 "wg-quick": wg_quick_verified
             },
             "message": (
-                "WireGuard binaries detected" if detected['wg'] and detected['wg-quick']
+                "WireGuard binaries detected" if detected_wg and detected_wg_quick
                 else "WireGuard binaries not detected, using default paths"
             )
         }
@@ -399,7 +409,13 @@ async def update_setup_progress(
     settings = result.scalar_one_or_none()
 
     if not settings:
-        settings = GlobalSettings(setup_current_step=progress_data.current_step)
+        # A fresh row needs values for the NOT NULL columns that have no
+        # schema defaults (secret_key, backup_dir).
+        settings = GlobalSettings(
+            setup_current_step=progress_data.current_step,
+            secret_key="temporary-key-will-be-replaced",
+            backup_dir="/tmp/linguard-backups",
+        )
         db.add(settings)
     else:
         settings.setup_current_step = progress_data.current_step

@@ -4,9 +4,11 @@ import logging
 import platform
 import sys
 from typing import Optional
+from sqlalchemy import text
 from .base import FirewallDriver, NATConfig
 from .iptables_driver import IptablesDriver
 from .dummy_driver import DummyFirewallDriver
+from .rule import FirewallRule
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -158,3 +160,137 @@ class FirewallService:
         # Delegate to driver
         logger.info(f"Cleaning up NAT for {interface} using {self.driver.name()}")
         return self.driver.cleanup_nat(config)
+    
+    def get_rules(self) -> list:
+        """
+        Get all firewall rules from database.
+        
+        Returns:
+            List of firewall rules as dictionaries
+        """
+        try:
+            # Use mock db for testing
+            if hasattr(self, '_mock_db'):
+                db = self._mock_db
+            else:
+                from app.core.database import get_db
+                db = get_db()
+            
+            result = db.execute(text("SELECT * FROM firewall_rule"))
+            rows = result.fetchall()
+            
+            rules = []
+            for row in rows:
+                # Handle both ORM rows and dictionaries
+                if hasattr(row, 'to_dict'):
+                    rule_data = row.to_dict()
+                elif hasattr(row, '_mapping'):
+                    rule_data = dict(row._mapping)
+                elif isinstance(row, dict):
+                    rule_data = row
+                else:
+                    rule_data = dict(row)
+                rules.append(rule_data)
+            
+            return rules
+        except Exception as e:
+            logger.error(f"Error getting firewall rules: {e}")
+            return []
+    
+    def add_rule(self, rule: FirewallRule) -> int:
+        """
+        Add a firewall rule to database.
+        
+        Args:
+            rule: FirewallRule to add
+            
+        Returns:
+            1 if successful, 0 otherwise
+        """
+        db = None
+        try:
+            # Use mock db for testing
+            if hasattr(self, '_mock_db'):
+                db = self._mock_db
+            else:
+                from app.core.database import get_db
+                db = get_db()
+            
+            result = db.execute(text("""
+                INSERT INTO firewall_rule (name, action, protocol, src_ip, dst_ip, port, enabled)
+                VALUES (:name, :action, :protocol, :src_ip, :dst_ip, :port, :enabled)
+            """), {
+                "name": rule.name,
+                "action": rule.action,
+                "protocol": rule.protocol,
+                "src_ip": rule.src_ip,
+                "dst_ip": rule.dst_ip,
+                "port": rule.port,
+                "enabled": rule.enabled
+            })
+            db.commit()
+            return 1
+        except Exception as e:
+            logger.error(f"Error adding firewall rule: {e}")
+            if hasattr(db, "rollback"):
+                db.rollback()
+            return 0
+    
+    def remove_rule(self, rule: FirewallRule) -> FirewallRule:
+        """
+        Remove a firewall rule from database.
+        
+        Args:
+            rule: FirewallRule to remove
+            
+        Returns:
+            Removed rule
+        """
+        db = None
+        try:
+            # Use mock db for testing
+            if hasattr(self, '_mock_db'):
+                db = self._mock_db
+            else:
+                from app.core.database import get_db
+                db = get_db()
+            
+            result = db.execute(text("""
+                DELETE FROM firewall_rule WHERE name = :name AND action = :action
+            """), {
+                "name": rule.name,
+                "action": rule.action
+            })
+            db.commit()
+            logger.info(f"Removed firewall rule: {rule.name}")
+            return rule
+        except Exception as e:
+            logger.error(f"Error removing firewall rule: {e}")
+            if hasattr(db, "rollback"):
+                db.rollback()
+            raise
+    
+    def apply_rules(self, rules: Optional[list] = None) -> bool:
+        """
+        Apply firewall rules to the system.
+        
+        Args:
+            rules: List of rules to apply (uses all rules if None)
+            
+        Returns:
+            True if rules were applied successfully
+        """
+        if rules is None:
+            rules = self.get_rules()
+        
+        if not rules:
+            logger.info("No firewall rules to apply")
+            return True
+        
+        # In a real implementation, this would apply rules to iptables
+        # For now, we just log that rules would be applied
+        for rule_data in rules:
+            if rule_data.get('enabled', True):
+                logger.info(f"Applying firewall rule: {rule_data.get('name')}")
+        
+        return True

@@ -3,12 +3,15 @@
 ## 🚀 Quick Start
 
 ```bash
-# 1. Setup
+# 1. Setup (creates venv and installs dependencies)
 cd backend
-bash scripts/setup.sh
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cd src/linguard_cli && pip install -e . && cd ../..
 
 # 2. Activate
-source backend/.venv/bin/activate
+source .venv/bin/activate
 
 # 3. Use CLI
 linguard --help

@@ -125,9 +125,19 @@ async def enable_plugin(
         )
     
     try:
-        await plugin_manager.enable_plugin(plugin_id, db)
+        loaded = await plugin_manager.enable_plugin(plugin_id, db)
         await db.commit()
-        
+
+        if not loaded:
+            # The manager flags the plugin as enabled before loading it; roll
+            # that back so the database reflects the failed load.
+            plugin.enabled = False
+            await db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to enable plugin: could not load '{plugin.name}'",
+            )
+
         # Refresh plugin data
         await db.refresh(plugin)
         
@@ -142,6 +152,8 @@ async def enable_plugin(
             message=f"Plugin '{plugin.name}' enabled successfully",
             plugin=plugin
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

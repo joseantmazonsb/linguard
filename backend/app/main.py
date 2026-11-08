@@ -356,38 +356,54 @@ async def lifespan(app: FastAPI):
                     
                     # Get wireguard service from container
                     wireguard_service = app.container.wireguard_service()
-                    
-                    for server in autostart_servers:
+
+                    # Snapshot the fields the loop needs: a rollback below expires
+                    # every ORM instance, and touching an expired attribute after
+                    # that raises MissingGreenlet in async sessions (which used to
+                    # abort auto-start for every remaining server).
+                    autostart_targets = [
+                        (server.id, server.name, server.status, server.public_key)
+                        for server in autostart_servers
+                    ]
+
+                    for server_id, server_name, server_status, public_key in autostart_targets:
                         try:
                             # Skip if already running
-                            if server.status == "running":
-                                logger.info(f"Server '{server.name}' already running - skipping")
+                            if server_status == "running":
+                                logger.info(f"Server '{server_name}' already running - skipping")
                                 continue
                             
-                            logger.info(f"Auto-starting server: {server.name}")
+                            logger.info(f"Auto-starting server: {server_name}")
                             
                             # Use a temporary interface name (wg0, wg1, etc.) for starting
-                            temp_interface = f"wg{server.id}"
+                            temp_interface = f"wg{server_id}"
                             
                             # Start interface using wg commands directly
-                            success = await wireguard_service.start_interface(async_session, server.id, temp_interface)
+                            success = await wireguard_service.start_interface(async_session, server_id, temp_interface)
                             
                             if not success:
-                                logger.error(f"✗ Failed to start interface for '{server.name}'")
+                                logger.error(f"✗ Failed to start interface for '{server_name}'")
                                 await async_session.rollback()
                                 continue
-                            
+
+                            # Re-load the instance so it is not expired by the
+                            # rollbacks that may have happened earlier in the loop.
+                            server = await async_session.get(Server, server_id)
+                            if server is None:
+                                logger.error(f"✗ Server '{server_name}' disappeared during auto-start")
+                                continue
+
                             # Update server status
                             server.status = "running"
                             await async_session.commit()
                             await async_session.refresh(server)
                             
                             # Find actual interface name for logging
-                            actual_interface = wireguard_service.find_interface_by_public_key(server.public_key)
+                            actual_interface = wireguard_service.find_interface_by_public_key(public_key)
                             interface_info = f" on interface '{actual_interface}'" if actual_interface else ""
-                            logger.info(f"✓ Server '{server.name}' started successfully{interface_info}")
+                            logger.info(f"✓ Server '{server_name}' started successfully{interface_info}")
                         except Exception as e:
-                            logger.error(f"✗ Failed to auto-start server '{server.name}': {e}")
+                            logger.error(f"✗ Failed to auto-start server '{server_name}': {e}")
                             await async_session.rollback()
                     
                     logger.info("Auto-start completed")

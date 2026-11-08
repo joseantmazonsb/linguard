@@ -10,7 +10,8 @@ from app.services.backup_service import BackupService
 from app.services.bounce_routing import BounceServerService
 from app.services.config_parser import ConfigParser
 from app.services.dns_hierarchy import DNSHierarchyService
-from app.services.firewall import FirewallService
+
+from app.services.firewall.service import FirewallService
 from app.services.health_monitor_service import HealthMonitorService
 from app.services.integration_service import IntegrationService
 from app.services.interface_monitor import InterfaceMonitorService

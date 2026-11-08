@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from ..core.database import get_db
 from ..core.security import get_current_user
@@ -11,6 +12,35 @@ from ..models.user import User
 from ..schemas.audit import AuditLogResponse
 
 router = APIRouter()
+
+
+def _log_query():
+    """Base audit-log query with the user relationship eagerly loaded.
+
+    The username is part of every response, and an async session cannot lazy
+    load it while serialising the response.
+    """
+    return select(AuditLog).options(selectinload(AuditLog.user))
+
+
+def _serialize_log(log: AuditLog) -> dict:
+    """Convert an audit log row to the frontend response shape."""
+    return {
+        "id": log.id,
+        "user_id": log.user_id,
+        "username": log.user.username if log.user else "Unknown",
+        "action": log.action,
+        "resource_type": log.resource_type,
+        "resource_id": log.resource_id,
+        "resource_name": log.resource_name,
+        "details": log.details,
+        "ip_address": log.ip_address,
+        "user_agent": log.user_agent,
+        "status": log.status,
+        "error_message": log.error_message,
+        "created_at": log.timestamp.isoformat() if log.timestamp else None,
+        "timestamp": log.timestamp,
+    }
 
 
 @router.get("/")
@@ -39,7 +69,7 @@ async def list_audit_logs(
     - search: text search in resource name and details
     """
     # Build query with filters
-    query = select(AuditLog)
+    query = _log_query()
 
     filters = []
 
@@ -92,24 +122,7 @@ async def list_audit_logs(
     logs = result.scalars().all()
 
     # Transform to frontend format
-    return [
-        {
-            "id": log.id,
-            "user_id": log.user_id,
-            "username": log.user.username if log.user else "Unknown",
-            "action": log.action,
-            "resource_type": log.resource_type,
-            "resource_id": log.resource_id,
-            "resource_name": log.resource_name,
-            "details": log.details,
-            "ip_address": log.ip_address,
-            "user_agent": log.user_agent,
-            "status": log.status,
-            "error_message": log.error_message,
-            "created_at": log.timestamp.isoformat() if log.timestamp else None,
-        }
-        for log in logs
-    ]
+    return [_serialize_log(log) for log in logs]
 
 
 @router.get("/{log_id}", response_model=AuditLogResponse)
@@ -119,7 +132,7 @@ async def get_audit_log(
     current_user: User = Depends(get_current_user)
 ):
     """Get a specific audit log entry by ID"""
-    result = await db.execute(select(AuditLog).where(AuditLog.id == log_id))
+    result = await db.execute(_log_query().where(AuditLog.id == log_id))
     log = result.scalar_one_or_none()
 
     if not log:
@@ -128,7 +141,7 @@ async def get_audit_log(
             detail="Audit log not found"
         )
 
-    return log
+    return _serialize_log(log)
 
 
 @router.get("/resource/{resource_type}/{resource_id}", response_model=list[AuditLogResponse])
@@ -141,7 +154,7 @@ async def get_resource_audit_history(
     current_user: User = Depends(get_current_user)
 ):
     """Get complete audit history for a specific resource"""
-    query = select(AuditLog).where(
+    query = _log_query().where(
         and_(
             AuditLog.resource_type == resource_type.lower(),
             AuditLog.resource_id == resource_id
@@ -153,7 +166,7 @@ async def get_resource_audit_history(
     result = await db.execute(query)
     logs = result.scalars().all()
 
-    return logs
+    return [_serialize_log(log) for log in logs]
 
 
 @router.get("/user/{user_id}/actions", response_model=list[AuditLogResponse])
@@ -165,7 +178,7 @@ async def get_user_actions(
     current_user: User = Depends(get_current_user)
 ):
     """Get all actions performed by a specific user"""
-    query = select(AuditLog).where(
+    query = _log_query().where(
         AuditLog.user_id == user_id
     ).order_by(AuditLog.timestamp.desc())
 
@@ -174,7 +187,7 @@ async def get_user_actions(
     result = await db.execute(query)
     logs = result.scalars().all()
 
-    return logs
+    return [_serialize_log(log) for log in logs]
 
 
 @router.get("/stats/summary")

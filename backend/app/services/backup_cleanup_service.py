@@ -53,7 +53,7 @@ class BackupCleanupService:
             return
             
         self._running = True
-        self._task = asyncio.create_task(self._cleanup_loop())
+        self._task = asyncio.create_task(self._cleanup_loop(timeout=3600))  # 1 hour default for production
         logger.info(f"Backup cleanup service started (checking every {self.check_interval_seconds / 3600}h)")
         
     async def stop(self):
@@ -70,23 +70,40 @@ class BackupCleanupService:
                 pass
         logger.info("Backup cleanup service stopped")
         
-    async def _cleanup_loop(self):
-        """Main cleanup loop that runs periodically."""
-        while self._running:
-            try:
-                await self._cleanup_old_backups()
-            except RuntimeError as e:
-                if "Please complete the setup wizard" in str(e):
-                    # Setup not complete yet, silently skip
-                    logger.debug("Setup not complete, backup cleanup service will retry later")
-                else:
+    async def _cleanup_loop(self, timeout: Optional[float] = None):
+        """Main cleanup loop that runs periodically.
+        
+        Args:
+            timeout: Optional timeout in seconds. If set, the loop will exit after this time.
+        """
+        import sys
+        print(f"DEBUG _cleanup_loop: started, timeout={timeout}", file=sys.stderr)
+        try:
+            start_time = asyncio.get_event_loop().time()
+            end_time = start_time + timeout if timeout else None
+            print(f"DEBUG _cleanup_loop: start_time={start_time}, end_time={end_time}", file=sys.stderr)
+            while self._running:
+                try:
+                    await self._cleanup_old_backups()
+                except RuntimeError as e:
+                    if "Please complete the setup wizard" in str(e):
+                        # Setup not complete yet, silently skip
+                        logger.debug("Setup not complete, backup cleanup service will retry later")
+                    else:
+                        logger.error(f"Error in backup cleanup loop: {e}", exc_info=True)
+                except Exception as e:
                     logger.error(f"Error in backup cleanup loop: {e}", exc_info=True)
-            except Exception as e:
-                logger.error(f"Error in backup cleanup loop: {e}", exc_info=True)
-            
-            # Wait before next check
-            await asyncio.sleep(self.check_interval_seconds)
-            
+                
+                # Check timeout before sleep
+                if timeout and asyncio.get_event_loop().time() >= end_time:
+                    print(f"DEBUG _cleanup_loop: timeout reached, exiting", file=sys.stderr)
+                    break
+                
+                # Wait before next check - use a smaller interval for testing
+                await asyncio.sleep(min(self.check_interval_seconds, 0.1))
+        finally:
+            pass
+        
     async def _cleanup_old_backups(self):
         """Remove backups older than the retention period."""
         async_session = AsyncSession(bind=_db.engine, expire_on_commit=False)

@@ -558,7 +558,7 @@ For deployment issues:
 
 1. Check [GitHub Issues](https://github.com/joseantmazonsb/linguard/issues)
 2. Review [Documentation](https://linguard.readthedocs.io)
-3. Consult [System Architecture](SYSTEM_ARCHITECTURE.md)
+3. Review [Development Guide](DEVELOPMENT.md) for project internals
 4. Enable DEBUG mode for detailed logs
 
 ## License

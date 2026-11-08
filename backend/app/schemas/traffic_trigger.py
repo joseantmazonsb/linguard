@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+from sqlalchemy import inspect as sa_inspect
 
 from ..models.traffic_trigger import TrafficDirection, TrafficScope, ThresholdWindow
 
@@ -74,6 +75,14 @@ class TrafficTriggerBase(BaseModel):
     @model_validator(mode='after')
     def normalize_fields(self):
         """Normalize integration_ids and cooldown between frontend/backend naming."""
+        # Enforce the scope/id contract here: field validators are not executed
+        # for fields that are simply omitted, so a PEER/SERVER trigger created
+        # without its target id would otherwise be accepted and never match.
+        if self.scope == TrafficScope.PEER and self.peer_id is None:
+            raise ValueError('peer_id is required when scope is PEER')
+        if self.scope == TrafficScope.SERVER and self.server_id is None:
+            raise ValueError('server_id is required when scope is SERVER')
+
         # Handle integration_ids vs trigger_integrations
         if self.integration_ids is not None and self.trigger_integrations is None:
             self.trigger_integrations = self.integration_ids
@@ -159,6 +168,12 @@ class TrafficTriggerResponse(TrafficTriggerBase):
         # Clean up peer_id/server_id based on scope to handle legacy data
         peer_id = obj.peer_id if obj.scope == TrafficScope.PEER else None
         server_id = obj.server_id if obj.scope == TrafficScope.SERVER else None
+
+        # Never trigger a lazy load here: these schemas are built inside async
+        # sessions, where an unloaded relationship would raise MissingGreenlet.
+        unloaded = sa_inspect(obj).unloaded
+        peer = obj.peer if "peer" not in unloaded else None
+        server = obj.server if "server" not in unloaded else None
         
         # Get the base data
         data = {
@@ -182,8 +197,8 @@ class TrafficTriggerResponse(TrafficTriggerBase):
             'total_triggers': obj.total_triggers,
             'created_at': obj.created_at,
             'updated_at': obj.updated_at,
-            'peer_name': obj.peer.name if hasattr(obj, 'peer') and obj.peer else None,
-            'server_name': obj.server.name if hasattr(obj, 'server') and obj.server else None,
+            'peer_name': peer.name if peer else None,
+            'server_name': server.name if server else None,
         }
         return cls(**data)
 

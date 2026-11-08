@@ -128,10 +128,14 @@ async def create_trigger(
                 detail="One or more integration IDs not found"
             )
     
-    trigger = await service.create_trigger(db, **trigger_data.model_dump())
-    
-    # Load relationships for response
-    await db.refresh(trigger)
+    # ``integration_ids`` and ``cooldown_minutes`` are frontend aliases of
+    # ``trigger_integrations`` and ``cooldown_seconds``; the model has no such
+    # columns, so they must not be forwarded to the ORM.
+    trigger_data_payload = trigger_data.model_dump(
+        exclude={"integration_ids", "cooldown_minutes"}
+    )
+    trigger = await service.create_trigger(db, **trigger_data_payload)
+
     return TrafficTriggerResponse.from_orm(trigger)
 
 
@@ -187,7 +191,13 @@ async def update_trigger(
             )
     
     # Prepare update data, handling scope changes
-    update_data = {k: v for k, v in trigger_data.model_dump().items() if v is not None}
+    update_data = {
+        k: v
+        for k, v in trigger_data.model_dump(
+            exclude={"integration_ids", "cooldown_minutes"}
+        ).items()
+        if v is not None
+    }
     
     # If scope is being changed, explicitly clear peer_id/server_id as needed
     if trigger_data.scope is not None:
@@ -202,8 +212,7 @@ async def update_trigger(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Traffic trigger not found"
         )
-    
-    await db.refresh(trigger)
+
     return TrafficTriggerResponse.from_orm(trigger)
 
 

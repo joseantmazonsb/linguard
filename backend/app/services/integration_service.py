@@ -117,7 +117,7 @@ class IntegrationService:
     async def get_integrations_for_event(
         self,
         db: AsyncSession,
-        event_type: EventType
+        event_type: EventType | str
     ) -> list[Integration]:
         """Get all enabled integrations subscribed to a specific event type."""
         result = await db.execute(
@@ -125,10 +125,13 @@ class IntegrationService:
         )
         integrations = result.scalars().all()
         
+        # Normalize event_type to string for comparison
+        event_type_str = event_type.value if isinstance(event_type, EventType) else str(event_type)
+        
         # Filter integrations that are subscribed to this event
         return [
             integration for integration in integrations
-            if event_type.value in integration.events_subscribed
+            if event_type_str in integration.events_subscribed
         ]
 
     async def dispatch_event_to_integrations(

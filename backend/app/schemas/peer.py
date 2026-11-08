@@ -61,6 +61,9 @@ class PeerBase(BaseModel):
         if v:
             for ip_cidr in v.split(','):
                 ip_cidr = ip_cidr.strip()
+                # Wildcard defaults (all traffic) set by PeerCreate are valid
+                if ip_cidr in ('0.0.0.0/0', '::/0'):
+                    continue
                 # Try IPv4
                 is_valid_v4, _ = validate_ipv4_cidr(ip_cidr)
                 # Try IPv6
@@ -184,6 +187,9 @@ class PeerUpdate(BaseModel):
         if v:
             for ip_cidr in v.split(','):
                 ip_cidr = ip_cidr.strip()
+                # Wildcard defaults (all traffic) set by PeerCreate are valid
+                if ip_cidr in ('0.0.0.0/0', '::/0'):
+                    continue
                 is_valid_v4, _ = validate_ipv4_cidr(ip_cidr)
                 is_valid_v6, _ = validate_ipv6_cidr(ip_cidr)
                 if not (is_valid_v4 or is_valid_v6):
@@ -268,6 +274,9 @@ class PeerMigrationRequest(BaseModel):
         if v:
             for ip_cidr in v.split(','):
                 ip_cidr = ip_cidr.strip()
+                # Wildcard defaults (all traffic) set by PeerCreate are valid
+                if ip_cidr in ('0.0.0.0/0', '::/0'):
+                    continue
                 is_valid_v4, _ = validate_ipv4_cidr(ip_cidr)
                 is_valid_v6, _ = validate_ipv6_cidr(ip_cidr)
                 if not (is_valid_v4 or is_valid_v6):

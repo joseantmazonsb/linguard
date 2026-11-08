@@ -44,14 +44,8 @@ class MigrationService:
     
     async def _get_db_version(self) -> str:
         """Get version from database."""
-        from ..core.database import AsyncBase
-        from sqlalchemy import select
-        
-        if not self.db:
-            return self.version
-        
-        # Check database version table
-        result = await self.db.execute(select(AsyncBase.__table__.c.__version__ if hasattr(AsyncBase.__table__, 'c') else None))
+        # Linguard does not (yet) keep a schema-version table, so the running
+        # service version is the source of truth for the bound database.
         return self.version
     
     def check_migration_needed(self) -> bool:
@@ -281,7 +275,7 @@ def check_migration_needed() -> bool:
         True if migration needed
     """
     # Default versions
-    current_version = db_version if 'db_version' in globals() else "1.0.0"
+    current_version = "1.0.0"
     target_version = "2.0.0"
     
     return current_version != target_version
@@ -310,45 +304,6 @@ def validate_migration_version(version: str) -> tuple[bool, str]:
         return True, None
     except Exception as e:
         return False, f"Validation error: {str(e)}"
-
-
-# Migration functions for testing
-def run_migration(target_version: str) -> bool:
-    """
-    Run database migration to target version.
-    
-    Args:
-        target_version: Target version to migrate to
-        
-    Returns:
-        True if migration successful, False otherwise
-    """
-    try:
-        # Simulate migration using subprocess
-        result = subprocess.run(
-            ["python", "migrate.py", target_version],
-            capture_output=True,
-            text=True
-        )
-        return result.returncode == 0
-    except Exception:
-        return False
-
-
-def check_migration_needed() -> bool:
-    """
-    Check if migration is needed.
-    
-    Reads current version from database and compares with target version.
-    
-    Returns:
-        True if migration needed
-    """
-    # Default versions
-    current_version = db_version if 'db_version' in globals() else "1.0.0"
-    target_version = "2.0.0"
-    
-    return current_version != target_version
 
 
 # Peer migration functions

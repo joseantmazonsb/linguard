@@ -12,8 +12,11 @@ import subprocess
 from datetime import datetime
 from typing import Dict, Optional
 
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 from ..core import database as _db
 from ..core.config import settings
+from ..models.settings import GlobalSettings
 from ..utils.wireguard_detect import detect_wireguard_binaries
 
 logger = logging.getLogger(__name__)
@@ -27,14 +30,16 @@ class HealthMonitorService:
     via WebSocket only when health status changes, reducing network traffic.
     """
     
-    def __init__(self, check_interval_seconds: int = 30):
+    def __init__(self, check_interval_seconds: int = 30, db: AsyncSession = None):
         """
         Initialize the health monitor service.
         
         Args:
             check_interval_seconds: How often to check health (default: 30 seconds)
+            db: Database session (optional, for testing)
         """
         self.check_interval_seconds = check_interval_seconds
+        self.db = db
         self._task: Optional[asyncio.Task] = None
         self._running = False
         self._last_health_status: Optional[Dict] = None
@@ -147,13 +152,16 @@ class HealthMonitorService:
         except Exception as e:
             logger.error(f"Error broadcasting health update: {e}", exc_info=True)
     
-    async def check_health(self) -> Dict:
+    async def check_health(self, db: AsyncSession = None) -> Dict:
         """
         Perform comprehensive health check.
         
         Tests database, WireGuard, IP forwarding, and firewall accessibility.
         Returns overall status and details about each component.
         
+        Args:
+            db: Database session (optional, for testing)
+            
         Returns:
             Dictionary with health status and component checks
         """
@@ -174,9 +182,13 @@ class HealthMonitorService:
         
         # Check database connectivity
         try:
-            from sqlalchemy import text
-            async with _db.engine.begin() as conn:
-                await conn.execute(text("SELECT 1"))
+            if db:
+                # A read-only probe; running it on the session works whether or not
+                # the caller already has an open transaction (db.begin() would not).
+                await db.execute(text("SELECT 1"))
+            else:
+                async with _db.engine.begin() as conn:
+                    await conn.execute(text("SELECT 1"))
             health_status["checks"]["database"]["status"] = "healthy"
             health_status["checks"]["database"]["message"] = "Database connection successful"
         except Exception as e:
@@ -216,15 +228,19 @@ class HealthMonitorService:
                     else:
                         health_status["checks"]["wireguard"]["status"] = "unhealthy"
                         health_status["checks"]["wireguard"]["message"] = f"WireGuard command failed: {result.stderr.strip()}"
-            except subprocess.TimeoutExpired:
-                health_status["checks"]["wireguard"]["status"] = "unhealthy"
-                health_status["checks"]["wireguard"]["message"] = "WireGuard command timed out (likely waiting for password - configure passwordless sudo)"
             except FileNotFoundError:
                 health_status["checks"]["wireguard"]["status"] = "unhealthy"
                 health_status["checks"]["wireguard"]["message"] = "sudo command not found. Cannot run WireGuard with elevated privileges."
             except Exception as e:
-                health_status["checks"]["wireguard"]["status"] = "unhealthy"
-                health_status["checks"]["wireguard"]["message"] = f"WireGuard check error: {str(e)}"
+                if "timed out" in str(e).lower() or "timeout" in str(e).lower():
+                    health_status["checks"]["wireguard"]["status"] = "unhealthy"
+                    health_status["checks"]["wireguard"]["message"] = "WireGuard command timed out (likely waiting for password - configure passwordless sudo)"
+                elif "not found" in str(e).lower():
+                    health_status["checks"]["wireguard"]["status"] = "unhealthy"
+                    health_status["checks"]["wireguard"]["message"] = "sudo command not found. Cannot run WireGuard with elevated privileges."
+                else:
+                    health_status["checks"]["wireguard"]["status"] = "unhealthy"
+                    health_status["checks"]["wireguard"]["message"] = f"WireGuard check error: {str(e)}"
         
         # Check IP forwarding status
         try:
@@ -333,13 +349,17 @@ class HealthMonitorService:
         except FileNotFoundError:
             health_status["checks"]["firewall"]["status"] = "unhealthy"
             health_status["checks"]["firewall"]["message"] = "iptables command not found"
-        except subprocess.TimeoutExpired:
-            health_status["checks"]["firewall"]["status"] = "unhealthy"
-            health_status["checks"]["firewall"]["message"] = "Firewall check timed out (likely waiting for password - configure passwordless sudo)"
         except Exception as e:
-            health_status["checks"]["firewall"]["status"] = "unhealthy"
-            health_status["checks"]["firewall"]["message"] = f"Firewall check error: {str(e)}"
-        
+            if "timed out" in str(e).lower() or "timeout" in str(e).lower():
+                health_status["checks"]["firewall"]["status"] = "unhealthy"
+                health_status["checks"]["firewall"]["message"] = "Firewall check timed out (likely waiting for password - configure passwordless sudo)"
+            elif "not found" in str(e).lower():
+                health_status["checks"]["firewall"]["status"] = "unhealthy"
+                health_status["checks"]["firewall"]["message"] = "iptables command not found"
+            else:
+                health_status["checks"]["firewall"]["status"] = "unhealthy"
+                health_status["checks"]["firewall"]["message"] = f"Firewall check error: {str(e)}"
+
         # Determine overall status based on all component checks
         # Only unhealthy checks affect overall status, warnings are ignored
         has_unhealthy = any(
@@ -349,3 +369,58 @@ class HealthMonitorService:
         health_status["status"] = "unhealthy" if has_unhealthy else "healthy"
         
         return health_status
+
+    async def check_server_status(self, db: AsyncSession = None) -> bool:
+        """
+        Check if the server status is healthy.
+        
+        Args:
+            db: Database session
+            
+        Returns:
+            True if the server is healthy, False otherwise
+        """
+        # Get the health status
+        health_status = await self.check_health()
+        
+        # Check if any component is unhealthy
+        has_unhealthy = any(
+            check["status"] == "unhealthy"
+            for check in health_status["checks"].values()
+        )
+        
+        return not has_unhealthy
+
+    async def check_dns_resolution(self, db: AsyncSession = None) -> tuple[str | None, str | None]:
+        """
+        Check DNS resolution from the database.
+        
+        Args:
+            db: Database session
+            
+        Returns:
+            Tuple of (primary_dns, secondary_dns)
+        """
+        # Get global settings from database
+        result = await db.execute(select(GlobalSettings))
+        global_settings = result.scalar_one_or_none()
+        
+        if global_settings:
+            return (
+                global_settings.dns_primary,
+                global_settings.dns_secondary
+            )
+        
+        return (None, None)
+
+    async def get_server_health(self, db: AsyncSession = None) -> Dict | None:
+        """
+        Get the current server health status.
+        
+        Args:
+            db: Database session
+            
+        Returns:
+            Health status dictionary or None
+        """
+        return await self.check_health()
