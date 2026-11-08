@@ -4,10 +4,10 @@ Developer documentation for Linguard, a web application for managing WireGuard V
 
 ## Overview
 
-**Linguard** lets you create, configure, and monitor WireGuard interfaces and peers through a web interface. Key features include real-time traffic metrics, OIDC SSO, encrypted credentials, firewall integration, background services (health checks, backups, metrics), and webhook integrations via Traffic Triggers.
+**Linguard** lets you create, configure, and monitor WireGuard interfaces and peers through a web interface. Key features include real-time traffic metrics, OIDC SSO, firewall integration, background services (health checks, backups, metrics), and webhook integrations via Traffic Triggers.
 
 **Stack:**
-- Backend: Python 3.8+, FastAPI, SQLAlchemy, Pydantic v2, PostgreSQL/SQLite/MySQL
+- Backend: Python 3.12 (used by Docker and CI), FastAPI, SQLAlchemy, Pydantic v2, PostgreSQL/SQLite/MySQL
 - Frontend: React 18+, TypeScript, Vite, Radix UI, Tailwind CSS, Zustand, TanStack Query
 
 ---
@@ -16,8 +16,8 @@ Developer documentation for Linguard, a web application for managing WireGuard V
 
 ### Prerequisites
 
-- Python 3.8+ and pip
-- pnpm
+- Python 3.12 and pip
+- Node.js 22 and pnpm
 - PostgreSQL, SQLite, or MySQL
 - Git
 
@@ -27,15 +27,20 @@ Developer documentation for Linguard, a web application for managing WireGuard V
 cd backend
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env   # then edit DATABASE_URL and SECRET_KEY
+pip install -r requirements.lock.txt
+pip install -r requirements-test.lock.txt  # for tests
 ```
 
-If `pip install` fails on some packages, install them manually:
+The requirements files specify direct dependencies; the generated lock files pin
+their transitive dependencies for Python 3.12 across platforms. After changing
+either requirements file, update both locks with `uv==0.12.5` from `backend/`:
 
 ```bash
-pip install email-validator psutil bcrypt cryptography
+uv pip compile --python-version 3.12 --universal requirements.txt -o requirements.lock.txt
+uv pip compile --python-version 3.12 --universal -c requirements.lock.txt requirements-test.txt -o requirements-test.lock.txt
 ```
+
+If installation fails, resolve the underlying platform or build issue and retry the lockfile installation rather than installing unpinned packages.
 
 ### Running the Backend
 
@@ -61,19 +66,9 @@ pnpm dev
 
 The frontend is available at http://localhost:5173 and expects the backend on port 8000.
 
-### Environment Variables (backend/.env)
+### Configuration
 
-```env
-DATABASE_URL=sqlite:///./linguard.db
-# DATABASE_URL=postgresql://user:password@localhost/linguard
-SECRET_KEY=change-me
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-DEBUG=True
-LOG_LEVEL=DEBUG
-```
-
-For production: set `DEBUG=False`, use a strong `SECRET_KEY`, PostgreSQL with SSL, and HTTPS.
+Use the setup wizard to configure the database and application settings. SQLite is the default; PostgreSQL and MySQL require a reachable database. The database connection is stored in `backend/linguard.config.json` by default; `LINGUARD_CONFIG_PATH` can select another file. Global settings, including the signing key, are stored in the database. `DATABASE_URL` and `SECRET_KEY` environment variables do not configure the server. Configuration files, databases, and backups can contain credentials and other secrets; restrict access and use external encryption where needed. See [Docker Deployment](../docker-readme.md) for persistence and security considerations.
 
 ---
 
@@ -91,11 +86,10 @@ linguard/
 │   │   ├── plugins/    # Plugin system
 │   │   └── main.py     # Entry point
 │   ├── src/linguard_cli/   # CLI (depends on the backend)
-│   ├── alembic/        # Migrations
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── requirements.lock.txt
 ├── frontend/src/       # React application (see structure below)
-├── docs/
-└── docker/
+└── docs/
 ```
 
 Frontend details:
@@ -137,16 +131,9 @@ frontend/src/
 
 ---
 
-## Database Migrations
+## Database Schema
 
-```bash
-cd backend
-source .venv/bin/activate
-
-alembic revision --autogenerate -m "Add new field"   # create
-alembic upgrade head                                  # apply
-alembic downgrade -1                                  # revert
-```
+Setup initializes tables using SQLAlchemy's `create_all`. The repository does not currently include an Alembic configuration or migration scripts; `create_all` does not migrate existing tables when models change.
 
 ---
 
@@ -165,19 +152,20 @@ pytest --cov=app --cov-report=html   # coverage
 
 - Unit tests live in `backend/tests/` and mock external collaborators.
 - Integration tests use `TestClient` against the real app with a test database.
-- Coverage target: ≥ 80% (enforced by CI).
+- Coverage is reported by pytest; the configured failure threshold is currently 0%.
 
 ### Frontend
 
 ```bash
 cd frontend
 
-pnpm test              # unit tests (vitest)
-pnpm test -- --coverage
+pnpm exec playwright install chromium
 pnpm test:e2e          # end-to-end (Playwright)
 ```
 
-Coverage target: ≥ 70%.
+Playwright expects the frontend and backend servers to be running and some tests require setup data. There is no frontend unit-test or coverage script currently.
+
+The mocked setup, dashboard and integration regression specs run in CI with a Vite server and mocked API responses. The setup-storage regression also runs directly with Node 22 (`node --experimental-strip-types --test e2e/setup-storage.test.mjs`).
 
 Development follows TDD: write a failing test, implement the minimum code to pass it, then refactor while keeping tests green.
 
@@ -194,12 +182,12 @@ ruff format .
 # Frontend
 cd frontend
 pnpm lint
-pnpm format
+pnpm build
 ```
 
 Before submitting a PR:
 - All tests pass
-- Coverage meets targets
+- Review coverage for affected paths
 - No `console.log` statements in production code
 - Types are properly defined
 - Formatting applied
@@ -226,8 +214,8 @@ linguard servers list
 
 | Problem | Solution |
 |---|---|
-| `ModuleNotFoundError: psutil` | `pip install psutil` |
-| Database connection error | Check `DATABASE_URL` in `backend/.env`; verify the DB server is running |
+| `ModuleNotFoundError: psutil` | Activate `backend/.venv` and reinstall `requirements.lock.txt` |
+| Database connection error | Check `backend/linguard.config.json` (or `LINGUARD_CONFIG_PATH`); verify the DB server is running |
 | Port 8000 already in use | `uvicorn app.main:app --reload --port 8001` or `lsof -ti:8000 \| xargs kill -9` |
 | Frontend module resolution errors | `rm -rf node_modules/.vite && pnpm build` |
 | TypeScript "Property X does not exist" | Verify the type exists in `frontend/src/types/` and matches the backend response |

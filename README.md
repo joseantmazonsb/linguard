@@ -1,6 +1,6 @@
 # Linguard
 
-[![GitHub License](https://img.shields.io/github/license/joseantmazonsb/linguard)](LICENSE.md) ![Python](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue) [![GitHub Release](https://img.shields.io/github/v/release/joseantmazonsb/linguard?color=green)](https://github.com/joseantmazonsb/linguard/releases) [![codecov](https://codecov.io/gh/joseantmazonsb/linguard/graph/badge.svg)](https://codecov.io/gh/joseantmazonsb/linguard)
+[![GitHub License](https://img.shields.io/github/license/joseantmazonsb/linguard)](LICENSE.md) ![Python](https://img.shields.io/badge/python-3.12-blue) [![GitHub Release](https://img.shields.io/github/v/release/joseantmazonsb/linguard?color=green)](https://github.com/joseantmazonsb/linguard/releases)
 
 ## Overview
 
@@ -38,10 +38,7 @@ cd linguard
 cd backend
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-# Edit .env with your settings
-
+pip install -r requirements.lock.txt
 # Start backend
 uvicorn app.main:app --reload --port 8000
 
@@ -57,7 +54,7 @@ pnpm run dev
 
 ### Production Deployment
 
-See [Deployment Guide](docs/DEPLOYMENT.md) for production deployment instructions.
+See [Docker Deployment](docker-readme.md) and [Deployment Guide](docs/DEPLOYMENT.md) for deployment instructions.
 
 ## Testing
 
@@ -66,6 +63,7 @@ See [Deployment Guide](docs/DEPLOYMENT.md) for production deployment instruction
 ```bash
 cd backend
 source .venv/bin/activate
+pip install -r requirements-test.lock.txt
 pytest
 pytest --cov=app --cov-report=html
 ```
@@ -74,9 +72,11 @@ pytest --cov=app --cov-report=html
 
 ```bash
 cd frontend
-pnpm test
-pnpm test -- --coverage
+pnpm exec playwright install chromium
+pnpm test:e2e
 ```
+
+Playwright expects the backend and frontend servers to be running. There is no frontend unit-test or coverage script currently.
 
 ## Contributing
 

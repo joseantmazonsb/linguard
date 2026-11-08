@@ -19,8 +19,8 @@ Please be respectful and constructive in all interactions.
 
 ### Prerequisites
 
-- Python 3.8+
-- Node.js and pnpm
+- Python 3.12 and pip
+- Node.js 22 and pnpm
 - Git
 - PostgreSQL, SQLite, or MySQL (for local development)
 
@@ -30,7 +30,7 @@ Please be respectful and constructive in all interactions.
 cd backend
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.lock.txt -r requirements-test.lock.txt
 ```
 
 ### Frontend Setup
@@ -38,7 +38,6 @@ pip install -r requirements.txt
 ```bash
 cd frontend
 pnpm install
-pnpm approve-builds
 ```
 
 ## Development Setup
@@ -62,15 +61,7 @@ pnpm dev
 
 ### Database Setup
 
-For local development, you can use SQLite by default. To use PostgreSQL:
-
-1. Update `.env` in the backend directory
-2. Run migrations:
-   ```bash
-   cd backend
-   source .venv/bin/activate
-   alembic upgrade head
-   ```
+Choose SQLite, PostgreSQL, or MySQL in the setup wizard. PostgreSQL and MySQL require a reachable database. The connection is stored in `backend/linguard.config.json` by default, or at `LINGUARD_CONFIG_PATH` if set; `DATABASE_URL` and `SECRET_KEY` do not configure the server. Restrict access to the config file because it may contain database credentials. See the [Development Guide](docs/DEVELOPMENT.md#configuration) for details.
 
 ## Project Structure
 
@@ -80,13 +71,13 @@ For local development, you can use SQLite by default. To use PostgreSQL:
 backend/
 ├── app/
 │   ├── api/              # API endpoints
-│   ├── db/               # Database models and sessions
+│   ├── models/           # Database models
 │   ├── schemas/          # Pydantic schemas
 │   ├── utils/            # Utility functions
 │   ├── core/             # Core configuration
 │   └── main.py           # Application entry point
-├── requirements.txt      # Python dependencies
-└── alembic/              # Database migrations
+├── requirements.txt      # Direct Python dependencies
+└── requirements.lock.txt # Locked Python dependencies
 ```
 
 ### Frontend (`frontend/`)
@@ -95,7 +86,6 @@ backend/
 frontend/
 ├── src/                  # Source code
 ├── public/               # Static assets
-├── packages/             # Approved build packages
 └── package.json          # Node.js dependencies
 ```
 
@@ -109,7 +99,7 @@ frontend/
    - Add Pydantic validators for data validation
 
 2. **Add new models:**
-   - Create SQLAlchemy models in `app/db/models.py`
+   - Create SQLAlchemy models in `app/models/`
    - Create Pydantic schemas in `app/schemas/`
    - Add database session handling
 
@@ -157,8 +147,11 @@ pytest
 
 ```bash
 cd frontend
-pnpm test
+pnpm exec playwright install chromium
+pnpm test:e2e
 ```
+
+Playwright expects the frontend and backend servers to be running, and some tests require setup data. There is no frontend unit-test or coverage script; see the [Development Guide](docs/DEVELOPMENT.md#frontend) for additional regression tests.
 
 ## Submitting Pull Requests
 
@@ -171,8 +164,8 @@ pnpm test
    - release-notes.md
 
 2. **Update requirements:**
-   - Add new dependencies to `requirements.txt`
-   - Update `package.json` for frontend dependencies
+   - Update `backend/requirements.txt` or `backend/requirements-test.txt` and regenerate both locks as described in the [Development Guide](docs/DEVELOPMENT.md#backend-setup)
+   - Update `frontend/package.json` and the appropriate lockfile for frontend dependencies
 
 3. **Run all tests:**
    - Backend tests pass
@@ -216,18 +209,6 @@ Add screenshots for UI changes
 - [ ] Updated docs/DEVELOPMENT.md
 - [ ] Added inline code comments
 ```
-
-## Known Issues
-
-### Missing Dependencies
-
-**Issue:** `psutil` is used but may not be in requirements.txt
-
-**Solution:** Add `psutil==5.9.0` to `backend/requirements.txt`
-
-**Issue:** `email-validator` may be missing
-
-**Solution:** Add `email-validator` to validation module or requirements
 
 ## Questions?
 
