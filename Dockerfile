@@ -10,37 +10,29 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /build
 
 # Copy requirements first for better caching
-COPY backend/requirements.txt .
+COPY backend/requirements.lock.txt .
 
 # Install backend dependencies with all dependencies
-RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
+RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.lock.txt
 
-# Copy frontend dependencies
-COPY frontend/package*.json frontend/pnpm-lock.yaml frontend/package-lock.json /build/
-COPY frontend/tsconfig*.json /build/
-COPY frontend/tsconfig.build.json /build/frontend/
-COPY frontend/vite.config.ts frontend/postcss.config.js /build/
-COPY frontend/index.html /build/
-COPY frontend/src /build/src/
+# Copy the complete frontend project, including TypeScript project references.
+COPY frontend/ /build/frontend/
 
 # Install Node.js
 RUN apt-get update && apt-get install -y \
     curl \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Build frontend
-WORKDIR /build
-RUN if [ -f package-lock.json ]; then npm ci; elif [ -f pnpm-lock.yaml ]; then pnpm install; else npm install; fi
+WORKDIR /build/frontend
+RUN npm ci
 # tsc -b (type-check) && vite build — via the package.json build script
 RUN npm run build
-RUN mv /build/dist /build/frontend-build
+RUN mv /build/frontend/dist /build/frontend-build
 
 WORKDIR /build
-
-# Install typing-extensions for compatibility
-RUN pip install --no-cache-dir typing-extensions
 
 # Final stage
 FROM python:3.12-slim-bookworm
@@ -84,34 +76,23 @@ WORKDIR /app
 COPY --from=builder /wheels /wheels
 RUN pip install --no-index --find-links=/wheels /wheels/* --no-deps && rm -rf /wheels
 
-# Install additional dependencies that weren't included in wheels
-RUN pip install \
-    email_validator \
-    typing-extensions \
-    uvicorn[standard]
-
 # Copy built frontend
 COPY --from=builder /build/frontend-build /app/frontend-build
+COPY version.json /app/version.json
 
-# Copy application code
-COPY --chown=linguard:linguard backend/ /app/backend/
+# Copy application code, not local databases, backups or venvs.
+COPY --chown=linguard:linguard backend/app/ /app/backend/app/
 
-# Create directories
-RUN mkdir -p /app/data /app/backups && chown -R linguard:linguard /app
+# Create writable directories; the default plugin directory is volume-mounted at runtime.
+RUN find /app/backend/app -type d -name __pycache__ -prune -exec rm -rf {} + \
+    && mkdir -p /app/data /app/backend/backups /app/backend/plugins \
+    && chown -R linguard:linguard /app
 
 # Set PYTHONPATH to include backend
 ENV PYTHONPATH=/app/backend
 
-# Copy fix script
-COPY --chown=linguard:linguard backend/fix_db_path.py /app/fix_db_path.py
-
-# Fix database path in config (as root). The config file may be created here
-# (excluded from the build context), so it must be owned by the runtime user.
-RUN python /app/fix_db_path.py \
-    && chown linguard:linguard /app/backend/linguard.config.json
-
-# Pin SQLite to the persistent volume during setup (relative paths from the
-# setup wizard are remapped here instead of the container filesystem)
+# Persist the database connection config as well as the default SQLite file.
+ENV LINGUARD_CONFIG_PATH=/app/data/linguard.config.json
 ENV LINGUARD_SQLITE_PATH=/app/data/linguard.db
 
 # Switch to non-root user

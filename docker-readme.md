@@ -1,229 +1,151 @@
 # Linguard Docker Deployment
 
-## Quick Start
+> **Deployment warning:** Run exactly one Linguard backend worker in one container or instance during setup and whenever WebSocket functionality is required. The setup lifecycle lock is process-local, so multiple workers or instances can race setup mutations and completion. WebSocket tickets, connections, and broadcasts are also process-local: a ticket issued by one process cannot be used by another, and broadcasts do not reach clients connected elsewhere. Multiple workers or replicas are not supported for these purposes; sticky sessions or a shared database do not make them safe. Restrict management access during setup.
 
-### Prerequisites
-- Docker 20.10+
-- Docker Compose 2.0+
-- Root access or sudo privileges (for NET_ADMIN capability)
+## Build and Run
 
-### Build and Run
-
-**Option 1: Using Make (Recommended)**
+On a Linux host with Docker and Compose installed:
 
 ```bash
-# Build the image
+docker build -t linguard:latest .
+docker compose up -d
+docker compose logs -f linguard
+```
+
+Open `http://localhost:8000` and complete the setup wizard. The Compose file uses the locally built `linguard:${VERSION:-latest}` image. For a different tag, build it first and set `VERSION` consistently.
+
+`make run` uses the same image and container paths, with Docker volumes named `linguard_data`, `linguard_backups`, and `linguard_plugins`. Compose normally prefixes these with `<project>_` instead. Do not switch launch methods without following the migration steps below. `make stop` stops without removing the container; `make clean` does not delete anything.
+
+The container is privileged and mounts the host's `/etc/wireguard`. This grants extensive host access; run it only on a trusted Linux host, restrict access to the management port, and use HTTPS through a trusted reverse proxy configured for WebSocket upgrades on `/ws`.
+
+The supplied configuration uses Docker's bridge network, not the host network. WireGuard interfaces, routes, forwarding and firewall rules created or inspected by Linguard are in the container's network namespace, not the Linux host's; mounting `/etc/wireguard` does not change that. Autostart only checks interfaces visible in that namespace. Existing host interfaces cannot be detected or managed through this bridge configuration, and container recreation removes container-namespace interfaces. Validate forwarding, NAT, routing, firewall rules and client connectivity on the actual deployment host before production use. Docker Desktop runs containers inside a Linux VM, so its networking, device and kernel support are not equivalent to a native Linux host; do not assume macOS host networking gives access to host WireGuard interfaces. No network mode is changed automatically.
+
+Interface discovery is best-effort: a failed `wg` or link-state query can appear as no running interface. Check startup logs and WireGuard permissions if autostart fails; a partially created or down interface can also require manual inspection before retrying.
+
+Compose and `make run` publish only UDP `51820:51820` by default. Each server's configured listen port must have a matching UDP container-port mapping and an accessible host port, with the advertised endpoint and upstream firewall/NAT configured accordingly. Add mappings for additional servers or change the mapping when changing a listen port, then recreate the container. `WIREGUARD_PORT` does not configure these mappings or the server. TCP `8000:8000` publishes the management UI/API.
+
+## Configuration and Persistence
+
+Configure the database, signing key, OIDC, and backup directory in the setup wizard or application settings. The wizard generates a signing key. The server does **not** use `DATABASE_URL`, `SECRET_KEY`, `ALGORITHM`, `USE_OIDC`, or `OIDC_ISSUER_URL` environment variables for these settings.
+
+| Storage | Container path | Contents |
+|---------|----------------|----------|
+| `linguard_data` | `/app/data` | `linguard.config.json` database connection and default SQLite database |
+| `linguard_backups` | `/app/backend/backups` | Backups when the configured directory is `./backups` |
+| `linguard_plugins` | `/app/backend/plugins` | Plugin files when the configured directory is `./plugins` |
+| Host bind mount | `/etc/wireguard` | WireGuard configuration files |
+
+The image sets `LINGUARD_CONFIG_PATH=/app/data/linguard.config.json`. `LINGUARD_SQLITE_PATH=/app/data/linguard.db` overrides a relative SQLite path submitted during setup; a full SQLite URL is not remapped. If that config is missing but the default SQLite file or legacy config is present, startup fails instead of reopening setup. This cannot detect an external database or a nonstandard SQLite path if their config has been lost; preserve the config and do not run setup on an existing installation. PostgreSQL and MySQL are configured through the wizard and require a reachable database. Connection credentials in the config file and backups are sensitive: restrict access to the volumes and to any exported copies.
+
+Backup and plugin directories are configurable. Only `./backups` and `./plugins` (relative to `/app/backend`) are covered by the supplied mounts. For an existing installation with different configured directories, migrate their files and change the settings, or mount persistent storage at those directories. Plugin records and settings in the database do not contain the plugin source files or installed Python dependencies; preserve those separately. Fresh named volumes are populated with the image's writable directories; existing volumes or bind mounts must be writable by the `linguard` container user.
+
+## Upgrading an Existing Container
+
+Older images stored the database connection in `/app/backend/linguard.config.json` in the container's writable layer, so **copy it before removing or recreating the old container**. The SQLite database is normally already in the data volume. Back up the data volume and external databases first. With the old container stopped, also export plugins and backups: `/app/backend/plugins` previously had no supplied persistent mount, and older Compose versions mounted `/app/backups` instead of the actual default backup directory.
+
+If authentication reports an insecure legacy signing key, follow [legacy signing key recovery](docs/SETUP_RECOVERY.md) before resuming service; do not delete the database or config to bypass the check.
+
+First identify the actual mounts, rather than assuming a project name. `make run` historically used `linguard_data` and `linguard_backups`; Compose typically uses `linguard_linguard_data` and `linguard_linguard_backups`, but the project name can differ. `docker compose config` shows the *new* Compose targets, not necessarily the old container's mounts.
+
+```bash
+docker inspect linguard --format '{{range .Mounts}}{{println .Name .Source .Destination}}{{end}}'
+docker compose config
+docker volume ls
+```
+
+For a container named `linguard`, export the data, plugins and both possible backup locations while it is stopped. Use a new private directory outside the build context and do not overwrite previous exports:
+
+```bash
+umask 077
+mkdir "$HOME/linguard-migration"
+docker stop linguard
+docker cp linguard:/app/data "$HOME/linguard-migration/data"
+docker cp linguard:/app/backend/linguard.config.json "$HOME/linguard-migration/legacy-config.json"
+# If present, each may contain distinct backups; retain both copies:
+docker cp linguard:/app/backend/backups "$HOME/linguard-migration/actual-backups"
+docker cp linguard:/app/backups "$HOME/linguard-migration/old-backup-volume"
+docker cp linguard:/app/backend/plugins "$HOME/linguard-migration/plugins"
+```
+
+Copy commands can fail if a directory is absent; proceed only after checking the configured backup and plugin paths and saving all relevant files, including files in any custom paths. Preserve existing mounts and Python dependencies needed by plugins; installing packages into an old container's writable layer does not survive replacement. If the persistent data directory already has `linguard.config.json`, inspect both configs and select the current one. The legacy config may be missing on newer images; in that case preserve the persistent config instead. For external databases, back up the database separately. If SQLite is outside `/app/data`, export that file and any WAL files too, move them into persistent storage, and update the config URL before starting.
+
+### Continue With Make
+
+This retains the old Make volume names. After verifying the exports and config, remove the stopped container, build the image and create a replacement **without starting it**:
+
+```bash
+docker rm linguard
 make build
-
-# Run the container
-make run
-
-# View logs
-make logs
-
-# Access the UI
-# http://localhost:8000
+docker create --name linguard --restart unless-stopped -p 8000:8000 -p 51820:51820/udp \
+  -v /etc/wireguard:/etc/wireguard:rw -v linguard_data:/app/data \
+  -v linguard_backups:/app/backend/backups -v linguard_plugins:/app/backend/plugins \
+  --cap-add NET_ADMIN --cap-add SYS_MODULE \
+  --device /dev/net/tun:/dev/net/tun --security-opt seccomp:unconfined --privileged linguard:latest
 ```
 
-**Option 2: Manual Commands**
+The database volume is reused, not copied. Inspect the destination plugin volume before copying (`docker run --rm --user root -v linguard_plugins:/plugins --entrypoint ls linguard:latest -la /plugins`). Do not overwrite existing persistent config, plugin, or backup files. If the data volume lacks the selected config, copy it in; merge exported directories only after inspecting conflicts. Preserve the old exports until recovery has been verified:
 
 ```bash
-# Build
-docker build -t linguard .
-
-# Run
-docker run -d \
-  --name linguard \
-  --restart unless-stopped \
-  -p 8000:8000 \
-  -v /etc/wireguard:/etc/wireguard:rw \
-  -v linguard_data:/app/data \
-  -v linguard_backups:/app/backups \
-  -e DATABASE_URL=sqlite+aiosqlite:////app/data/linguard.db \
-  -e SECRET_KEY=$(openssl rand -hex 32) \
-  --cap-add NET_ADMIN \
-  --device /dev/net/tun:/dev/net/tun \
-  --security-opt seccomp:unconfined \
-  --privileged \
-  linguard
+docker cp "$HOME/linguard-migration/legacy-config.json" linguard:/app/data/linguard.config.json
+docker cp "$HOME/linguard-migration/actual-backups/." linguard:/app/backend/backups/
+docker cp "$HOME/linguard-migration/old-backup-volume/." linguard:/app/backend/backups/
+docker cp "$HOME/linguard-migration/plugins/." linguard:/app/backend/plugins/
+docker run --rm --user root -v linguard_data:/app/data -v linguard_backups:/app/backend/backups -v linguard_plugins:/app/backend/plugins \
+  --entrypoint chown linguard:latest -R linguard:linguard /app/data/linguard.config.json /app/backend/backups /app/backend/plugins
+docker start linguard
 ```
 
-## Configuration
+Omit any copy whose source is missing, and omit the config copy if the current config is already in `/app/data`. Resolve duplicate filenames manually before copying; `docker cp` overwrites matching files. The explicit `docker create` matches `make run`, which can be used for subsequent new containers after backing up any writable-layer data.
 
-### Environment Variables
+### Continue With Compose
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | `sqlite+aiosqlite:////app/data/linguard.db` | Database connection string |
-| `SECRET_KEY` | Random on first run | Secret key for JWT tokens |
-| `ALGORITHM` | `HS256` | JWT algorithm |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Token expiry time |
-| `USE_OIDC` | `false` | Enable OIDC authentication |
-| `OIDC_ISSUER_URL` | - | OIDC provider URL |
+If the old container was already Compose-managed under the same project and `docker compose config` shows the same data and backup volume names identified above, follow the Make procedure conceptually but use `docker compose create` and `docker compose run --rm --no-deps --user root --entrypoint chown linguard ...` in place of `docker create` and the helper `docker run`. Inspect the Compose plugin destination too; its project-prefixed name differs from Make's. Export first: Compose may remove the old container during creation.
 
-### Database Options
-
-#### SQLite (Default - No External DB)
-```bash
--e DATABASE_URL=sqlite+aiosqlite:////app/data/linguard.db
-```
-- **Pros**: Simple, no external dependencies, persists in volume
-- **Cons**: Single database, no replication, limited concurrency
-
-#### PostgreSQL
-```bash
--e DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/linguard
-```
-- **Pros**: Production-grade, replication, concurrent access
-- **Cons**: Requires external PostgreSQL instance
-
-#### MySQL/MariaDB
-```bash
--e DATABASE_URL=mysql+pymysql://user:password@mysql:3306/linguard
-```
-- **Pros**: Production-grade, widely used
-- **Cons**: Requires external MySQL/MariaDB instance
-
-## Permissions & Capabilities
-
-The container requires the following Linux capabilities and permissions:
+For a Make-to-Compose switch, the volumes are normally different. Do not silently use empty Compose volumes or overwrite an existing deployment. If the names displayed by `docker compose config` match the old Make volume names, use the same-volume procedure above instead. With the old container stopped and all exports verified:
 
 ```bash
---cap-add NET_ADMIN        # For iptables/nftables
---device /dev/net/tun      # For WireGuard TUN device
---security-opt seccomp:unconfined  # For WireGuard kernel modules
---privileged               # For all required capabilities
+docker rm linguard
+docker build -t linguard:latest .
+docker compose create
+# Inspect destination contents BEFORE copying. If any is nonempty, stop and
+# reconcile it manually rather than overwriting another installation.
+docker compose run --rm --no-deps --user root --entrypoint sh linguard -c 'ls -la /app/data /app/backend/backups /app/backend/plugins'
+# Only if all destinations are empty:
+docker cp "$HOME/linguard-migration/data/." linguard:/app/data/
+docker cp "$HOME/linguard-migration/legacy-config.json" linguard:/app/data/linguard.config.json
+docker cp "$HOME/linguard-migration/actual-backups/." linguard:/app/backend/backups/
+docker cp "$HOME/linguard-migration/old-backup-volume/." linguard:/app/backend/backups/
+docker cp "$HOME/linguard-migration/plugins/." linguard:/app/backend/plugins/
+docker compose run --rm --no-deps --user root --entrypoint chown linguard -R linguard:linguard /app/data /app/backend/backups /app/backend/plugins
+docker compose start
 ```
 
-### Alternative: Minimal Permissions (if supported)
+Omit missing sources and resolve filename conflicts manually. If the data export already contains the current config, omit the legacy-config copy. The old Make volumes remain untouched. After starting, verify the expected database, users, settings, backups and loaded plugins before securely removing exports. Never run setup against an apparently empty replacement until the cause is understood; a stopped container can be copied, a deleted one cannot.
 
-If your kernel supports it, you can use a less privileged approach:
+## CI and Releases
+
+CI runs the backend suite, frontend build, setup-storage Node tests, and mocked Chromium regression specs. The mocked tests are maintained alongside ongoing frontend changes and must be committed with the workflow. Successful CI on `dev` publishes the `dev` image; successful CI on `main` publishes `stable` and `latest`. When `version.json` contains a new `major.minor.patch` version, the stable workflow also publishes that immutable version tag and creates a GitHub release. An existing version tag pointing at another commit is not moved; bump `version.json` for the next release. Publishing requires GitHub Actions package and contents permissions, and the workflows must exist on the repository's default branch for `workflow_run` triggers.
+
+## Backups and Recovery
+
+Linguard rejects backup creation requests with `encrypt=true` (HTTP 400); it does not encrypt new backups. Backups created by the previous implementation were also unencrypted, even if encryption was requested. They may contain WireGuard private and preshared keys and integration configuration. Restrict access and use external encryption for stored and transferred backups, including database dumps and exports. The legacy restore path for records marked encrypted only base64-decodes them; base64 is not encryption.
+
+For a consistent SQLite filesystem copy, stop the container first and copy the entire data directory, including any SQLite WAL files and the connection config. For external databases, use the database vendor's backup procedure. Store exports securely and test restoration.
 
 ```bash
---cap-add NET_ADMIN
---cap-add SYS_MODULE
---device /dev/net/tun
+umask 077
+docker compose stop
+docker cp linguard:/app/data ./linguard-data-backup
+docker cp linguard:/app/backend/backups ./linguard-backups-backup
+docker cp linguard:/app/backend/plugins ./linguard-plugins-backup
+docker compose start
 ```
 
-## Data Persistence
-
-### Volumes
-
-| Volume | Mount Point | Description |
-|--------|-------------|-------------|
-| `linguard_data` | `/app/data` | Database, configs, logs |
-| `linguard_backups` | `/app/backups` | Backup files |
-| `/etc/wireguard` | `/etc/wireguard` | WireGuard configs (host path) |
-
-### Backup Your Data
-
-```bash
-# Backup database
-docker exec linguard cp /app/data/linguard.db ./linguard_backup.db
-
-# Backup backups volume
-docker run --rm --volumes-from linguard -v $(pwd):/backup alpine \
-  tar czf /backup/linguard_backups.tar.gz -C /app/backups .
-```
+Do not use `docker compose down -v` unless you intend to delete the named volumes. Before changing mounts or upgrading, back up the database/config, backup files, and plugin files.
 
 ## Troubleshooting
 
-### Container won't start
-
-```bash
-# Check logs
-docker logs linguard
-
-# Check if container is running
-docker ps
-```
-
-### Database errors
-
-```bash
-# Check if database exists
-docker exec linguard ls -la /app/data/
-
-# Reinitialize database (WARNING: deletes all data)
-docker exec linguard rm /app/data/linguard.db
-```
-
-### Can't access WireGuard configs
-
-Ensure your host has `/etc/wireguard` writable:
-```bash
-sudo mkdir -p /etc/wireguard
-sudo chmod 777 /etc/wireguard
-```
-
-### Network issues
-
-```bash
-# Check if container has network access
-docker exec linguard ping -c 1 8.8.8.8
-
-# Test WireGuard interface
-docker exec linguard ip addr show wg0
-```
-
-## Development Mode
-
-For local development with hot-reload, use the development docker-compose:
-
-```bash
-docker-compose -f docker-compose.dev.yml up
-```
-
-## Production Recommendations
-
-1. **Use a reverse proxy** (nginx, caddy, traefik) for:
-   - HTTPS termination
-   - Rate limiting
-   - SSL certificates
-   - Domain routing
-
-2. **Set strong SECRET_KEY** in production
-   ```bash
-   docker run -e SECRET_KEY=$(openssl rand -hex 64) ...
-   ```
-
-3. **Use PostgreSQL** for production workloads
-
-4. **Enable monitoring** (Prometheus, Grafana)
-
-5. **Configure backup automation**
-
-6. **Use systemd or docker-compose** for auto-restart
-
-## Examples
-
-### Production with PostgreSQL
-
-```bash
-docker run -d \
-  --name linguard \
-  -p 8000:8000 \
-  -v /etc/wireguard:/etc/wireguard:rw \
-  -e DATABASE_URL=postgresql+asyncpg://postgres:password@postgres:5432/linguard \
-  -e SECRET_KEY=$(openssl rand -hex 64) \
-  --cap-add NET_ADMIN \
-  --device /dev/net/tun \
-  --security-opt seccomp:unconfined \
-  --privileged \
-  linguard
-```
-
-### With Custom Port
-
-```bash
-docker run -d \
-  --name linguard \
-  -p 9000:8000 \
-  linguard
-```
-
-Then access: `http://localhost:9000`
-
----
-
-For more information, see [Linguard Documentation](https://linguard.readthedocs.io).
+- Check `docker compose logs linguard` for startup and database errors.
+- Check the configured backup path and volume permissions if backups fail.
+- The runtime user needs appropriate access to `/etc/wireguard`; do not make that directory world-writable. Configure ownership or narrowly scoped permissions for your host.
+- Linux WireGuard support, network namespaces, firewall rules, and elevated privileges must be validated on the deployment host.

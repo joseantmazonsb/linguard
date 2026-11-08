@@ -1,5 +1,7 @@
 # Deployment Guide
 
+> **Deployment warning:** Run exactly one Linguard backend worker in one instance during setup and whenever WebSocket functionality is required. The setup lifecycle lock is process-local, so multiple workers or instances can race setup mutations and completion. WebSocket tickets, connections, and broadcasts are also process-local: a ticket issued by one process cannot be used by another, and broadcasts do not reach clients connected elsewhere. Multiple workers or replicas are not supported for these purposes; sticky sessions or a shared database do not make them safe. Restrict management access during setup.
+
 ## Overview
 
 This guide covers various deployment options for Linguard, from development to production environments.
@@ -24,11 +26,9 @@ cd linguard
 cd backend
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.lock.txt
 
-# Create .env file
-cp .env.example .env
-# Edit .env with your settings
+# Configure the database and application settings through the setup wizard
 
 # Frontend
 cd ../frontend
@@ -59,10 +59,7 @@ Access:
    export DEBUG_BYPASS_FIREWALL=true
    ```
 
-2. **Database:** Use SQLite for quick development:
-   ```bash
-   DATABASE_URL=sqlite:///./linguard.db
-   ```
+2. **Database:** Select SQLite in the setup wizard for quick development.
 
 3. **Hot Reload:** Both frontend and backend support hot reloading during development.
 
@@ -96,11 +93,9 @@ sudo apt install -y python3.12 python3-pip nodejs npm wireguard iptables
 # Setup backend
 cd /opt/linguard/backend
 python3.12 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements.lock.txt
 
-# Configure
-cp .env.example .env
-# Edit .env with production settings
+# Configure the database and application settings through the setup wizard
 
 # Setup frontend
 cd /opt/linguard/frontend
@@ -146,178 +141,13 @@ sudo chmod 440 /etc/sudoers.d/linguard
 
 ### Docker Deployment
 
-#### Basic Docker Compose
+See the [Docker deployment guide](../docker-readme.md) and supplied [Compose file](../docker-compose.yml) for the current image, persistence paths, bridge-network limitations, port mappings, and host privilege requirements. Before upgrading an existing container or switching between Make and Compose, follow its [volume migration instructions](../docker-readme.md#upgrading-an-existing-container); otherwise config, database, backups, or plugins may be lost or the wrong volume used.
 
-```yaml
-version: '3.8'
-
-services:
-  linguard:
-    image: ghcr.io/joseantmazonsb/linguard:latest
-    container_name: linguard
-    ports:
-      - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql://linguard:secret@linguard-db:5432/linguard
-      SECRET_KEY: your-super-secret-key-here
-      DEBUG: "false"
-      WIREGUARD_PORT: "51820"
-    depends_on:
-      linguard-db:
-        condition: service_healthy
-    volumes:
-      - linguard-data:/app/data
-      - linguard-logs:/app/logs
-    restart: unless-stopped
-    networks:
-      - linguard-network
-
-  linguard-db:
-    image: postgres:15
-    container_name: linguard-db
-    environment:
-      POSTGRES_DB: linguard
-      POSTGRES_USER: linguard
-      POSTGRES_PASSWORD: secret
-    volumes:
-      - linguard-db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U linguard"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    networks:
-      - linguard-network
-
-volumes:
-  linguard-data:
-  linguard-logs:
-  linguard-db-data:
-
-networks:
-  linguard-network:
-    driver: bridge
-```
-
-#### Docker with Nginx and SSL
-
-```yaml
-version: '3.8'
-
-services:
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-      - ./linguard/data:/app/data
-      - ./linguard/logs:/app/logs
-    depends_on:
-      - linguard
-    networks:
-      - linguard-network
-
-  linguard:
-    build: ./backend
-    environment:
-      DATABASE_URL: postgresql://linguard:secret@linguard-db:5432/linguard
-      SECRET_KEY: ${SECRET_KEY}
-      DEBUG: "false"
-    depends_on:
-      linguard-db:
-        condition: service_healthy
-    volumes:
-      - linguard-data:/app/data
-      - linguard-logs:/app/logs
-    networks:
-      - linguard-network
-
-  linguard-db:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: linguard
-      POSTGRES_USER: linguard
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - linguard-db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U linguard"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - linguard-network
-
-volumes:
-  linguard-data:
-  linguard-logs:
-  linguard-db-data:
-
-networks:
-  linguard-network:
-    driver: bridge
-```
-
-Nginx configuration:
-
-```nginx
-events {
-    worker_connections 1024;
-}
-
-http {
-    upstream linguard_backend {
-        server linguard:8000;
-    }
-
-    server {
-        listen 80;
-        server_name your-domain.com;
-
-        location / {
-            proxy_pass http://linguard_backend;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
-
-        location /docs {
-            proxy_pass http://linguard_backend/docs;
-            proxy_set_header Host $host;
-        }
-
-        location /redoc {
-            proxy_pass http://linguard_backend/redoc;
-            proxy_set_header Host $host;
-        }
-    }
-
-    server {
-        listen 443 ssl http2;
-        server_name your-domain.com;
-
-        ssl_certificate /etc/nginx/ssl/cert.pem;
-        ssl_certificate_key /etc/nginx/ssl/key.pem;
-
-        location / {
-            proxy_pass http://linguard_backend;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
-    }
-}
-```
+Configure the database and signing key through setup, not `DATABASE_URL` or `SECRET_KEY` environment variables. If using a reverse proxy, terminate HTTPS and configure WebSocket upgrades for `/ws` to the same single backend instance.
 
 ### Kubernetes Deployment
 
-See `kubernetes/deployment.yaml` for a complete Kubernetes manifest.
+No Kubernetes manifest is supplied. Any custom deployment must respect the single-worker, single-instance warning above, including during rollout: do not overlap old and new pods during setup or when WebSockets are required.
 
 Key considerations:
 
@@ -360,7 +190,7 @@ sudo apt install -y python3.12 python3-pip nodejs npm wireguard iptables
 # Create virtual environment
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.lock.txt
 
 # Configure firewall (important for WSL)
 # WSL uses a different network configuration
@@ -386,14 +216,9 @@ WSL deployment requires special network configuration:
 
 ## Security Best Practices
 
-### Environment Variables
+### Configuration Secrets
 
-```bash
-# NEVER commit these to Git
-SECRET_KEY=your-super-secret-random-key
-DATABASE_URL=postgresql://user:password@host/db
-API_KEY=your-api-key-here
-```
+Keep database credentials, signing keys, and API keys out of Git and restrict access to configuration files and exports. The setup wizard generates the signing key; `SECRET_KEY` and `DATABASE_URL` environment variables do not configure the current server. For an installation using the known legacy setup key, follow [legacy signing key recovery](SETUP_RECOVERY.md) before resuming service.
 
 ### SSL/TLS
 
@@ -426,6 +251,8 @@ API_KEY=your-api-key-here
    # Automated daily backups
    0 2 * * * pg_dump linguard > /backups/linguard_$(date +\%Y\%m\%d).sql
    ```
+
+   Linguard rejects backup creation requests with `encrypt=true` (HTTP 400); it does not encrypt new backups. Backups created by the previous implementation were also unencrypted, even if encryption was requested. They may contain WireGuard private and preshared keys and integration configuration. Restrict access and use external encryption for stored and transferred backups, including database dumps and exports. The legacy restore path for records marked encrypted only base64-decodes them; base64 is not encryption.
 
 ### Firewall Configuration
 
@@ -482,8 +309,8 @@ psql postgres -c "SELECT 1"
 # Find and kill process using port
 sudo lsof -ti:8000 | xargs kill -9
 
-# Or use different port
-export WIREGUARD_PORT=51821
+# For Docker, update the UDP port mappings to match each server's listen port;
+# see docker-readme.md. WIREGUARD_PORT does not configure the server.
 ```
 
 #### Permission Denied
@@ -527,6 +354,8 @@ top -p $(pgrep -f uvicorn)
 
 ### Upgrading Versions
 
+For Docker installations, use the [container and volume migration procedure](../docker-readme.md#upgrading-an-existing-container) instead of the service upgrade steps below. If authentication reports an insecure legacy signing key, follow [legacy signing key recovery](SETUP_RECOVERY.md).
+
 1. **Backup Data:**
    ```bash
    pg_dump linguard > backup.sql
@@ -539,7 +368,7 @@ top -p $(pgrep -f uvicorn)
 
 3. **Update Dependencies:**
    ```bash
-   pip install -r requirements.txt
+   pip install -r requirements.lock.txt
    ```
 
 4. **Run Migrations:**
