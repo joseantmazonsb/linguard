@@ -1,5 +1,9 @@
 import json
 import os
+import base64
+import binascii
+import stat
+import asyncio
 from datetime import datetime
 
 from sqlalchemy import select
@@ -14,9 +18,67 @@ from ..models.settings import GlobalSettings
 from ..models.integration import Integration
 from ..models.traffic_trigger import TrafficTrigger
 from ..models.plugin import Plugin
+from .backup_crypto import MissingBackupKeyError, database_configured_key, decrypt_backup, encrypt_backup, key_lock, looks_encrypted, read_key, validate_envelope, validate_key_location
 
 
 BACKUP_GLOBAL_SETTINGS_FIELDS = frozenset({"dns_primary", "dns_secondary"})
+
+
+def backup_file_status(backup_dir, filename):
+    """Classify file format without authenticating encrypted envelopes."""
+    if not filename or os.path.basename(filename) != filename:
+        return None, None
+    try:
+        fd = os.open(os.path.join(backup_dir, filename), os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+        with os.fdopen(fd, "rb") as f:
+            if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+                return None, None
+            data = f.read(16 * 1024 * 1024 + 1)
+        if len(data) > 16 * 1024 * 1024:
+            return None, None
+        text = data.decode("utf-8")
+        try:
+            document = json.loads(text)
+        except json.JSONDecodeError:
+            if text.lstrip().startswith(('{', '[')):
+                return None, None
+            document = json.loads(base64.b64decode(text, validate=True).decode("utf-8"))
+            if (not isinstance(document, dict) or looks_encrypted(document)
+                    or not isinstance(document.get("version"), str)):
+                return None, None
+            if any(field in document and not isinstance(document[field], list)
+                   for field in ("servers", "peers", "traffic_triggers", "integrations", "plugins")):
+                return None, None
+            if "global_settings" in document and not isinstance(document["global_settings"], dict):
+                return None, None
+            return True, False
+        if not isinstance(document, dict):
+            return None, None
+        if looks_encrypted(document):
+            validate_envelope(document)
+            return False, True
+        return (False, False) if isinstance(document.get("version"), str) else (None, None)
+    except (OSError, UnicodeError, ValueError, binascii.Error, RecursionError):
+        return None, None
+
+
+async def _encrypt_in_thread(data, key):
+    # Keep the caller's key lock until the worker finishes, even on cancellation.
+    task = asyncio.create_task(asyncio.to_thread(encrypt_backup, data, key))
+    cancelled = False
+    while True:
+        try:
+            result = await asyncio.shield(task)
+            break
+        except asyncio.CancelledError:
+            cancelled = True
+        except Exception:
+            if cancelled:
+                raise asyncio.CancelledError from None
+            raise
+    if cancelled:
+        raise asyncio.CancelledError
+    return result
 
 
 # ============================================================================
@@ -175,6 +237,13 @@ class BackupService:
             return filename, filepath
 
     async def create_backup(
+        self, db: AsyncSession, user_id: int, description: str | None = None,
+        encrypt: bool = False, passphrase: str | None = None,
+    ) -> Backup:
+        async with key_lock():
+            return await self._create_backup(db, user_id, description, encrypt, passphrase)
+
+    async def _create_backup(
         self,
         db: AsyncSession,
         user_id: int,
@@ -189,14 +258,19 @@ class BackupService:
             db: Database session
             user_id: User creating the backup
             description: Optional backup description
-            encrypt: Whether to encrypt the backup (not supported)
-            passphrase: Reserved for future encryption support
+            encrypt: Request encryption when no global key is configured
+            passphrase: Optional explicit encryption passphrase
 
         Returns:
             Backup model instance
         """
-        if encrypt:
-            raise ValueError("Backup encryption is not supported; create an unencrypted backup and secure it externally")
+        global_key = await database_configured_key(db)
+        # Persist migration intent before backup work can fail or be cancelled.
+        await db.commit()
+        key = global_key or (passphrase if encrypt else None)
+        if encrypt and not key:
+            raise ValueError("Passphrase required for encrypted backup")
+        encrypt = bool(key)
         
         # Gather all data
         backup_data = {
@@ -318,12 +392,16 @@ class BackupService:
 
         # Convert to JSON
         json_data = json.dumps(backup_data, indent=2)
+        if key:
+            json_data = await _encrypt_in_thread(json_data, key)
 
         # Get backup directory from settings (or use default)
         if self.settings_service:
             backup_dir = await self.settings_service.get_backup_dir(db)
         else:
             backup_dir = "backups"  # Fallback for tests or before setup
+        if global_key:
+            validate_key_location(backup_dir, db.get_bind().url)
         
         # Generate unique filename with microseconds for uniqueness
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -382,7 +460,8 @@ class BackupService:
         backup_id: int,
         user_id: int,
         passphrase: str | None = None,
-        clear_existing: bool = False
+        clear_existing: bool = False,
+        allow_legacy_unauthenticated: bool = False,
     ) -> dict:
         """
         Restore from a backup.
@@ -419,16 +498,31 @@ class BackupService:
         with open(filepath) as f:
             json_data = f.read()
 
-        # Decrypt if needed
-        if backup.is_encrypted:
-            if not passphrase:
-                raise ValueError("Passphrase required for encrypted backup")
-            # TODO: Implement decryption
-            import base64
-            json_data = base64.b64decode(json_data.encode()).decode()
-
-        # Parse JSON
-        backup_data = json.loads(json_data)
+        # JSON envelopes are authoritative even if metadata was damaged.
+        legacy = False
+        try:
+            document = json.loads(json_data)
+        except json.JSONDecodeError:
+            if not backup.is_encrypted or json_data.lstrip().startswith(('{', '[')):
+                raise ValueError("Invalid backup format") from None
+            if not allow_legacy_unauthenticated:
+                raise ValueError("Legacy unauthenticated backup requires explicit opt-in")
+            try:
+                document = json.loads(base64.b64decode(json_data, validate=True).decode("utf-8"))
+                legacy = True
+            except (ValueError, UnicodeError, binascii.Error):
+                raise ValueError("Invalid legacy backup format") from None
+        if looks_encrypted(document):
+            json_data = await asyncio.to_thread(decrypt_backup, document, passphrase if passphrase is not None else read_key())
+            try:
+                document = json.loads(json_data)
+            except json.JSONDecodeError:
+                raise ValueError("Invalid decrypted backup format") from None
+        elif backup.is_encrypted and not legacy:
+            raise ValueError("Invalid encrypted backup")
+        if not isinstance(document, dict) or not isinstance(document.get("version"), str):
+            raise ValueError("Invalid backup format")
+        backup_data = document
 
         gs_data = backup_data.get("global_settings", {})
         if not isinstance(gs_data, dict):
@@ -643,7 +737,8 @@ class BackupService:
         db: AsyncSession,
         file_path: str,
         user_id: int,
-        description: str | None = None
+        description: str | None = None,
+        allow_legacy_unauthenticated: bool = False,
     ) -> Backup:
         """
         Import a backup file from an uploaded file.
@@ -653,6 +748,7 @@ class BackupService:
             file_path: Path to the uploaded backup file
             user_id: User importing the backup
             description: Optional backup description
+            allow_legacy_unauthenticated: Accept historical base64 plaintext (not authenticated)
 
         Returns:
             Backup model instance
@@ -662,14 +758,44 @@ class BackupService:
             json_data = f.read()
 
         # Try to parse JSON to validate
+        legacy = False
         try:
             backup_data = json.loads(json_data)
         except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON format: {e}")
+            if not allow_legacy_unauthenticated or json_data.lstrip().startswith(('{', '[')):
+                raise ValueError(f"Invalid JSON format: {e}") from None
+            try:
+                backup_data = json.loads(base64.b64decode(json_data, validate=True).decode("utf-8"))
+                legacy = True
+            except (ValueError, UnicodeError, binascii.Error):
+                raise ValueError("Invalid legacy backup format") from None
 
-        # Validate backup structure
-        if "version" not in backup_data:
+        if not isinstance(backup_data, dict):
+            raise ValueError("Invalid backup file: expected object")
+        encrypted = looks_encrypted(backup_data)
+        if legacy and encrypted:
+            raise ValueError("Invalid legacy backup format")
+        if encrypted:
+            validate_envelope(backup_data)
+        elif "version" not in backup_data:
             raise ValueError("Invalid backup file: missing version")
+        elif not isinstance(backup_data["version"], str):
+            raise ValueError("Invalid backup file: invalid version")
+        if legacy:
+            for field in ("servers", "peers", "traffic_triggers", "integrations", "plugins"):
+                if field in backup_data and not isinstance(backup_data[field], list):
+                    raise ValueError("Invalid legacy backup format")
+            if "global_settings" in backup_data and not isinstance(backup_data["global_settings"], dict):
+                raise ValueError("Invalid legacy backup format")
+        encrypted = encrypted or legacy
+
+        # Migrate key intent before inserting imported encrypted metadata.
+        async with key_lock():
+            try:
+                await database_configured_key(db)
+            except MissingBackupKeyError:
+                pass
+            await db.commit()
 
         # Get backup directory from settings (or use default)
         if self.settings_service:
@@ -691,7 +817,7 @@ class BackupService:
             filename=filename,
             description=description or "Imported backup",
             size_bytes=file_size,
-            is_encrypted=False,
+            is_encrypted=encrypted,
             servers_count=len(backup_data.get("servers", [])),
             peers_count=len(backup_data.get("peers", [])),
             traffic_triggers_count=len(backup_data.get("traffic_triggers", [])),

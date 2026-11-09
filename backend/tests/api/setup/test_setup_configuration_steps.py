@@ -134,6 +134,112 @@ async def test_should_reject_initialize_when_email_is_invalid(api_client):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
+async def test_setup_holds_key_lock_until_globals_commit(api_client, db_session, isolated_config, tmp_path, monkeypatch):
+    import asyncio
+    from contextlib import asynccontextmanager
+    from unittest.mock import patch
+
+    import app.services.backup_crypto as crypto
+
+    assert api_client.post(INITIALIZE_URL, json=ADMIN_PAYLOAD).status_code == 200
+    login = api_client.post("/api/v1/auth/token", data={"username": "firstadmin", "password": "SuperSecret123"})
+    api_client.headers.update({"Authorization": f"Bearer {login.json()['access_token']}"})
+    original_lock = crypto.key_lock
+    released = []
+
+    @asynccontextmanager
+    async def tracked_lock():
+        async with original_lock():
+            try:
+                yield
+            finally:
+                settings = (await db_session.execute(select(GlobalSettings))).scalar_one()
+                await db_session.refresh(settings)
+                released.append(settings.backup_dir)
+
+    with patch.object(crypto, "key_lock", tracked_lock):
+        response = await asyncio.to_thread(api_client.post, GLOBALS_URL, json={**GLOBALS_PAYLOAD, "backup_dir": str(tmp_path / "selected")})
+    assert response.status_code == 200
+    assert released == [str(tmp_path / "selected")]
+
+
+@pytest.mark.asyncio
+async def test_setup_and_key_set_serialize_backup_directory_decisions(api_client, db_session, isolated_config, tmp_path, monkeypatch):
+    import asyncio
+    from contextlib import asynccontextmanager
+    from threading import Event
+    from unittest.mock import patch
+
+    import app.services.backup_crypto as crypto
+
+    assert api_client.post(INITIALIZE_URL, json=ADMIN_PAYLOAD).status_code == 200
+    login = api_client.post("/api/v1/auth/token", data={"username": "firstadmin", "password": "SuperSecret123"})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    original_lock = crypto.key_lock
+    lock_released = Event()
+    continue_setup = Event()
+
+    @asynccontextmanager
+    async def tracked_lock():
+        async with original_lock():
+            yield
+        lock_released.set()
+        await asyncio.to_thread(continue_setup.wait, 5)
+
+    with patch.object(crypto, "key_lock", tracked_lock):
+        setup = asyncio.create_task(asyncio.to_thread(api_client.post, GLOBALS_URL, headers=headers,
+                                    json={**GLOBALS_PAYLOAD, "backup_dir": str(isolated_config.parent)}))
+        try:
+            assert await asyncio.to_thread(lock_released.wait, 3)
+            key_result = await asyncio.to_thread(api_client.put, "/api/v1/settings/backup-key", headers=headers, json={"key": "secret"})
+        finally:
+            continue_setup.set()
+            setup_result = await asyncio.wait_for(setup, 5)
+    assert setup_result.status_code == 200
+    assert key_result.status_code == 401
+    assert not crypto.key_path().exists()
+
+
+@pytest.mark.asyncio
+async def test_setup_revalidates_admin_after_waiting_for_key_lock(api_client, db_session, isolated_config):
+    import asyncio
+    from app.models.user import User
+    from app.services.backup_crypto import key_lock
+
+    assert api_client.post(INITIALIZE_URL, json=ADMIN_PAYLOAD).status_code == 200
+    login = api_client.post("/api/v1/auth/token", data={"username": "firstadmin", "password": "SuperSecret123"})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    async with key_lock():
+        request = asyncio.create_task(asyncio.to_thread(api_client.post, GLOBALS_URL, headers=headers, json=GLOBALS_PAYLOAD))
+        await asyncio.sleep(0.25)
+        admin = (await db_session.execute(select(User).where(User.username == "firstadmin"))).scalar_one()
+        admin.role = "standard"
+        await db_session.commit()
+    response = await asyncio.wait_for(request, 5)
+    assert response.status_code == 403
+
+@pytest.mark.asyncio
+async def test_setup_accepts_backup_directory_containing_default_key_path_when_no_key(api_client, db_session, isolated_config, tmp_path):
+    assert api_client.post(INITIALIZE_URL, json=ADMIN_PAYLOAD).status_code == 200
+    login = api_client.post("/api/v1/auth/token", data={"username": "firstadmin", "password": "SuperSecret123"})
+    api_client.headers.update({"Authorization": f"Bearer {login.json()['access_token']}"})
+    response = api_client.post(GLOBALS_URL, json={**GLOBALS_PAYLOAD, "backup_dir": str(tmp_path)})
+    assert response.status_code == 200
+
+@pytest.mark.asyncio
+async def test_should_reject_backup_directory_containing_key_before_mutation(api_client, db_session, isolated_config, tmp_path):
+    assert api_client.post(INITIALIZE_URL, json=ADMIN_PAYLOAD).status_code == 200
+    login = api_client.post("/api/v1/auth/token", data={"username": "firstadmin", "password": "SuperSecret123"})
+    api_client.headers.update({"Authorization": f"Bearer {login.json()['access_token']}"})
+    assert api_client.put("/api/v1/settings/backup-key", json={"key": "key"}).status_code == 200
+    settings = await _settings_row(db_session)
+    old_key, old_dir = settings.secret_key, settings.backup_dir
+    response = api_client.post(GLOBALS_URL, json={**GLOBALS_PAYLOAD, "backup_dir": str(tmp_path)})
+    assert response.status_code == 400
+    await db_session.refresh(settings)
+    assert (settings.secret_key, settings.backup_dir) == (old_key, old_dir)
+
+@pytest.mark.asyncio
 async def test_should_create_settings_row_when_configuring_globals_first_time(
     api_client, db_session, isolated_config
 ):

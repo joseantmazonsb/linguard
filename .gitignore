@@ -32,6 +32,8 @@ yarn-error.log*
 .pnpm-debug.log*
 
 backups/
+backup.key
+.backup-key-*
 *.log
 *cache/
 *.conf
@@ -40,4 +42,3 @@ coverage.xml
 coverage_report/
 htmlcov/
 .pytest_cache/
-

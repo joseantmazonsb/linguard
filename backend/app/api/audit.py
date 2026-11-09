@@ -25,6 +25,13 @@ def _log_query():
 
 def _serialize_log(log: AuditLog) -> dict:
     """Convert an audit log row to the frontend response shape."""
+    def redact(value):
+        if isinstance(value, dict):
+            return {k: redact(v) for k, v in value.items() if k not in {"secret_key", "oidc_client_secret", "database_url"}}
+        if isinstance(value, list):
+            return [redact(item) for item in value]
+        return value
+
     return {
         "id": log.id,
         "user_id": log.user_id,
@@ -33,7 +40,7 @@ def _serialize_log(log: AuditLog) -> dict:
         "resource_type": log.resource_type,
         "resource_id": log.resource_id,
         "resource_name": log.resource_name,
-        "details": log.details,
+        "details": redact(log.details),
         "ip_address": log.ip_address,
         "user_agent": log.user_agent,
         "status": log.status,

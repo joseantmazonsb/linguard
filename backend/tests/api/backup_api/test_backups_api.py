@@ -26,10 +26,10 @@ async def _audit_actions(db_session):
 # Create
 # ---------------------------------------------------------------------------
 
-async def test_should_reject_requested_encryption(auth_client, backup_dir):
-    response = auth_client.post("/api/v1/backups/", json={"encrypt": True, "passphrase": "pw"})
+async def test_should_reject_requested_encryption_without_key(auth_client, backup_dir):
+    response = auth_client.post("/api/v1/backups/", json={"encrypt": True})
     assert response.status_code == 400
-    assert "encryption" in response.json()["detail"].lower()
+    assert "passphrase" in response.json()["detail"].lower()
     assert not backup_dir.exists() or list(backup_dir.iterdir()) == []
 
 async def test_should_create_backup_when_configuration_exists(
@@ -342,6 +342,9 @@ async def test_should_return_400_when_restoring_encrypted_backup_without_passphr
     auth_client, backup_dir, seeded_server_and_peer, db_session
 ):
     created = auth_client.post("/api/v1/backups/", json={}).json()
+    import base64
+    path = backup_dir / created["filename"]
+    path.write_text(base64.b64encode(path.read_bytes()).decode())
 
     result = await db_session.execute(select(Backup).where(Backup.id == created["id"]))
     backup = result.scalar_one()
@@ -351,7 +354,7 @@ async def test_should_return_400_when_restoring_encrypted_backup_without_passphr
     response = auth_client.post(f"/api/v1/backups/{created['id']}/restore")
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Passphrase required for encrypted backup"
+    assert response.json()["detail"] == "Legacy unauthenticated backup requires explicit opt-in"
 
 
 async def test_should_return_400_when_restore_file_is_missing(auth_client, backup_dir):
@@ -371,7 +374,7 @@ async def test_should_return_400_when_restore_file_is_corrupt(auth_client, backu
     response = auth_client.post(f"/api/v1/backups/{created['id']}/restore")
 
     assert response.status_code == 400
-    assert "Expecting" in response.json()["detail"]
+    assert response.json()["detail"] == "Invalid backup format"
 
 
 async def test_should_return_500_when_restore_document_is_structurally_invalid(
@@ -446,6 +449,8 @@ async def test_should_return_empty_stats_when_no_backups(auth_client, backup_dir
 async def test_should_summarise_backups_when_they_exist(
     auth_client, backup_dir, seeded_db, db_session
 ):
+    # Record that encryption is deliberately unconfigured before seeding old metadata.
+    assert auth_client.get("/api/v1/settings/backup-key").json() == {"configured": False}
     old = Backup(
         filename="old-backup.json",
         description="old",

@@ -23,6 +23,12 @@ from app.models.settings import GlobalSettings
 from app.models.user import User
 from app.core.security import get_current_admin
 
+
+@pytest.fixture(autouse=True)
+def isolated_backup_key_storage(tmp_path, monkeypatch):
+    monkeypatch.setattr(config_loader, "config_path", tmp_path / "linguard.config.json")
+    monkeypatch.delenv("LINGUARD_BACKUP_KEY_PATH", raising=False)
+
 # ============================================================================
 # DATABASE FIXTURES
 # ============================================================================

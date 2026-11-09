@@ -190,10 +190,10 @@ class TestCreateBackup:
 
         assert backup.filename == "wireguard_backup_20260102_030405_678_1.json"
 
-    async def test_should_reject_encryption_when_requested(
+    async def test_should_reject_encryption_without_key(
             self, service, db_session, backup_dir, populated):
-        with pytest.raises(ValueError, match="[Ee]ncryption.*not.*supported"):
-            await service.create_backup(db_session, user_id=1, encrypt=True, passphrase="pw")
+        with pytest.raises(ValueError, match="[Pp]assphrase"):
+            await service.create_backup(db_session, user_id=1, encrypt=True)
         assert list(backup_dir.iterdir()) == []
         assert (await db_session.execute(select(Backup))).scalars().all() == []
 
@@ -485,15 +485,17 @@ class TestRestoreBackup:
         backup = await service.create_backup(db_session, user_id=1)
         (backup_dir / backup.filename).write_text("{not json")
 
-        with pytest.raises(json.JSONDecodeError):
+        with pytest.raises(ValueError, match="Invalid backup format"):
             await service.restore_backup(db_session, backup.id, user_id=1)
 
     async def test_should_require_passphrase_for_encrypted_backup(self, service, db_session, backup_dir, populated):
         backup = await service.create_backup(db_session, user_id=1)
+        path = backup_dir / backup.filename
+        path.write_text(base64.b64encode(path.read_bytes()).decode())
         backup.is_encrypted = True
         await db_session.commit()
 
-        with pytest.raises(ValueError, match="Passphrase required for encrypted backup"):
+        with pytest.raises(ValueError, match="explicit opt-in"):
             await service.restore_backup(db_session, backup.id, user_id=1)
 
     async def test_should_decode_base64_encrypted_payload(self, service, db_session, backup_dir, populated):
@@ -504,7 +506,7 @@ class TestRestoreBackup:
         backup.is_encrypted = True
         await db_session.commit()
 
-        summary = await service.restore_backup(db_session, backup.id, user_id=1, passphrase="secret")
+        summary = await service.restore_backup(db_session, backup.id, user_id=1, passphrase="secret", allow_legacy_unauthenticated=True)
 
         assert summary["success"] is True
         assert summary["servers_restored"] == 1

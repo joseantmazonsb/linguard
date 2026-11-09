@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, computed_field, field_serializer
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 
 class GlobalSettingsBase(BaseModel):
@@ -78,6 +80,8 @@ class GlobalSettingsUpdate(BaseModel):
 
 
 class GlobalSettingsResponse(GlobalSettingsBase):
+    secret_key: str | None = Field(default=None, exclude=True)
+    oidc_client_secret: str | None = Field(default=None, exclude=True)
     id: int
     database_type: str  # Read-only, from linguard.config.json
     database_url: str | None = None  # Read-only, database connection string
@@ -85,6 +89,20 @@ class GlobalSettingsResponse(GlobalSettingsBase):
     setup_current_step: str | None
     created_at: datetime
     updated_at: datetime | None
+
+    @computed_field
+    @property
+    def oidc_client_secret_configured(self) -> bool:
+        return bool(self.oidc_client_secret)
+
+    @field_serializer('database_url')
+    def serialize_database_url(self, value: str | None, _info):
+        if not value:
+            return value
+        try:
+            return make_url(value).set(query={}).render_as_string(hide_password=True)
+        except ArgumentError:
+            return None
 
     @field_serializer('created_at', 'updated_at')
     def serialize_datetime(self, dt: datetime | None, _info):
@@ -97,4 +115,3 @@ class GlobalSettingsResponse(GlobalSettingsBase):
 
     class Config:
         from_attributes = True
-

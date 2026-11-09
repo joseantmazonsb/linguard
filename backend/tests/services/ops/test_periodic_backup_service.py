@@ -230,6 +230,39 @@ async def test_should_create_backup_and_publish_event_when_scheduled(service, se
     assert publish.await_args.kwargs["user_id"] is None
 
 
+async def test_should_encrypt_scheduled_backup_when_key_configured(seeded_db, db_session, tmp_path, monkeypatch):
+    from app.models.backup import Backup
+    from app.services.backup_crypto import set_key
+    from app.services.backup_service import BackupService
+
+    monkeypatch.setenv("LINGUARD_BACKUP_KEY_PATH", str(tmp_path / "backup.key"))
+    set_key("scheduled key")
+    await _set_settings(db_session, backup_periodic_enabled=True, backup_dir=str(tmp_path / "backups"))
+    settings_service = SettingsService()
+    service = PeriodicBackupService(BackupService(settings_service), settings_service)
+    await service._create_scheduled_backup()
+    backup = (await db_session.execute(select(Backup))).scalar_one()
+    assert backup.is_encrypted
+    assert "scheduled key" not in (tmp_path / "backups" / backup.filename).read_text()
+
+
+async def test_should_not_create_scheduled_backup_when_key_disappears(seeded_db, db_session, tmp_path, monkeypatch):
+    from app.models.backup import Backup
+    from app.services.backup_crypto import set_key
+    from app.services.backup_service import BackupService
+
+    key_path = tmp_path / "backup.key"
+    monkeypatch.setenv("LINGUARD_BACKUP_KEY_PATH", str(key_path))
+    set_key("scheduled key")
+    key_path.unlink()
+    await _set_settings(db_session, backup_periodic_enabled=True, backup_dir=str(tmp_path / "backups"))
+    settings = SettingsService()
+    service = PeriodicBackupService(BackupService(settings), settings)
+    await service._create_scheduled_backup()
+    assert (await db_session.execute(select(Backup))).scalars().all() == []
+    assert not (tmp_path / "backups").exists()
+
+
 async def test_should_skip_backup_when_periodic_backups_were_disabled_meanwhile(
     service, seeded_db, db_session
 ):

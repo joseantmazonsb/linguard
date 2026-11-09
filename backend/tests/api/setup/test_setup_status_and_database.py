@@ -314,6 +314,33 @@ async def test_should_keep_url_verbatim_when_configure_database_postgresql(
 
 
 @pytest.mark.asyncio
+async def test_database_setup_response_and_diagnostics_do_not_leak_url_secrets(api_client, isolated_config, fake_engine_switch, capsys):
+    url = "postgresql+asyncpg://user:authority-secret@db/linguard?password=query-secret&sslmode=require"
+    response = api_client.post(CONFIGURE_DB_URL, json={"database_type": "postgresql", "database_url": url})
+    assert response.status_code == 200
+    assert "authority-secret" not in response.text
+    assert "query-secret" not in response.text
+    assert "query-secret" not in capsys.readouterr().out
+    assert fake_engine_switch.reinit_calls == [url]
+
+
+@pytest.mark.asyncio
+async def test_database_setup_failure_does_not_log_credentials(api_client, isolated_config, monkeypatch, capsys):
+    from app.core import database as db_module
+
+    def fail(url):
+        raise RuntimeError(f"cannot connect: {url}")
+
+    monkeypatch.setattr(db_module, "_build_engine", fail)
+    url = "postgresql+asyncpg://user:authority-secret@db/name?password=query-secret"
+    response = api_client.post(CONFIGURE_DB_URL, json={"database_type": "postgresql", "database_url": url})
+    assert response.status_code == 500
+    for output in (response.text, capsys.readouterr().out):
+        assert "authority-secret" not in output
+        assert "query-secret" not in output
+
+
+@pytest.mark.asyncio
 async def test_should_still_configure_database_when_monitors_fail_to_start(
     api_client, isolated_config, fake_engine_switch
 ):
@@ -348,7 +375,7 @@ async def test_should_return_500_when_configure_database_engine_init_fails(
     )
 
     assert response.status_code == 500
-    assert response.json()["detail"] == "Failed to configure database: RuntimeError: cannot connect"
+    assert response.json()["detail"] == "Failed to configure database"
 
 
 @pytest.mark.asyncio

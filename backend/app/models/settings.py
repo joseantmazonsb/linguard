@@ -97,3 +97,10 @@ class GlobalSettings(Base):
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class BackupEncryptionState(Base):
+    __tablename__ = "backup_encryption_state"
+
+    id = Column(Integer, primary_key=True)
+    required = Column(Boolean, nullable=False, default=False)

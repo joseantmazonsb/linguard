@@ -27,6 +27,7 @@ class TestBackupService:
     async def test_create_backup_success(self):
         """Test creating a successful backup."""
         mock_db = MagicMock()
+        mock_db.get_bind.return_value.url = "sqlite:///:memory:"
         mock_result = MagicMock()
         mock_result.scalar_one_or_none = MagicMock(return_value=None)
         async def mock_execute(*args, **kwargs):
@@ -64,6 +65,7 @@ class TestBackupService:
     async def test_create_backup_with_description(self):
         """Test creating a backup with description."""
         mock_db = MagicMock()
+        mock_db.get_bind.return_value.url = "sqlite:///:memory:"
         mock_result = MagicMock()
         mock_result.scalar_one_or_none = MagicMock(return_value=None)
         async def mock_execute(*args, **kwargs):
@@ -96,6 +98,7 @@ class TestBackupService:
     async def test_create_backup_with_integrations(self):
         """Test creating a backup with integrations."""
         mock_db = MagicMock()
+        mock_db.get_bind.return_value.url = "sqlite:///:memory:"
         mock_result = MagicMock()
         mock_result.scalar_one_or_none = MagicMock(return_value=None)
         async def mock_execute(*args, **kwargs):

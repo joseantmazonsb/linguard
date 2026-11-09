@@ -217,7 +217,6 @@ async def reset_setup():
 async def configure_database_backend(config_data: ConfigureDatabase):
     """Configure database backend (first step in setup)."""
     import os
-    import traceback as _tb
     from pathlib import Path
     from ..core import database as _db
     from ..core.database import Base
@@ -291,7 +290,7 @@ async def configure_database_backend(config_data: ConfigureDatabase):
         return {
             "success": True,
             "database_type": config_data.database_type.value,
-            "database_url": db_url,
+            "database_url": make_url(db_url).set(query={}).render_as_string(hide_password=True),
             "message": f"{config_data.database_type.value.upper()} database configured successfully.",
             "requires_restart": False,
         }
@@ -300,12 +299,10 @@ async def configure_database_backend(config_data: ConfigureDatabase):
             await candidate.dispose()
             if new_pinned_db is not None and not config_loader.config_path.exists():
                 new_pinned_db.unlink(missing_ok=True)
-        full_trace = _tb.format_exc()
-        print(f"[SETUP ERROR] {type(e).__name__}: {str(e)}")
-        print(f"[SETUP ERROR] Full traceback:\n{full_trace}")
+        print("[SETUP ERROR] Database configuration failed")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to configure database: {type(e).__name__}: {str(e)}"
+            detail="Failed to configure database"
         )
 
 
@@ -427,9 +424,37 @@ async def initialize_setup(
 
 @router.post("/configure-globals", dependencies=[Depends(require_incomplete_setup)])
 async def configure_global_settings(
-    config_data: ConfigureGlobals, db: AsyncSession = Depends(get_db)
+    config_data: ConfigureGlobals, request: Request, db: AsyncSession = Depends(get_db)
 ):
     """Configure global settings during setup."""
+    from ..services.backup_crypto import key_lock
+    from ..core.security import authenticate_locked, lock_auth_settings
+    async with key_lock():
+        try:
+            settings = await lock_auth_settings(db)
+            if not settings or settings.setup_completed:
+                raise HTTPException(status_code=403, detail="Setup has already been completed or is unavailable")
+            scheme, _, token = request.headers.get("authorization", "").partition(" ")
+            user = await authenticate_locked(db, settings, token if scheme.lower() == "bearer" else None, allow_disabled_auth=False)
+            if user.role != "admin":
+                raise HTTPException(status_code=403, detail="Administrator privileges required")
+            return await _configure_global_settings(config_data, db)
+        except BaseException:
+            await db.rollback()
+            raise
+
+
+async def _configure_global_settings(config_data: ConfigureGlobals, db: AsyncSession):
+    from ..services.backup_crypto import MissingBackupKeyError, database_configured_key, validate_key_location
+    try:
+        try:
+            key = await database_configured_key(db)
+        except MissingBackupKeyError:
+            key = True
+        if key:
+            validate_key_location(config_data.backup_dir, db.get_bind().url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     # Get or create global settings
     result = await db.execute(select(GlobalSettings))
     settings = result.scalar_one_or_none()

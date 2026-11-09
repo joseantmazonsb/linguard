@@ -47,10 +47,10 @@ async def lock_auth_settings(db: AsyncSession) -> GlobalSettings | None:
     return (await db.execute(select(GlobalSettings).with_for_update().execution_options(populate_existing=True))).scalar_one_or_none()
 
 
-async def authenticate_locked(db: AsyncSession, settings: GlobalSettings, token: str | None) -> User:
+async def authenticate_locked(db: AsyncSession, settings: GlobalSettings, token: str | None, allow_disabled_auth: bool = True) -> User:
     require_secure_signing_key(settings)
     error = HTTPException(status_code=401, detail="Could not validate credentials")
-    if settings.setup_completed and settings.disable_auth:
+    if allow_disabled_auth and settings.setup_completed and settings.disable_auth:
         user = (await db.execute(select(User).order_by(User.id).limit(1).with_for_update().execution_options(populate_existing=True))).scalar_one_or_none()
     else:
         try:

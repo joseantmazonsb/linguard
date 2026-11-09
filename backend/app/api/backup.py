@@ -1,43 +1,63 @@
 import os
 import tempfile
+import asyncio
 
 from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, SecretStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from ..core.containers import Container
 from ..core.database import get_db
 from ..core.events import EventType, event_bus
-from ..core.security import get_current_user
 from ..models.backup import Backup
 from ..models.user import User
 from ..schemas.backup import BackupCreate, BackupResponse
 from ..services.audit_logger import AuditService
-from ..services.backup_service import BackupService
+from ..services.backup_service import BackupService, backup_file_status
+from .settings import get_backup_key_admin
 
 router = APIRouter()
 
 
 class BackupCreateRequest(BackupCreate):
     encrypt: bool = False
-    passphrase: str | None = None
+    passphrase: SecretStr | None = None
+
+
+class BackupRestoreRequest(BaseModel):
+    passphrase: SecretStr | None = None
+    overwrite: bool = False
+    allow_legacy_unauthenticated: bool = False
 
 
 @router.get("/")
+@inject
 async def list_backups(
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_backup_key_admin),
+    settings_service = Depends(Provide[Container.settings_service]),
 ):
     """List all backups"""
-    query = select(Backup).order_by(Backup.created_at.desc())
+    query = select(Backup).options(selectinload(Backup.created_by)).order_by(Backup.created_at.desc())
     query = query.offset(skip).limit(limit)
 
     result = await db.execute(query)
     backups = result.scalars().all()
+    try:
+        backup_dir = await settings_service.get_backup_dir(db)
+    except Exception:
+        backup_dir = None
+    filenames = [(b.id, b.filename) for b in backups]
+    classifications = await asyncio.to_thread(
+        lambda: {backup_id: backup_file_status(backup_dir, filename) if backup_dir else (None, None)
+                 for backup_id, filename in filenames}
+    )
 
     # Transform to frontend format
     return [
@@ -46,7 +66,9 @@ async def list_backups(
             "filename": b.filename,
             "description": b.description,
             "file_size": b.size_bytes,
-            "is_encrypted": b.is_encrypted,
+            "is_encrypted": False if classifications[b.id][1] is False else None,
+            "is_legacy_unauthenticated": classifications[b.id][0],
+            "is_encrypted_format": classifications[b.id][1],
             "servers_count": b.servers_count,
             "peers_count": b.peers_count,
             "created_by_id": b.created_by_user_id,
@@ -61,7 +83,7 @@ async def list_backups(
 async def get_backup(
     backup_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_backup_key_admin)
 ):
     """Get a specific backup by ID"""
     result = await db.execute(select(Backup).where(Backup.id == backup_id))
@@ -82,7 +104,7 @@ async def create_backup(
     backup_data: BackupCreateRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_backup_key_admin),
     backup_service: BackupService = Depends(Provide[Container.backup_service]),
     audit_service: AuditService = Depends(Provide[Container.audit_service])
 ):
@@ -101,7 +123,7 @@ async def create_backup(
             user_id=current_user.id,
             description=backup_data.description,
             encrypt=backup_data.encrypt,
-            passphrase=backup_data.passphrase,
+            passphrase=backup_data.passphrase.get_secret_value() if backup_data.passphrase else None,
         )
 
         # Log audit event
@@ -147,10 +169,10 @@ async def create_backup(
 async def restore_backup(
     backup_id: int,
     request: Request,
-    passphrase: str | None = None,
-    overwrite: bool = False,
+    restore_data: BackupRestoreRequest | None = None,
+    overwrite: bool | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_backup_key_admin),
     backup_service: BackupService = Depends(Provide[Container.backup_service]),
     audit_service: AuditService = Depends(Provide[Container.audit_service])
 ):
@@ -162,6 +184,11 @@ async def restore_backup(
         passphrase: Decryption passphrase if backup is encrypted
         overwrite: Whether to overwrite existing configurations
     """
+    if "passphrase" in request.query_params:
+        raise HTTPException(status_code=400, detail="Passphrase must be supplied in the request body")
+    passphrase = restore_data.passphrase.get_secret_value() if restore_data and restore_data.passphrase else None
+    overwrite = restore_data.overwrite if restore_data is not None else bool(overwrite)
+    allow_legacy = bool(restore_data and restore_data.allow_legacy_unauthenticated)
     # Get backup
     result = await db.execute(select(Backup).where(Backup.id == backup_id))
     backup = result.scalar_one_or_none()
@@ -172,26 +199,21 @@ async def restore_backup(
             detail="Backup not found"
         )
 
-    if backup.is_encrypted and not passphrase:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Passphrase required for encrypted backup"
-        )
-
     try:
         result = await backup_service.restore_backup(
             db=db,
             backup_id=backup_id,
             user_id=current_user.id,
             passphrase=passphrase,
-            clear_existing=overwrite
+            clear_existing=overwrite,
+            allow_legacy_unauthenticated=allow_legacy,
         )
 
         # Log audit event
         await audit_service.log_action(
             db, current_user, "RESTORE", "backup", backup.id,
             f"Backup-{backup.created_at.strftime('%Y%m%d-%H%M%S')}",
-            {"overwrite": overwrite, "result": result}, request
+            {"overwrite": overwrite, "allow_legacy_unauthenticated": allow_legacy, "result": result}, request
         )
 
         # Publish event
@@ -226,7 +248,7 @@ async def restore_backup(
 async def download_backup(
     backup_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_backup_key_admin),
     settings_service = Depends(Provide[Container.settings_service])
 ):
     """Download a backup file"""
@@ -263,8 +285,9 @@ async def upload_backup(
     file: UploadFile,
     request: Request,
     description: str | None = Form(None),
+    allow_legacy_unauthenticated: bool = Form(False),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_backup_key_admin),
     backup_service: BackupService = Depends(Provide[Container.backup_service]),
     audit_service: AuditService = Depends(Provide[Container.audit_service])
 ):
@@ -284,14 +307,15 @@ async def upload_backup(
             db=db,
             file_path=temp_path,
             user_id=current_user.id,
-            description=description or f"Imported from {file.filename}"
+            description=description or f"Imported from {file.filename}",
+            allow_legacy_unauthenticated=allow_legacy_unauthenticated,
         )
 
         # Log audit event
         await audit_service.log_action(
             db, current_user, "IMPORT", "backup", backup.id,
             f"Backup-{backup.created_at.strftime('%Y%m%d-%H%M%S')}",
-            {"filename": file.filename, "description": backup.description}, request
+            {"filename": file.filename, "description": backup.description, "allow_legacy_unauthenticated": allow_legacy_unauthenticated}, request
         )
 
         return {
@@ -329,7 +353,7 @@ async def delete_backup(
     backup_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_backup_key_admin),
     audit_service: AuditService = Depends(Provide[Container.audit_service]),
     settings_service = Depends(Provide[Container.settings_service])
 ):
@@ -380,7 +404,7 @@ async def delete_backup(
 @router.get("/stats/summary")
 async def get_backup_stats(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_backup_key_admin)
 ):
     """Get backup statistics"""
     from sqlalchemy import func

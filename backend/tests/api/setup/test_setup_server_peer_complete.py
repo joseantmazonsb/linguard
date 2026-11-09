@@ -368,6 +368,22 @@ class _FakeBackup:
 
 
 @pytest.mark.asyncio
+async def test_should_encrypt_initial_backup_when_key_configured(api_client, db_session, isolated_config, tmp_path):
+    from app.models.backup import Backup
+
+    await _add_user(db_session)
+    settings = await _add_settings(db_session, setup_current_step="complete")
+    settings.backup_dir = str(tmp_path / "backups")
+    await db_session.commit()
+    assert api_client.put("/api/v1/settings/backup-key", headers=_admin_headers(), json={"key": "setup key"}).status_code == 200
+    response = api_client.post(COMPLETE_URL, headers=_admin_headers())
+    assert response.status_code == 200
+    backup = (await db_session.execute(select(Backup))).scalar_one()
+    assert backup.is_encrypted
+    assert "setup key" not in (tmp_path / "backups" / backup.filename).read_text()
+
+
+@pytest.mark.asyncio
 async def test_should_complete_setup_and_create_backup_and_integration(api_client, db_session, isolated_config):
     admin = await _add_user(db_session)
     await _add_settings(db_session, setup_current_step="complete")
