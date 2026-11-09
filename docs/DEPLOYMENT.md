@@ -145,6 +145,8 @@ See the [Docker deployment guide](../docker-readme.md) and supplied [Compose fil
 
 Configure the database and signing key through setup, not `DATABASE_URL` or `SECRET_KEY` environment variables. If using a reverse proxy, terminate HTTPS and configure WebSocket upgrades for `/ws` to the same single backend instance.
 
+The image sets `LINGUARD_BACKUP_KEY_PATH=/app/data/backup.key` on the persisted data volume. Set an optional backup encryption key during setup or as an authenticated administrator in Settings; the path alone does not create a key. Outside Docker, the default is `backup.key` beside the database connection config, unless `LINGUARD_BACKUP_KEY_PATH` overrides it. See [backup key persistence and recovery](../docker-readme.md#configuration-and-persistence) before migration.
+
 ### Kubernetes Deployment
 
 No Kubernetes manifest is supplied. Any custom deployment must respect the single-worker, single-instance warning above, including during rollout: do not overlap old and new pods during setup or when WebSockets are required.
@@ -252,7 +254,11 @@ Keep database credentials, signing keys, and API keys out of Git and restrict ac
    0 2 * * * pg_dump linguard > /backups/linguard_$(date +\%Y\%m\%d).sql
    ```
 
-   Linguard rejects backup creation requests with `encrypt=true` (HTTP 400); it does not encrypt new backups. Backups created by the previous implementation were also unencrypted, even if encryption was requested. They may contain WireGuard private and preshared keys and integration configuration. Restrict access and use external encryption for stored and transferred backups, including database dumps and exports. The legacy restore path for records marked encrypted only base64-decodes them; base64 is not encryption.
+   A configured backup key encrypts newly created manual, setup and scheduled backups. Without one, backups are plaintext unless encryption is explicitly requested with a passphrase through the API. Encryption requests without a key or passphrase fail, as do reads of unsafe or unreadable key files. Once database intent is recorded, a missing key or marker blocks backup creation until recovery or an explicit administrator clear. The marker is stored beside the key; older config-directory markers remain recognized. Preserve the key directory and database during migration. Existing plaintext backups and plaintext imports remain plaintext; importing does not encrypt them. Older backups may be unencrypted even if encryption was requested, and legacy base64 encoding is not encryption.
+
+   On first upgrade, historical encrypted records alone are not evidence of a global key because they may be legacy base64 or one-off encrypted backups. If the key, marker and database intent were already lost before migration, the previous policy cannot be inferred. Verify key status and restore the key before creating backups.
+
+   Backups may contain WireGuard private and preshared keys and integration configuration. Restrict access and encrypt plaintext backups, database dumps and exports externally in storage and transit. Store the original backup key securely outside the server and separately from backups. The key file is created with mode `0600`; provisioned or restored files must have mode `0600` and be owned by the application user. Retain old keys after rotation or removal to restore older encrypted backups. A server compromise can expose the key and plaintext data despite backup encryption.
 
 ### Firewall Configuration
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
-import { settingsAPI } from "../services/apiClient";
+import { settingsAPI, backupKeyError } from "../services/apiClient";
 import ToggleSwitch from "../components/ToggleSwitch";
 import CustomSelect from "../components/CustomSelect";
 import type { FieldErrors } from "../utils/errorUtils";
@@ -33,6 +33,7 @@ interface GlobalSettings {
   oidc_discovery_url?: string | null;
   oidc_client_id?: string | null;
   oidc_client_secret?: string | null;
+  oidc_client_secret_configured?: boolean;
   oidc_scopes?: string;
   oidc_provider_name?: string | null;
   oidc_auto_provision?: boolean;
@@ -65,7 +66,35 @@ export default function Settings() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [oidcTestResult, setOidcTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [oidcTesting, setOidcTesting] = useState(false);
+  const [clearOidcSecret, setClearOidcSecret] = useState(false);
+  const [backupKey, setBackupKey] = useState("");
+  const [backupKeyBusy, setBackupKeyBusy] = useState(false);
+  const [confirmClearKey, setConfirmClearKey] = useState(false);
+  const [confirmReplaceKey, setConfirmReplaceKey] = useState(false);
   const queryClient = useQueryClient();
+
+  const { data: backupKeyStatus, isError: backupKeyStatusError } = useQuery({
+    queryKey: ["backup-key-status"],
+    queryFn: settingsAPI.getBackupKey,
+  });
+
+  const updateBackupKey = async (clear: boolean) => {
+    setBackupKeyBusy(true);
+    try {
+      if (clear) await settingsAPI.clearBackupKey();
+      else if (backupKeyStatus?.status === "missing") await settingsAPI.recoverBackupKey(backupKey);
+      else await settingsAPI.setBackupKey(backupKey);
+      setBackupKey("");
+      setConfirmClearKey(false);
+      setConfirmReplaceKey(false);
+      await queryClient.invalidateQueries({ queryKey: ["backup-key-status"] });
+      toast.success(clear ? "Backup key cleared" : "Backup key saved");
+    } catch (error) {
+      toast.error(backupKeyError(error, clear ? "Failed to clear backup key" : "Failed to save backup key"));
+    } finally {
+      setBackupKeyBusy(false);
+    }
+  };
 
   // Fetch global settings
   const {
@@ -100,7 +129,8 @@ export default function Settings() {
   });
 
   const handleEdit = () => {
-    setFormData(settings);
+    setFormData({ ...settings, oidc_client_secret: undefined });
+    setClearOidcSecret(false);
     setFieldErrors({}); // Clear errors when starting edit
     setIsEditing(true);
   };
@@ -108,6 +138,7 @@ export default function Settings() {
   const handleCancel = () => {
     setIsEditing(false);
     setFormData(null);
+    setClearOidcSecret(false);
     setFieldErrors({}); // Clear errors when canceling
   };
 
@@ -183,8 +214,9 @@ export default function Settings() {
         submitData.oidc_discovery_url = formData.oidc_discovery_url || null;
       if (formData.oidc_client_id !== undefined)
         submitData.oidc_client_id = formData.oidc_client_id || null;
-      if (formData.oidc_client_secret !== undefined)
-        submitData.oidc_client_secret = formData.oidc_client_secret || null;
+      if (clearOidcSecret) submitData.oidc_client_secret = null;
+      else if (formData.oidc_client_secret)
+        submitData.oidc_client_secret = formData.oidc_client_secret;
       if (formData.oidc_scopes !== undefined)
         submitData.oidc_scopes = formData.oidc_scopes;
       if (formData.oidc_provider_name !== undefined)
@@ -445,6 +477,22 @@ export default function Settings() {
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Configure automatic backup behavior and retention.
             </p>
+
+            <div className="mb-6 space-y-2">
+              <label htmlFor="backup-key" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Backup encryption key (optional)</label>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{backupKeyStatusError ? "Backup key status unavailable" : backupKeyStatus?.status === "missing" ? "Backup key missing" : backupKeyStatus ? (backupKeyStatus.configured ? "Backup key configured" : "Backup key not configured") : "Loading backup key status..."}</p>
+              {backupKeyStatusError && <p className="text-sm text-amber-800 dark:text-amber-300">Unable to read key status. If the key file is unsafe or unreadable, a local operator must repair it. Retry after checking the server. Existing backups require their original key.</p>}
+              {backupKeyStatus?.status === "missing" && <p className="text-sm text-amber-800 dark:text-amber-300">The key file is missing. Re-enter the original key to recover it; existing backups require their original key.</p>}
+              <p className="text-xs text-gray-600 dark:text-gray-400">Unencrypted backups expose secrets. Save a copy of the key. Keep old keys to restore backups made before replacing or clearing the key.</p>
+              <input id="backup-key" type="password" autoComplete="new-password" value={backupKey} onChange={(e) => setBackupKey(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+              <div className="flex flex-wrap gap-2">
+                {!confirmClearKey && !confirmReplaceKey && !backupKeyStatusError && <button type="button" disabled={!backupKey || backupKeyBusy || !backupKeyStatus} onClick={() => backupKeyStatus?.configured ? setConfirmReplaceKey(true) : void updateBackupKey(false)} className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg disabled:opacity-50">{backupKeyStatus?.status === "missing" ? "Recover backup key" : backupKeyStatus?.configured ? "Replace backup key" : "Save backup key"}</button>}
+                {backupKeyStatusError && <button type="button" onClick={() => void queryClient.invalidateQueries({ queryKey: ["backup-key-status"] })} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300">Retry key status</button>}
+                {backupKeyStatus?.configured && !backupKeyStatusError && !confirmClearKey && !confirmReplaceKey && <button type="button" disabled={backupKeyBusy} onClick={() => setConfirmClearKey(true)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300">Clear backup key</button>}
+              </div>
+              {confirmReplaceKey && <div className="space-y-2"><p className="text-sm text-amber-800 dark:text-amber-300">Existing backups still require their original key.</p><div className="flex gap-2"><button type="button" disabled={backupKeyBusy || !backupKey} onClick={() => void updateBackupKey(false)} className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg disabled:opacity-50">{backupKeyStatus?.status === "missing" ? "Confirm recover key" : "Confirm replace key"}</button><button type="button" disabled={backupKeyBusy} onClick={() => setConfirmReplaceKey(false)} className="px-4 py-2 text-gray-700 dark:text-gray-300">Cancel</button></div></div>}
+              {confirmClearKey && <div className="space-y-2"><p className="text-sm text-amber-800 dark:text-amber-300">Existing backups still require their original key. Future backups will be unencrypted and expose secrets.</p><div className="flex gap-2"><button type="button" disabled={backupKeyBusy} onClick={() => void updateBackupKey(true)} className="px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded-lg">Confirm clear key</button><button type="button" disabled={backupKeyBusy} onClick={() => setConfirmClearKey(false)} className="px-4 py-2 text-gray-700 dark:text-gray-300">Cancel</button></div></div>}
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -1162,24 +1210,28 @@ export default function Settings() {
 
               {/* Client Secret */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="oidc-client-secret" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Client Secret
                 </label>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{displayData?.oidc_client_secret_configured ? "Client secret configured" : "Client secret not configured"}</p>
                 {isEditing ? (
                   <input
+                    id="oidc-client-secret"
                     type="password"
+                    autoComplete="new-password"
                     name="oidc_client_secret"
                     value={displayData?.oidc_client_secret || ""}
                     onChange={handleChange}
-                    disabled={displayData?.auth_mode === "local_only"}
+                    disabled={displayData?.auth_mode === "local_only" || clearOidcSecret}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm disabled:opacity-50"
-                    placeholder="Client secret from your identity provider"
+                    placeholder="Leave blank to keep the current secret"
                   />
                 ) : (
                   <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-gray-300 font-mono text-sm">
-                    {displayData?.oidc_client_secret ? "•".repeat(16) : "Not configured"}
+                    {displayData?.oidc_client_secret_configured ? "Configured (hidden)" : "Not configured"}
                   </div>
                 )}
+                {isEditing && displayData?.oidc_client_secret_configured && <label className="flex items-center gap-2 mt-2 text-sm text-gray-700 dark:text-gray-300"><input type="checkbox" checked={clearOidcSecret} onChange={(e) => setClearOidcSecret(e.target.checked)} />Clear client secret</label>}
               </div>
 
               {/* Scopes */}

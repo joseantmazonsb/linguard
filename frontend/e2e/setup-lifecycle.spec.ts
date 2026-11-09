@@ -10,6 +10,7 @@ test('should complete setup using a newly signed admin token after globals chang
     const request = route.request();
     const path = new URL(request.url()).pathname.replace('/api/v1', '');
     if (path === '/setup/status') return route.fulfill({ json: { setup_completed: completed, requires_setup: !completed } });
+    if (path === '/settings/backup-key') return route.fulfill({ json: { configured: false } });
     if (path === '/auth/token') {
       expect(request.postData()).toContain('password123');
       const token = `admin-key-${keyVersion}`;
@@ -51,6 +52,10 @@ test('should complete setup using a newly signed admin token after globals chang
   expect(issuedTokens).toEqual(['admin-key-0', 'admin-key-1']);
   const storage = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }));
   expect(storage).not.toContain('password123');
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/v1/settings/backup-key', route => route.fulfill({ json: { configured: false } }));
 });
 
 test('should show a retry instead of success when setup completion fails', async ({ page }) => {

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { backupAPI } from '../services/apiClient';
-import ToggleSwitch from '../components/ToggleSwitch';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 interface Backup {
@@ -10,7 +9,9 @@ interface Backup {
   filename: string;
   description?: string;
   file_size: number;
-  is_encrypted: boolean;
+  is_encrypted: boolean | null;
+  is_encrypted_format?: boolean | null;
+  is_legacy_unauthenticated?: boolean | null;
   created_by_id: number;
   created_by_username: string;
   created_at: string;
@@ -35,8 +36,13 @@ export default function Backup() {
   const [restoreData, setRestoreData] = useState({
     overwrite: true,
   });
+  const [restoreKey, setRestoreKey] = useState('');
+  const [needsRestoreKey, setNeedsRestoreKey] = useState(false);
+  const [showLegacyConfirm, setShowLegacyConfirm] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importDescription, setImportDescription] = useState('');
+  const [legacyImport, setLegacyImport] = useState(false);
+  const [showLegacyImportConfirm, setShowLegacyImportConfirm] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch backups
@@ -69,17 +75,32 @@ export default function Backup() {
 
   // Restore backup mutation
   const restoreMutation = useMutation({
-    mutationFn: ({ id, overwrite }: { id: number; overwrite: boolean }) =>
-      backupAPI.restore(id, undefined, overwrite),
+    mutationFn: ({ id, overwrite, passphrase, allowLegacy }: { id: number; overwrite: boolean; passphrase?: string; allowLegacy?: boolean }) =>
+      backupAPI.restore(id, passphrase, overwrite, allowLegacy),
     onSuccess: () => {
       queryClient.invalidateQueries();
       setShowRestoreModal(false);
       setShowRestoreConfirmModal(false);
       setSelectedBackup(null);
       setRestoreData({ overwrite: true });
+      setRestoreKey('');
+      setNeedsRestoreKey(false);
+      setShowLegacyConfirm(false);
       toast.success('Backup restored successfully!');
     },
     onError: (error: any) => {
+      const detail = error.response?.data?.detail;
+      if (selectedBackup && error.response?.status === 400 && detail === 'Legacy unauthenticated backup requires explicit opt-in') {
+        setRestoreKey('');
+        setNeedsRestoreKey(false);
+        setShowLegacyConfirm(true);
+        return;
+      }
+      if (selectedBackup && (selectedBackup.is_encrypted_format === true || selectedBackup.is_encrypted !== false) && error.response?.status === 400 && typeof detail === 'string' && /passphrase|backup key|encryption key/i.test(detail)) {
+        setRestoreKey('');
+        setNeedsRestoreKey(true);
+        return;
+      }
       const message = error.response?.data?.detail || 'Failed to restore backup';
       toast.error(message);
     },
@@ -101,14 +122,16 @@ export default function Backup() {
 
   // Import backup mutation
   const importMutation = useMutation({
-    mutationFn: ({ file, description }: { file: File; description?: string }) =>
-      backupAPI.upload(file, description),
+    mutationFn: ({ file, description, allowLegacy }: { file: File; description?: string; allowLegacy?: boolean }) =>
+      backupAPI.upload(file, description, allowLegacy),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['backups'] });
       queryClient.invalidateQueries({ queryKey: ['backup-stats'] });
       setShowImportModal(false);
       setImportFile(null);
       setImportDescription('');
+      setLegacyImport(false);
+      setShowLegacyImportConfirm(false);
       toast.success('Backup imported successfully!');
     },
     onError: (error: any) => {
@@ -131,12 +154,14 @@ export default function Backup() {
     setShowRestoreConfirmModal(true);
   };
 
-  const handleRestoreConfirm = () => {
+  const handleRestoreConfirm = (allowLegacy = false) => {
     if (!selectedBackup) return;
-    
+    setShowLegacyConfirm(false);
     restoreMutation.mutate({
       id: selectedBackup.id,
       overwrite: restoreData.overwrite,
+      ...(needsRestoreKey && !allowLegacy ? { passphrase: restoreKey } : {}),
+      ...(allowLegacy ? { allowLegacy: true } : {}),
     });
   };
 
@@ -146,7 +171,8 @@ export default function Backup() {
       toast.error('Please select a file to import');
       return;
     }
-    importMutation.mutate({ file: importFile, description: importDescription });
+    if (legacyImport) setShowLegacyImportConfirm(true);
+    else importMutation.mutate({ file: importFile, description: importDescription });
   };
 
   const handleDownload = async (backup: Backup) => {
@@ -295,6 +321,9 @@ export default function Backup() {
 
                 <div className="space-y-2 mb-4">
                   <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                    {backup.is_legacy_unauthenticated ? 'Legacy (not encrypted)' : backup.is_encrypted === true ? 'Encrypted' : backup.is_encrypted_format === true ? 'Encrypted format (unverified)' : backup.is_encrypted === false ? 'Unencrypted' : 'Encryption status unknown'}
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                     </svg>
@@ -318,6 +347,10 @@ export default function Backup() {
                   <button
                     onClick={() => {
                       setSelectedBackup(backup);
+                      setRestoreKey('');
+                      setNeedsRestoreKey(false);
+                      setShowLegacyConfirm(false);
+                      setRestoreData({ overwrite: true });
                       setShowRestoreModal(true);
                     }}
                     className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white text-sm rounded-lg transition-colors"
@@ -377,6 +410,7 @@ export default function Backup() {
             <form onSubmit={handleCreateSubmit}>
               <div className="p-6">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Create Backup</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Backups use the configured key. Without one, unencrypted backups expose secrets.</p>
 
                 <div className="space-y-4">
                   <div>
@@ -486,11 +520,14 @@ export default function Backup() {
       {/* Import Backup Modal */}
       {showImportModal && (
         <div 
+          hidden={showLegacyImportConfirm}
           className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 z-50"
           onClick={() => {
             setShowImportModal(false);
             setImportFile(null);
             setImportDescription('');
+            setLegacyImport(false);
+            setShowLegacyImportConfirm(false);
           }}
         >
           <div 
@@ -508,15 +545,20 @@ export default function Backup() {
                     </label>
                     <input
                       type="file"
-                      accept=".json"
-                      onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                      accept=".json,.enc,.bak,.txt"
+                      onChange={(e) => { setImportFile(e.target.files?.[0] || null); setLegacyImport(false); }}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       required
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Select a backup JSON file to import
+                      Select a JSON backup or a legacy base64 backup file.
                     </p>
                   </div>
+
+                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <input type="checkbox" checked={legacyImport} onChange={(e) => setLegacyImport(e.target.checked)} />
+                    Import legacy base64 backup
+                  </label>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -540,6 +582,8 @@ export default function Backup() {
                     setShowImportModal(false);
                     setImportFile(null);
                     setImportDescription('');
+                    setLegacyImport(false);
+                    setShowLegacyImportConfirm(false);
                   }}
                   className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
@@ -559,13 +603,16 @@ export default function Backup() {
       )}
 
       {/* Restore Confirmation Modal */}
-      {showRestoreConfirmModal && selectedBackup && (
+      {showRestoreConfirmModal && selectedBackup && !showLegacyConfirm && (
         <div 
           className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 z-50"
           onClick={() => {
             setShowRestoreConfirmModal(false);
             setSelectedBackup(null);
             setRestoreData({ overwrite: false });
+            setRestoreKey('');
+            setNeedsRestoreKey(false);
+            setShowLegacyConfirm(false);
           }}
         >
           <div 
@@ -583,6 +630,13 @@ export default function Backup() {
               <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
                 Are you sure you want to restore this backup? All existing servers and peers will be deleted before restoring.
               </p>
+
+              {needsRestoreKey && <div className="mb-4">
+                <label htmlFor="restore-key" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Original backup key</label>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Enter the key used to create this backup.</p>
+                <input id="restore-key" type="password" autoComplete="new-password" value={restoreKey} onChange={(e) => setRestoreKey(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+              </div>}
+              {(selectedBackup.is_encrypted_format === true || selectedBackup.is_encrypted !== false) && !needsRestoreKey && <button type="button" onClick={() => setNeedsRestoreKey(true)} className="mb-4 text-sm text-blue-700 dark:text-blue-400 underline">Use original backup key</button>}
 
               <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 mb-6">
                 <div className="text-sm text-gray-700 dark:text-gray-300">
@@ -617,12 +671,38 @@ export default function Backup() {
               </button>
               <button
                 type="button"
-                onClick={handleRestoreConfirm}
-                disabled={restoreMutation.isPending}
+                onClick={() => handleRestoreConfirm()}
+                disabled={restoreMutation.isPending || (needsRestoreKey && !restoreKey)}
                 className="px-6 py-2 bg-yellow-600 hover:bg-yellow-700 dark:bg-yellow-700 dark:hover:bg-yellow-800 disabled:bg-yellow-400 dark:disabled:bg-yellow-900 text-white rounded-lg font-medium transition-colors"
               >
-                {restoreMutation.isPending ? 'Restoring...' : 'Yes, Restore Backup'}
+                {restoreMutation.isPending ? 'Restoring...' : needsRestoreKey ? 'Retry Restore' : 'Yes, Restore Backup'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLegacyConfirm && selectedBackup && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 z-[60]">
+          <div role="dialog" aria-modal="true" aria-labelledby="legacy-restore-title" className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full border dark:border-gray-700 p-6">
+            <h2 id="legacy-restore-title" className="text-xl font-bold text-gray-900 dark:text-white mb-3">Restore Legacy Backup?</h2>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-6">This may be a legacy base64 backup. Base64 is not encryption and its integrity cannot be verified. It may have been altered. Restore only if you trust its source.</p>
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={() => setShowLegacyConfirm(false)} className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg">Cancel legacy restore</button>
+              <button type="button" onClick={() => handleRestoreConfirm(true)} className="px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 text-white rounded-lg">Confirm legacy restore</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLegacyImportConfirm && importFile && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 z-[60]">
+          <div role="dialog" aria-modal="true" aria-labelledby="legacy-import-title" className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full border dark:border-gray-700 p-6">
+            <h2 id="legacy-import-title" className="text-xl font-bold text-gray-900 dark:text-white mb-3">Import Legacy Backup?</h2>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-6">Base64 is not encryption and its integrity cannot be verified. Import only if you trust this file. Restoring it requires separate confirmation.</p>
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={() => setShowLegacyImportConfirm(false)} className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg">Cancel legacy import</button>
+              <button type="button" onClick={() => { setShowLegacyImportConfirm(false); importMutation.mutate({ file: importFile, description: importDescription, allowLegacy: true }); }} className="px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 text-white rounded-lg">Confirm legacy import</button>
             </div>
           </div>
         </div>

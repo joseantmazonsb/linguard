@@ -57,4 +57,4 @@ jobs:
             sleep 1
           done
           curl -fsS http://127.0.0.1:5173/ > /dev/null
-          npx playwright test e2e/setup-secrets.spec.ts e2e/setup-lifecycle.spec.ts e2e/dashboard-live-pagination.spec.ts e2e/integration-script-unsupported.spec.ts e2e/auth-regressions.spec.ts e2e/websocket-ticket.spec.ts e2e/oidc-link.spec.ts e2e/setup-resume-server.spec.ts e2e/peers-pagination.spec.ts e2e/notification-center-live.spec.ts e2e/logs-security.spec.ts
+          npx playwright test e2e/backup-key.spec.ts e2e/setup-secrets.spec.ts e2e/setup-lifecycle.spec.ts e2e/dashboard-live-pagination.spec.ts e2e/integration-script-unsupported.spec.ts e2e/auth-regressions.spec.ts e2e/websocket-ticket.spec.ts e2e/oidc-link.spec.ts e2e/setup-resume-server.spec.ts e2e/peers-pagination.spec.ts e2e/notification-center-live.spec.ts e2e/logs-security.spec.ts

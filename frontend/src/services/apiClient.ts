@@ -230,7 +230,25 @@ export const peersAPI = {
   },
 };
 
+export interface BackupKeyStatus {
+  configured: boolean;
+  status?: 'missing';
+}
+
 export const settingsAPI = {
+  getBackupKey: async (): Promise<BackupKeyStatus> => {
+    const response = await api.get('/settings/backup-key');
+    return response.data;
+  },
+  setBackupKey: async (key: string) => {
+    await api.put('/settings/backup-key', { key });
+  },
+  recoverBackupKey: async (key: string) => {
+    await api.put('/settings/backup-key/recover', { key });
+  },
+  clearBackupKey: async () => {
+    await api.delete('/settings/backup-key');
+  },
   getGlobal: async () => {
     const response = await api.get('/settings/global');
     return response.data;
@@ -240,6 +258,21 @@ export const settingsAPI = {
     return response.data;
   },
 };
+
+export function backupKeyError(error: unknown, fallback: string): string {
+  if (!axios.isAxiosError(error)) return fallback;
+  if (error.response?.status === 503) return 'Backup key storage is unavailable or unsafe. A local operator must inspect and repair it before retrying.';
+  if (error.response?.status !== 400) return fallback;
+  const detail = error.response.data?.detail;
+  const safeMessages = [
+    'Backup key is too long',
+    'Use DELETE to remove the backup key',
+    'Backup key file must be outside the backup directory',
+    'Backup key file must be separate from the configuration file',
+    'Backup key file must be separate from the database',
+  ];
+  return typeof detail === 'string' && safeMessages.includes(detail) ? detail : fallback;
+}
 
 export const auditAPI = {
   list: async (params?: {
@@ -287,10 +320,8 @@ export const backupAPI = {
     const response = await api.post('/backups', data);
     return response.data;
   },
-  restore: async (id: number, passphrase?: string, overwrite: boolean = false) => {
-    const response = await api.post(`/backups/${id}/restore`, null, {
-      params: { passphrase, overwrite },
-    });
+  restore: async (id: number, passphrase?: string, overwrite: boolean = false, allowLegacyUnauthenticated: boolean = false) => {
+    const response = await api.post(`/backups/${id}/restore`, { overwrite, ...(passphrase ? { passphrase } : {}), ...(allowLegacyUnauthenticated ? { allow_legacy_unauthenticated: true } : {}) });
     return response.data;
   },
   download: async (id: number) => {
@@ -299,12 +330,13 @@ export const backupAPI = {
     });
     return response.data;
   },
-  upload: async (file: File, description?: string) => {
+  upload: async (file: File, description?: string, allowLegacyUnauthenticated: boolean = false) => {
     const formData = new FormData();
     formData.append('file', file);
     if (description) {
       formData.append('description', description);
     }
+    if (allowLegacyUnauthenticated) formData.append('allow_legacy_unauthenticated', 'true');
     const response = await api.post('/backups/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });

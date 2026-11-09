@@ -94,6 +94,7 @@ ENV PYTHONPATH=/app/backend
 # Persist the database connection config as well as the default SQLite file.
 ENV LINGUARD_CONFIG_PATH=/app/data/linguard.config.json
 ENV LINGUARD_SQLITE_PATH=/app/data/linguard.db
+ENV LINGUARD_BACKUP_KEY_PATH=/app/data/backup.key
 
 # Switch to non-root user
 USER linguard

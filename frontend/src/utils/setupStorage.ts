@@ -8,6 +8,8 @@ export type SetupStep = 'welcome' | 'database' | 'account' | 'globals' | 'auth' 
 export interface SetupState {
   currentStep: SetupStep;
   data: {
+    backup_key_pending?: boolean;
+    backup_key_saved?: boolean;
     database?: {
       database_type?: string;
     };
@@ -60,7 +62,7 @@ const PERSISTED_FIELDS = [
   'oidc_client_id', 'oidc_scopes', 'oidc_auto_provision',
   'oidc_admin_groups', 'server_id', 'serverId', 'serverName', 'peer_id', 'peerId',
   'peerName', 'name', 'endpoint', 'listen_port', 'ipv4_address', 'ipv6_address',
-  'wireguardMissing', 'skipPeer',
+  'wireguardMissing', 'skipPeer', 'backup_key_pending', 'backup_key_saved',
 ];
 
 /**
@@ -123,7 +125,7 @@ export function clearSetupState(): void {
 /**
  * Update specific step data
  */
-export function updateSetupStepData(step: keyof SetupState['data'], data: any): void {
+export function updateSetupStepData(step: Exclude<keyof SetupState['data'], 'backup_key_pending' | 'backup_key_saved'>, data: any): void {
   try {
     const currentState = loadSetupState();
     if (currentState) {

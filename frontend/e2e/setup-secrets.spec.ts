@@ -4,6 +4,7 @@ const key = 'linguard_setup_state';
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/v1/setup/status', route => route.fulfill({ json: { setup_completed: false, requires_setup: true } }));
+  await page.route('**/api/v1/settings/backup-key', route => route.fulfill({ json: { configured: false } }));
 });
 
 test('should resume globals with re-entered credentials and reauthenticate after saving', async ({ page }) => {

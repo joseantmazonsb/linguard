@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { setupAPI, authAPI } from "../../services/apiClient";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { setupAPI, authAPI, settingsAPI, backupKeyError } from "../../services/apiClient";
 import { useAuthStore } from "../../store/auth";
+import { loadSetupState, saveSetupState } from "../../utils/setupStorage";
 import ToggleSwitch from "../../components/ToggleSwitch";
 import type { FieldErrors } from "../../utils/errorUtils";
 import {
@@ -60,6 +61,27 @@ export default function GlobalSettingsStep({
   });
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [backupKey, setBackupKey] = useState("");
+  const [keyPending, setKeyPending] = useState(() => loadSetupState()?.data.backup_key_pending === true);
+  const [keySaved, setKeySaved] = useState(() => loadSetupState()?.data.backup_key_saved === true);
+  const [savingKey, setSavingKey] = useState(false);
+  const [keyAction, setKeyAction] = useState<"keep" | "replace" | "recover" | "delete" | null>(null);
+  const queryClient = useQueryClient();
+  const { data: keyStatus, isError: keyStatusError, isLoading: keyStatusLoading } = useQuery({
+    queryKey: ["setup-backup-key-status"],
+    queryFn: settingsAPI.getBackupKey,
+    retry: false,
+  });
+
+  const markKeyPending = (pending: boolean, savedKey = keySaved) => {
+    setKeyPending(pending);
+    const saved = loadSetupState();
+    saveSetupState({
+      currentStep: saved?.currentStep ?? "globals",
+      lastUpdated: new Date().toISOString(),
+      data: { ...saved?.data, ...(setupData?.username ? { username: setupData.username } : {}), backup_key_pending: pending, backup_key_saved: savedKey },
+    });
+  };
 
   const configureMutation = useMutation({
     mutationFn: setupAPI.configureGlobals,
@@ -75,8 +97,8 @@ export default function GlobalSettingsStep({
           );
           if (loginResponse.user?.role !== "admin") throw new Error("Administrator privileges required");
           login(loginResponse.access_token, loginResponse.user?.role);
-        } catch (err) {
-          console.error("[GlobalSettingsStep] Re-authentication failed:", err);
+        } catch {
+          console.error("[GlobalSettingsStep] Re-authentication failed");
         }
       }
       const { secret_key: _secretKey, ...settings } = formData;
@@ -111,8 +133,12 @@ export default function GlobalSettingsStep({
     setFormData({ ...formData, secret_key: generateSecretKey() });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (savingKey || configureMutation.isPending) return;
+    if (keyPending && (!backupKey || keyAction === "keep" || keyAction === "delete")) return;
+    if (keyStatusLoading || keyStatusError || !keyStatus || (keyStatus.configured && !keyAction)) return;
+    if ((keyAction === "replace" || keyAction === "recover") && !backupKey) return;
 
     // Prepare data with proper types
     const submitData = {
@@ -123,6 +149,26 @@ export default function GlobalSettingsStep({
       backup_schedule_minute: Number(formData.backup_schedule_minute),
     };
 
+    if (backupKey || keyAction === "delete") {
+      setSavingKey(true);
+      setError(null);
+      try {
+        if (keyAction === "delete") await settingsAPI.clearBackupKey();
+        else if (keyAction === "recover") await settingsAPI.recoverBackupKey(backupKey);
+        else await settingsAPI.setBackupKey(backupKey);
+        const configured = keyAction !== "delete";
+        queryClient.setQueryData(["setup-backup-key-status"], { configured });
+        markKeyPending(false, configured);
+        setBackupKey("");
+        setKeySaved(configured);
+        setKeyAction(configured ? "keep" : null);
+      } catch (err) {
+        setError(backupKeyError(err, "Failed to save backup key. Retry or explicitly discard the unsaved key."));
+        setSavingKey(false);
+        return;
+      }
+      setSavingKey(false);
+    }
     configureMutation.mutate(submitData);
   };
 
@@ -139,7 +185,7 @@ export default function GlobalSettingsStep({
       </div>
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
+        <div role="alert" className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
           {error}
         </div>
       )}
@@ -196,6 +242,23 @@ export default function GlobalSettingsStep({
             Backup Configuration
           </h3>
           <div className="space-y-4">
+            <div>
+              <p className="text-sm text-gray-700 dark:text-gray-300">{keyStatusLoading ? "Loading backup key status..." : keyStatusError ? "Backup key status unavailable" : keyStatus?.status === "missing" ? "Backup key missing" : keyStatus?.configured ? "Backup key configured" : "Backup key not configured"}</p>
+              {keyStatusError && <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">Cannot check the backup key. If the file is unsafe or unreadable, a local operator must repair it before continuing.</p>}
+              {keyStatusError && <button type="button" onClick={() => void queryClient.invalidateQueries({ queryKey: ["setup-backup-key-status"] })} className="text-blue-700 dark:text-blue-400 underline">Retry key status</button>}
+              {keyStatus?.configured && <fieldset className="mt-2 space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                <legend>Choose what to do with the {keyStatus.status === "missing" ? "missing" : "configured"} backup key</legend>
+                <label className="block"><input type="radio" name="backup-key-action" checked={keyAction === "keep"} onChange={() => setKeyAction("keep")} /> Keep {keyStatus.status === "missing" ? "missing key configuration" : "current key"}</label>
+                <label className="block"><input type="radio" name="backup-key-action" checked={keyAction === (keyStatus.status === "missing" ? "recover" : "replace")} onChange={() => setKeyAction(keyStatus.status === "missing" ? "recover" : "replace")} /> {keyStatus.status === "missing" ? "Recover missing key" : "Replace current key"}</label>
+                <label className="block"><input type="radio" name="backup-key-action" checked={keyAction === "delete"} onChange={() => setKeyAction("delete")} /> Delete backup key</label>
+                <p className="text-xs text-amber-800 dark:text-amber-300">Old backups require their original key. Deleting the key makes future backups unencrypted.{keyStatus.status === "missing" ? " Keeping a missing key prevents encrypted backups until it is recovered." : ""}</p>
+              </fieldset>}
+              <label htmlFor="setup-backup-key" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Backup encryption key (optional)</label>
+              <input id="setup-backup-key" type="password" autoComplete="new-password" disabled={keyStatusLoading || keyStatusError || (keyStatus?.configured && keyAction !== "replace" && keyAction !== "recover")} value={backupKey} onChange={(e) => { setBackupKey(e.target.value); if (e.target.value && !keyPending) markKeyPending(true); }} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50" />
+              <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">Unencrypted backups expose secrets. Save a copy of the key; it is required to restore encrypted backups.</p>
+              {keySaved && !keyPending && <p className="mt-1 text-sm text-green-700 dark:text-green-400">Backup key saved during setup. Enter a key only to replace it.</p>}
+              {keyPending && <div className="mt-2 text-sm text-amber-800 dark:text-amber-300"><p>A previously entered backup key was not confirmed saved. Re-enter it or explicitly discard the unsaved key.</p><button type="button" onClick={() => { setBackupKey(""); markKeyPending(false); }} className="underline">Discard unsaved key</button></div>}
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Backup Directory
@@ -369,10 +432,10 @@ export default function GlobalSettingsStep({
           </button>
           <button
             type="submit"
-            disabled={configureMutation.isPending}
+            disabled={configureMutation.isPending || savingKey || keyStatusLoading || keyStatusError || !keyStatus || (keyPending && (!backupKey || keyAction === "keep" || keyAction === "delete")) || (keyStatus.configured && !keyAction) || ((keyAction === "replace" || keyAction === "recover") && !backupKey)}
             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 disabled:bg-blue-400 dark:disabled:bg-blue-700 text-white rounded-lg font-medium transition-colors"
           >
-            {configureMutation.isPending ? "Saving..." : "Save & Continue"}
+            {configureMutation.isPending || savingKey ? "Saving..." : "Save & Continue"}
           </button>
         </div>
       </form>

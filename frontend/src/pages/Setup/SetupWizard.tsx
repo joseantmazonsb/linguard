@@ -120,6 +120,11 @@ export default function SetupWizard({ serverStep }: { serverStep: string | null 
 
   const handleNext = (data?: any) => {
     const newData = data ? { ...setupData, ...data } : { ...setupData };
+    if (currentStep !== "globals") {
+      const saved = loadSetupState();
+      newData.backup_key_pending = saved?.data.backup_key_pending ?? false;
+      newData.backup_key_saved = saved?.data.backup_key_saved ?? false;
+    }
     if (currentStep === "account") setResumeUsername(newData.username ?? "");
     if (currentStep === "globals" && !localStorage.getItem("token")) setNeedsAuth(true);
     if (currentStep === "globals") delete newData.password;
@@ -151,7 +156,7 @@ export default function SetupWizard({ serverStep }: { serverStep: string | null 
       setResumeError("");
       saveSetupState({
         currentStep: prevStep,
-        data: setupData,
+        data: { ...setupData, backup_key_pending: loadSetupState()?.data.backup_key_pending ?? false, backup_key_saved: loadSetupState()?.data.backup_key_saved ?? false },
         lastUpdated: new Date().toISOString(),
       });
       updateCurrentStep(prevStep);
